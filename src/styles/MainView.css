@@ -1,0 +1,239 @@
+.main-view {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #0f172a;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 0 16px;
+}
+
+.actions-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.date-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.date-filters button {
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #cbd5e1;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.date-filters button:hover {
+  background: rgba(148, 163, 184, 0.2);
+  border-color: rgba(148, 163, 184, 0.5);
+}
+
+.date-filters button.active {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.3), rgba(20, 184, 166, 0.3));
+  border-color: #14b8a6;
+  color: #e5eefb;
+}
+
+.secondary-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-secondary {
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #cbd5e1;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background: rgba(148, 163, 184, 0.2);
+  border-color: rgba(148, 163, 184, 0.5);
+  color: #e5eefb;
+}
+
+.movements-list-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 0;
+}
+
+.movements-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0;
+}
+
+.movement-item {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+  transition: background 0.2s ease;
+}
+
+.movement-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  list-style: none;
+  margin: 0;
+  width: 100%;
+}
+
+.movement-item:hover {
+  background: rgba(148, 163, 184, 0.05);
+}
+
+.movement-item:last-child {
+  border-bottom: none;
+}
+
+.movement-content .item-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.movement-content .action-btn {
+  flex: none;
+  background: none;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #cbd5e1;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+}
+
+.movement-content .action-btn:hover {
+  background: rgba(148, 163, 184, 0.2);
+  border-color: rgba(148, 163, 184, 0.5);
+  color: #e5eefb;
+}
+
+.movement-content .action-btn.delete:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #f87171;
+}
+
+.movement-info {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex: 1;
+}
+
+.movement-info .date {
+  font-weight: 500;
+  color: #cbd5e1;
+  min-width: 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.movement-info .time {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 400;
+}
+
+.movement-info .type {
+  color: #a5b4cf;
+  font-size: 0.9rem;
+}
+
+.amount {
+  font-weight: 600;
+  font-size: 1.1rem;
+  text-align: right;
+  min-width: 80px;
+}
+
+.amount.expense {
+  color: #ef4444;
+}
+
+.amount.cashflow {
+  color: #22c55e;
+}
+
+.amount.routing {
+  color: #eab308;
+}
+
+.loading-state,
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 48px 16px;
+  color: #a5b4cf;
+}
+
+.empty-state .subtitle {
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+.load-more {
+  text-align: center;
+  padding: 24px 16px;
+  color: #a5b4cf;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 640px) {
+  .main-content {
+    padding: 0 12px;
+  }
+
+  .date-filters {
+    gap: 6px;
+  }
+
+  .date-filters button {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+
+  .movement-item {
+    padding: 12px 0;
+  }
+
+  .amount {
+    font-size: 1rem;
+  }
+}

@@ -1,0 +1,118 @@
+/**
+ * Format amount to abbreviated format
+ * K for thousands (>999), M for millions (>999,999)
+ * with 2 decimal places
+ */
+export const abbreviateAmount = (amount: number): string => {
+  const absAmount = Math.abs(amount);
+  
+  if (absAmount >= 1_000_000) {
+    return `${(amount / 1_000_000).toFixed(2)}M`;
+  }
+  
+  if (absAmount >= 1_000) {
+    return `${(amount / 1_000).toFixed(2)}K`;
+  }
+  
+  return amount.toFixed(2);
+};
+
+/**
+ * Format amount as currency with sign and appropriate decimals
+ */
+export const formatCurrency = (amount: number, currency: string = 'EUR'): string => {
+  const formatter = new Intl.NumberFormat('it-IT', {
+    style: 'currency',
+    currency: currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  
+  return formatter.format(amount);
+};
+
+/**
+ * Format date to DD/MM/YYYY format
+ */
+export const formatDate = (date: Date | string): string => {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  
+  return `${day}/${month}/${year}`;
+};
+
+/**
+ * Format time to HH:mm:ss format (falls back to empty string if missing)
+ */
+export const formatTime = (time?: string): string => {
+  if (!time) return '';
+  return time;
+};
+
+/**
+ * Combine a date with a time string (HH:mm:ss) into a single Date
+ * for comparison/sorting purposes.
+ */
+export const toDateTime = (date: Date | string, time?: string): Date => {
+  const d = new Date(date);
+  if (time) {
+    const [hours, minutes, seconds] = time.split(':').map(Number);
+    d.setHours(hours || 0, minutes || 0, seconds || 0, 0);
+  }
+  return d;
+};
+
+/**
+ * Get date range based on filter type
+ */
+export const getDateRange = (
+  filter: 'current-month' | 'previous-month' | 'current-year' | 'previous-year' | 'last-5-years' | 'all'
+): { start: Date; end: Date } => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  let start: Date;
+  let end = new Date(today);
+  end.setHours(23, 59, 59, 999);
+  
+  switch (filter) {
+    case 'current-month':
+      start = new Date(today.getFullYear(), today.getMonth(), 1);
+      end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      end.setHours(23, 59, 59, 999);
+      break;
+      
+    case 'previous-month':
+      start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      end = new Date(today.getFullYear(), today.getMonth(), 0);
+      end.setHours(23, 59, 59, 999);
+      break;
+      
+    case 'current-year':
+      start = new Date(today.getFullYear(), 0, 1);
+      end = new Date(today.getFullYear(), 11, 31);
+      end.setHours(23, 59, 59, 999);
+      break;
+      
+    case 'previous-year':
+      start = new Date(today.getFullYear() - 1, 0, 1);
+      end = new Date(today.getFullYear() - 1, 11, 31);
+      end.setHours(23, 59, 59, 999);
+      break;
+      
+    case 'last-5-years':
+      start = new Date(today.getFullYear() - 5, today.getMonth(), today.getDate());
+      end = new Date(today);
+      end.setHours(23, 59, 59, 999);
+      break;
+      
+    case 'all':
+      start = new Date(1970, 0, 1);
+      end = new Date(2099, 11, 31);
+      break;
+  }
+  
+  return { start, end };
+};

@@ -1,0 +1,21 @@
+/* Full-page form layout for Create/Edit entity pages (Account, ExpenseType) */
+.entity-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #0f172a;
+}
+
+.entity-content {
+  flex: 1;
+  overflow-y: auto;
+  max-width: 600px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 24px 16px;
+}
+
+.entity-form {
+  display: grid;
+  gap: 24px;
+}

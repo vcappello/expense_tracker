@@ -1,0 +1,23 @@
+node_modules
+dist
+.vite
+.DS_Store
+
+# Build artifacts (generati da tsc/vite a partire da vite.config.ts)
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+
+# File personali / configurazione locale (non fanno parte del progetto)
+.bash_profile
+.bashrc
+.profile
+.zshrc
+.zprofile
+.gitconfig
+.gitmodules
+.idea
+.mcp.json
+.ripgreprc
+.vscode
+.claude/

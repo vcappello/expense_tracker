@@ -1,0 +1,61 @@
+# Plan — Expense Tracker AI
+
+> Piano di attività per lo sviluppo della webapp.
+> Regole: gli step completati vengono **marcati come completati ma mai cancellati**.
+> Ogni nuova feature o correzione di bug va aggiunta qui.
+
+## ✅ Completati
+
+- [x] **Setup progetto**: React + TypeScript + Vite, struttura a componenti e routing
+- [x] **Database locale (IndexedDB)**: store per `Account`, `ExpenseType`, `Expense`, `Cashflow`
+- [x] **Dati iniziali**: Account (Cash, Bank account), ExpenseType (Dinner, Shopping, Fuel, Tolls)
+- [x] **Main view**: lista movimenti con importi colorati (rosso spese, verde cashflow, giallo routing), pulsanti Edit/Delete, ordinamento data/ora discendente, paginazione con scroll infinito
+- [x] **Filtri data range** in Main view (mese corrente, mese precedente, anno corrente, tutti)
+- [x] **Create/Edit Expense**: form con data, importo, dropdown Account, dropdown ExpenseType con creazione inline (badge "new")
+- [x] **Create/Edit Cashflow**: form con data, importo, Account, Routing Account opzionale e creazione doppio movimento
+- [x] **ExpenseType management**: albero gerarchico con Edit/Delete e totale per categoria
+- [x] **Account management**: lista account con ultimo movimento, Edit/Delete
+- [x] **Analytics**: filtri, sommario numerico (Total Expenses, Total Cashflow, Net Balance, Top 3 Categories), report movimenti filtrati
+- [x] **Campo tempo hh:mm:ss**: aggiunto ai form Expense e Cashflow, persistito nel DB e mostrato nella lista movimenti della Main view (ordinamento per data+ora)
+- [x] **Seed dati default idempotente**: `initializeDefaultData` ora è concurrency-safe (promise condivisa), niente più `ConstraintError` al doppio avvio in dev
+- [x] **Delete Account/ExpenseType con cascata**: la delete elimina anche i movimenti collegati (spese e cashflow) e mostra i **totali importo** nel nuovo popup critico `ConfirmModal`
+- [x] **Edit Cashflow**: pre-carica i dati esistenti in modalità edit (via `getCashflow`); gestito anche l'edit con routing account
+- [x] **Total Cashflow Analytics**: esclude i cashflow di routing dal totale (come da spec) — esclusi sia il movimento ricevente (con `routingAccountId`) sia la controparte negativa (stessa data/ora/importo)
+- [x] **Net Balance Analytics**: formula corretta in `Total Cashflow - Total Expenses` (gli importi spesa sono memorizzati positivi; prima il segno risultava sbagliato)
+- [x] **Totale ExpenseType gerarchico**: include le spese dei figli nella gerarchia
+- [x] **Espansione/collasso albero ExpenseType**: clic sul nodo per espandere/comprimere i figli (chevron)
+- [x] **Localizzazione UI in italiano**: tutte le etichette UI tradotte (menu, form, popup, stati vuoti, messaggi). Termini: Spesa/Entrata, Conti, Categorie, Analisi, Saldo. I dati seed (nomi account/categorie) restano come da spec
+- [x] **Export CSV**: pulsante "Esporta CSV" nella view Analytics che scarica i movimenti filtrati (rispetta i filtri periodo/conto/categoria); formato italiano (`;` separatore, `,` decimale, BOM UTF-8), spese con segno negativo
+- [x] **Main view — pulsanti Edit/Delete a destra**: i pulsanti modifica/elimina sono sempre visibili a destra di ogni movimento (come Categorie e Conti), eliminata la selezione per mostrarli
+- [x] **Categories/Account — edit e create in nuova view**: i tasti edit e create aprono una **nuova pagina** (`/expense-type/new|:id/edit`, `/account/new|:id/edit`) per compilare i dati e confermare/annullare; al ritorno la lista si aggiorna (route aggiunte in App.tsx)
+- [x] **Average Daily Expense corretto**: divisione per **giorni del periodo** (da `getDateRange`), non più per transazione; fix off-by-one con `Math.floor`; etichetta "Media Spesa Giornaliera" + "per giorno", colore rosso
+- [x] **Race condition all'avvio (seed vs lettura)**: `AppContext` ora attende `initializeDefaultData` prima di caricare account/categorie (su DB vuoto i dropdown restavano senza conti)
+- [x] **Filtri Analytics completi**: aggiunti periodi `previous-year` (Anno scorso) e `last-5-years` (Ultimi 5 anni); selezione **multipla** per Categorie e Conti (componente `MultiSelectFilter` a checkbox, selezione vuota = tutti); filtro categoria espande i figli nella gerarchia
+- [x] **Grafico Analytics**: view Analytics con **switch Report/Grafico** (due pulsanti); il grafico è un diagramma a barre divergente SVG (senza librerie) con totali giornalieri di Entrate (verde, sopra) e Spese (rosso, sotto), esclusi i cashflow di routing; tooltip per i valori. `spec.md` aggiornata
+- [x] **Grafico per categoria di spesa**: nel grafico, le spese sono **barre impilate per categoria** (colore distinto per ogni categoria, legenda colori, tooltip con nome categoria e importo), oltre al totale giornaliero; `spec.md` aggiornata
+- [x] **Grafico mese: barre separate per conto/categoria**: nelle viste a mese singolo ("Questo mese"/"Mese scorso") il grafico mostra **barre separate** (una per conto/categoria) invece di impilate; per gli altri periodi resta il grafico giornaliero impilato; nuovo componente `MonthBreakdownChart`; `spec.md` aggiornata
+- [x] **Main view routing**: i cashflow con routing mostrano **un solo** movimento (il ricevente, in giallo); la controparte negativa sul conto di routing viene nascosta nella lista. Logica centralizzata in `src/utils/routing.ts` (`isRoutingCashflow`, `routingCounterpartIds`) e riusata da Analytics
+- [x] **Toast alla creazione inline ExpenseType**: quando si crea una categoria inline nel form spesa compare un **toast** di conferma ("Categoria ... creata") che si auto-nasconde dopo ~2.5s; componente `Toast` con stile globale
+- [x] **Importi abbreviati ovunque**: usare `abbreviateAmount` in Analytics (sommario, top categorie, report movimenti) e nelle pagine di gestione (totali categoria, ultimo movimento account) al posto di `.toFixed(2)€`; i totali del popup `ConfirmModal` per delete restano volutamente precisi
+- [x] **PWA installabile**: `manifest.webmanifest`, icone generate senza dipendenze (`npm run icons`, script `scripts/generate-icons.mjs`), service worker `public/sw.js` (navigazione network-first + fallback app shell; asset statici cache-first), registrazione solo in produzione, meta PWA in `index.html`, build di produzione servita con `npm run preview` (0.0.0.0:4173)
+
+## 🔄 In corso / Prossimi
+
+*(Nessun punto in corso — sezione completata.)*
+
+## ⏳ Da fare
+
+*(Sezione completata — tutte le attività pianificate sono state implementate.)*
+
+## 🐛 Bug da correggere
+
+*(Tutti i bug elencati sono stati corretti il 16/08/2026 — vedi sezione ✅ Completati.)*
+
+## 👀 Osservazioni (limiti noti, da tenere d'occhio)
+
+- **Main view al primo load freddo**: il filtro "This month" può apparire vuoto subito dopo il caricamento della pagina (transitorio, legato a IndexedDB); cliccando un filtro i dati compaiono.
+- **Pagine Analytics/Categories/Accounts**: non caricano i `movements` da sole, dipendono dalla Main view. Con navigazione diretta (reload su `/analytics`) i totali risultano vuoti → valutare un `loadMovements` nel mount di queste pagine.
+
+## 🔮 Prossime release
+- [ ] **Create from photo**: fotocamera smartphone + lettura dello scontrino con AI per creare la spesa automaticamente
+- [ ] **Gestione multi-valuta**
