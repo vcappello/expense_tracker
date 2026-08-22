@@ -173,6 +173,107 @@ The app is installable on the phone home screen and usable offline:
 - service worker registered only in production (`import.meta.env.PROD`) to avoid caching during development
 - production serving: `npm run build` then `npm run preview` (host 0.0.0.0:4173) or any static server on the `dist/` folder
 
+## User Interface (UI redesign) — Work in progress
+
+> Sezione dedicata al restyling dell'interfaccia grafica. Struttura pronta da compilare.
+> Per ogni schermata: descrizione dei cambiamenti desiderati. Il riferimento al wireframe è indicato
+> solo dove è disponibile uno schizzo (al momento solo la Main view, `docs/wireframes/main-view.png`);
+> le altre schermate restano simili a quelle già esistenti.
+> I wireframe vanno messi come immagini PNG/JPG in `docs/wireframes/` (vedi `docs/wireframes/README.md`)
+> e allegati anche nella chat di sviluppo per riferimento.
+
+### Design goals
+- Mobile-first
+
+
+### Color palette
+- (to be defined) es. colore primario/secondario, 
+- Movement colors:
+  - Expense red
+  - Cashflow in green
+  - Routing Cashflow yellow
+
+### Typography
+- (to be defined) es. font, dimensioni titoli/importi/etichette...
+
+### Shared components
+- **Create button position**: in all the views that allow the creation of elements (Main view, ExpenseType management, Account management) the create button is always placed in the title bar, right aligned.
+- **Edit view title bar**: in the edit views (edit Expense, edit Cashflow, edit Account, edit ExpenseType) there is no more "Cancel" button, because the Back button does the same thing: it cancels the modifications and returns to the previous view. In the title bar, right aligned, there are two buttons: Confirm (checkmark icon) and Delete (trash icon).
+- **Create view title bar**: in the create views (new Expense, new Cashflow, new Account, new ExpenseType) the Back button cancels and returns to the previous view; there is no "Delete" button (nothing to delete yet), only the Confirm (checkmark icon) button, right aligned in the title bar.
+- **Action menu (three lines icon)**: a menu button identified by a three lines (hamburger) icon, placed in the title bar. When pressed it opens a dropdown menu with additional actions. Used in the Main view (Analytics, Conti, Categorie) and in the Analytics view (Esporta CSV and future options).
+- **Back button navigation**: the Back button always navigates back in the navigation history to the view of origin (it never pushes a new route, so the back stack is preserved). Example: Main view → Account management → Edit Account: the first Back returns to Account management, the second Back returns to Main view.
+- (to be defined) componenti da aggiungere o modificare (es. bottom navigation, FAB, card movimento, header...)
+
+### Main view
+- Desired changes: 
+  - The title bar contain the view title left aligned. Right aligned there are the two button "+ Spesa" and "+ Entrata"
+  - Under the title bar we have an action bar with two button:
+    - Filters, identified by an icon of a funnel without text, the button is left aligned to the page, when pressed a dropdown menu is displayed:
+      - Mese corrente
+      - Mese scorso
+      - Quest'anno
+      - Tutti
+    - Actions, identified by an icons with 3 lines, the button is right aligned to the page, when pressed a dropdown menu is displayed:
+      - Analytics
+      - Conti
+      - Categorie
+  - the remaining page contains the movement list, for each item display:
+    - date
+    - time
+    - details that changes for movement type:
+      - Expense: display the expense category 
+      - Cashflow: display the account
+      - routing Cashflow: display bot the source and target account
+    - amount with colors:
+      - red for Expense
+      - green for Cashflow (not routing)
+      - yellor for routing Cashflow
+    No button is displayed to the right. When a movement is pressed the user navigate to the related edit view. The delete movement is moved inside the edit movement view.
+
+- Wireframe: `docs/wireframes/main-view.png`
+
+### Edit or Create Expense
+- Desired changes:
+  - Edit view title bar: no "Cancel" button (the Back button cancels the modifications and goes back). Right aligned in the title bar: Confirm (checkmark icon) and Delete (trash icon) buttons (see Shared components).
+  - Create view (new Expense): no "Delete" button (nothing to delete yet), only Confirm (checkmark icon) right aligned; Back cancels and goes back (see Shared components).
+
+### Edit or Create Cashflow
+- Desired changes:
+  - Edit view title bar: no "Cancel" button (the Back button cancels the modifications and goes back). Right aligned in the title bar: Confirm (checkmark icon) and Delete (trash icon) buttons (see Shared components).
+  - Create view (new Cashflow): no "Delete" button (nothing to delete yet), only Confirm (checkmark icon) right aligned; Back cancels and goes back (see Shared components).
+
+### Analytics
+- Desired changes:
+  - The "Report" and "Grafico" toggle buttons are placed in the title bar.
+  - The "Export CSV" action is moved into a menu button (three lines icon) in the title bar, like the Main view action menu; this menu can host more options in the future.
+  - Filters remain as they are.
+
+### ExpenseType management
+- Desired changes:
+  - The create button is in the title bar, right aligned (see Shared components).
+  - In the list no Edit/Delete buttons are displayed: each item is clickable and navigates to the Edit ExpenseType view (like the Main view movement list); the chevron keeps expanding/collapsing the children. Delete is only available from the Edit ExpenseType view.
+  - Edit ExpenseType view title bar: no "Cancel" button (the Back button cancels the modifications and goes back). Right aligned: Confirm (checkmark icon) and Delete (trash icon) buttons (see Shared components).
+  - Create ExpenseType view: no "Delete" button, only Confirm (checkmark icon) right aligned; Back cancels and goes back (see Shared components).
+
+### Account management
+- Desired changes:
+  - The create button is in the title bar, right aligned (see Shared components).
+  - In the list no Edit/Delete buttons are displayed: each item is clickable and navigates to the Edit Account view (like the Main view movement list). Delete is only available from the Edit Account view.
+  - Edit Account view title bar: no "Cancel" button (the Back button cancels the modifications and goes back). Right aligned: Confirm (checkmark icon) and Delete (trash icon) buttons (see Shared components).
+  - Create Account view: no "Delete" button, only Confirm (checkmark icon) right aligned; Back cancels and goes back (see Shared components).
+
+### Navigation flow
+- (to be defined) flusso di navigazione tra le schermate, es.:
+
+```mermaid
+graph TD
+    Main[Main view] --> Expense[Create/Edit Expense]
+    Main --> Cashflow[Create/Edit Cashflow]
+    Main --> Analytics[Analytics]
+    Main --> Types[ExpenseType management]
+    Main --> Accounts[Account management]
+```
+
 ## In the next release
 This is a set of feature that can be implemented in the next version of this app:
 - multiple currency management

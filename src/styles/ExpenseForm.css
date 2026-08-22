@@ -135,59 +135,6 @@
   margin: 4px 0;
 }
 
-/* Form Actions */
-.form-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 24px;
-  padding-top: 24px;
-  border-top: 1px solid rgba(148, 163, 184, 0.15);
-}
-
-.form-actions button {
-  flex: 1;
-  padding: 10px 16px;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: none;
-}
-
-.form-actions .btn-primary {
-  background: linear-gradient(135deg, #22c55e, #14b8a6);
-  color: white;
-  box-shadow: 0 4px 12px rgba(20, 184, 166, 0.25);
-}
-
-.form-actions .btn-primary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(20, 184, 166, 0.35);
-}
-
-.form-actions .btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.form-actions .btn-secondary {
-  background: rgba(148, 163, 184, 0.1);
-  color: #cbd5e1;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-}
-
-.form-actions .btn-secondary:hover:not(:disabled) {
-  background: rgba(148, 163, 184, 0.2);
-  border-color: rgba(148, 163, 184, 0.5);
-  color: #e5eefb;
-}
-
-.form-actions .btn-secondary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 @media (max-width: 640px) {
   .page-content {
     padding: 16px 12px;
@@ -195,10 +142,5 @@
 
   .expense-form {
     gap: 16px;
-  }
-
-  .form-actions {
-    flex-direction: column;
-    gap: 10px;
   }
 }

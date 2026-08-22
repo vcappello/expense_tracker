@@ -1,20 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
+import { useApp, ExpenseTypeDeleteInfo } from '../context/AppContext';
 import { ExpenseType } from '../types';
-import Header from '../components/Header';
+import TitleBar, { TitleBarAction } from '../components/TitleBar';
+import { CheckIcon, TrashIcon } from '../components/icons';
+import ConfirmModal from '../components/ConfirmModal';
 import '../styles/EntityForm.css';
 
 export default function CreateExpenseTypePage() {
   const navigate = useNavigate();
   const { id: typeId } = useParams<{ id: string }>();
-  const { expenseTypes, createExpenseType, updateExpenseType, getExpenseType } = useApp();
+  const { expenseTypes, createExpenseType, updateExpenseType, getExpenseType, getExpenseTypeDeleteInfo, deleteExpenseTypeCascade } = useApp();
 
   const [formData, setFormData] = useState({
     name: '',
     parentId: '',
   });
   const [isLoading, setIsLoading] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [deleteInfo, setDeleteInfo] = useState<ExpenseTypeDeleteInfo | null>(null);
 
   // Pre-populate form when editing an existing expense type
   useEffect(() => {
@@ -83,16 +87,60 @@ export default function CreateExpenseTypePage() {
     }
   };
 
-  const handleCancel = () => {
-    navigate('/expense-types');
+  const handleDelete = async () => {
+    if (!typeId) return;
+    try {
+      const info = await getExpenseTypeDeleteInfo(typeId);
+      setDeleteInfo(info);
+    } catch (err) {
+      console.error('Failed to load expense type delete info:', err);
+      alert('Errore durante il caricamento dei dati');
+    }
   };
+
+  const confirmDelete = async () => {
+    if (!typeId) return;
+    try {
+      await deleteExpenseTypeCascade(typeId);
+      setDeleteInfo(null);
+      navigate('/expense-types');
+    } catch (err) {
+      console.error('Failed to delete expense type:', err);
+      alert('Errore durante l\'eliminazione della categoria');
+    }
+  };
+
+  const closeDeleteModal = () => setDeleteInfo(null);
+
+  const titleBarActions: TitleBarAction[] = [];
+  if (typeId) {
+    titleBarActions.push({
+      content: <TrashIcon />,
+      label: 'Elimina',
+      kind: 'danger',
+      iconOnly: true,
+      onClick: handleDelete,
+      disabled: isLoading,
+    });
+  }
+  titleBarActions.push({
+    content: <CheckIcon />,
+    label: typeId ? 'Aggiorna' : 'Crea',
+    kind: 'primary',
+    iconOnly: true,
+    onClick: () => formRef.current?.requestSubmit(),
+    disabled: isLoading,
+  });
 
   return (
     <div className="entity-page">
-      <Header title={typeId ? 'Modifica Categoria' : 'Crea Categoria'} showBack={true} />
+      <TitleBar
+        title={typeId ? 'Modifica Categoria' : 'Crea Categoria'}
+        actions={titleBarActions}
+      />
 
       <main className="entity-content">
-        <form className="entity-form" onSubmit={handleSubmit}>
+        <form ref={formRef} className="entity-form" onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="name">Nome Categoria *</label>
             <input
@@ -126,21 +174,32 @@ export default function CreateExpenseTypePage() {
             </select>
           </div>
 
-          <div className="form-actions">
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={handleCancel}
-              disabled={isLoading}
-            >
-              Annulla
-            </button>
-            <button type="submit" className="btn-primary" disabled={isLoading}>
-              {isLoading ? 'Salvataggio...' : typeId ? 'Aggiorna' : 'Crea'}
-            </button>
-          </div>
+          <button type="submit" className="sr-only" tabIndex={-1} aria-hidden="true" />
         </form>
       </main>
+
+      <ConfirmModal
+        open={!!deleteInfo}
+        title="Elimina Categoria"
+        lines={
+          deleteInfo &&
+          (deleteInfo.expensesCount > 0 || deleteInfo.childCount > 0) ? (
+            <>
+              Questa categoria ha:
+              <br />• {deleteInfo.expensesCount} {deleteInfo.expensesCount === 1 ? 'spesa' : 'spese'} per{' '}
+              {Math.abs(deleteInfo.expensesTotal).toFixed(2)}€
+              <br />• {deleteInfo.childCount} {deleteInfo.childCount === 1 ? 'sottocategoria' : 'sottocategorie'}
+              <br />
+              <br />
+              Tutte le spese e le sottocategorie collegate verranno eliminate.
+            </>
+          ) : (
+            <>Eliminare questa categoria?</>
+          )
+        }
+        onConfirm={confirmDelete}
+        onCancel={closeDeleteModal}
+      />
     </div>
   );
 }

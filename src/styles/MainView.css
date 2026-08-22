@@ -18,61 +18,11 @@
 
 .actions-bar {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
   gap: 16px;
-  padding: 16px 0;
+  padding: 12px 0;
   border-bottom: 1px solid rgba(148, 163, 184, 0.15);
-}
-
-.date-filters {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.date-filters button {
-  background: rgba(148, 163, 184, 0.1);
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  color: #cbd5e1;
-  padding: 8px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.2s ease;
-}
-
-.date-filters button:hover {
-  background: rgba(148, 163, 184, 0.2);
-  border-color: rgba(148, 163, 184, 0.5);
-}
-
-.date-filters button.active {
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.3), rgba(20, 184, 166, 0.3));
-  border-color: #14b8a6;
-  color: #e5eefb;
-}
-
-.secondary-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.btn-secondary {
-  background: rgba(148, 163, 184, 0.1);
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  color: #cbd5e1;
-  padding: 8px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.2s ease;
-}
-
-.btn-secondary:hover {
-  background: rgba(148, 163, 184, 0.2);
-  border-color: rgba(148, 163, 184, 0.5);
-  color: #e5eefb;
 }
 
 .movements-list-container {
@@ -95,6 +45,21 @@
   padding: 0;
   border-bottom: 1px solid rgba(148, 163, 184, 0.15);
   transition: background 0.2s ease;
+  cursor: pointer;
+  list-style: none;
+  background: none;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  width: 100%;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+
+.movement-item:focus-visible {
+  outline: 2px solid rgba(20, 184, 166, 0.6);
+  outline-offset: -2px;
 }
 
 .movement-content {
@@ -114,36 +79,6 @@
 
 .movement-item:last-child {
   border-bottom: none;
-}
-
-.movement-content .item-actions {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.movement-content .action-btn {
-  flex: none;
-  background: none;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  color: #cbd5e1;
-  padding: 8px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 1rem;
-  transition: all 0.2s ease;
-}
-
-.movement-content .action-btn:hover {
-  background: rgba(148, 163, 184, 0.2);
-  border-color: rgba(148, 163, 184, 0.5);
-  color: #e5eefb;
-}
-
-.movement-content .action-btn.delete:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.5);
-  color: #f87171;
 }
 
 .movement-info {
@@ -218,15 +153,6 @@
 @media (max-width: 640px) {
   .main-content {
     padding: 0 12px;
-  }
-
-  .date-filters {
-    gap: 6px;
-  }
-
-  .date-filters button {
-    padding: 6px 10px;
-    font-size: 0.8rem;
   }
 
   .movement-item {

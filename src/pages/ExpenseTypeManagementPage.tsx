@@ -1,19 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useApp, ExpenseTypeDeleteInfo } from '../context/AppContext';
+import { useApp } from '../context/AppContext';
 import { ExpenseType, DateRange } from '../types';
-import Header from '../components/Header';
-import ConfirmModal from '../components/ConfirmModal';
+import TitleBar from '../components/TitleBar';
 import { getDateRange, abbreviateAmount } from '../utils/formatting';
 import '../styles/ManagementPage.css';
 
 export default function ExpenseTypeManagementPage() {
   const navigate = useNavigate();
-  const { expenseTypes, loadExpenseTypes, movements, isLoading, getExpenseTypeDeleteInfo, deleteExpenseTypeCascade, loadMovements } = useApp();
+  const { expenseTypes, loadExpenseTypes, movements, isLoading } = useApp();
   const [dateRange, setDateRange] = useState<DateRange>('current-month');
   const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
-  const [deleteTarget, setDeleteTarget] = useState<ExpenseType | null>(null);
-  const [deleteInfo, setDeleteInfo] = useState<ExpenseTypeDeleteInfo | null>(null);
 
   useEffect(() => {
     loadExpenseTypes();
@@ -25,37 +22,6 @@ export default function ExpenseTypeManagementPage() {
 
   const handleEdit = (type: ExpenseType) => {
     navigate(`/expense-type/${type.id}/edit`);
-  };
-
-  const handleDelete = async (type: ExpenseType) => {
-    try {
-      const info = await getExpenseTypeDeleteInfo(type.id);
-      setDeleteInfo(info);
-      setDeleteTarget(type);
-    } catch (err) {
-      console.error('Failed to load category delete info:', err);
-      alert('Errore durante il caricamento dei dati');
-    }
-  };
-
-  const confirmDelete = async () => {
-    if (!deleteTarget) return;
-
-    try {
-      await deleteExpenseTypeCascade(deleteTarget.id);
-      setDeleteTarget(null);
-      setDeleteInfo(null);
-      await loadExpenseTypes();
-      await loadMovements({ dateRange: 'all' });
-    } catch (err) {
-      console.error('Failed to delete category:', err);
-      alert('Errore durante l\'eliminazione della categoria');
-    }
-  };
-
-  const closeDeleteModal = () => {
-    setDeleteTarget(null);
-    setDeleteInfo(null);
   };
 
   const toggleExpand = (typeId: string) => {
@@ -102,7 +68,10 @@ export default function ExpenseTypeManagementPage() {
 
   return (
     <div className="management-page">
-      <Header title="Gestione Categorie" showBack={true} />
+      <TitleBar
+        title="Gestione Categorie"
+        actions={[{ content: '+ Crea Categoria', label: 'Crea categoria', kind: 'primary', onClick: handleCreate }]}
+      />
 
       <main className="page-content">
         {isLoading && !expenseTypes.length ? (
@@ -149,15 +118,26 @@ export default function ExpenseTypeManagementPage() {
 
                 return (
                   <div key={type.id}>
-                    <div className="list-item">
-                      <div
-                        className="item-main"
-                        onClick={() => toggleExpand(type.id)}
-                        style={{ cursor: 'pointer' }}
-                      >
+                    <div
+                      className="list-item"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleEdit(type)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') handleEdit(type);
+                      }}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div className="item-main">
                         <div className="item-name">
                           {childTypes.length > 0 && (
-                            <span className="chevron">
+                            <span
+                              className="chevron"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleExpand(type.id);
+                              }}
+                            >
                               {isExpanded ? '▼' : '▶'}
                             </span>
                           )}
@@ -173,23 +153,6 @@ export default function ExpenseTypeManagementPage() {
                             </span>
                           )}
                         </div>
-                      </div>
-
-                      <div className="item-actions">
-                        <button
-                          className="action-btn"
-                          onClick={() => handleEdit(type)}
-                          title="Modifica"
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          className="action-btn delete"
-                          onClick={() => handleDelete(type)}
-                          title="Elimina"
-                        >
-                          🗑️
-                        </button>
                       </div>
                     </div>
 
@@ -207,7 +170,17 @@ export default function ExpenseTypeManagementPage() {
                         {childTypes.map((child) => {
                           const childTotal = getCategoryTotal(child.id);
                           return (
-                            <div key={child.id} className="list-item" style={{ marginBottom: '8px' }}>
+                            <div
+                              key={child.id}
+                              className="list-item"
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => handleEdit(child)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') handleEdit(child);
+                              }}
+                              style={{ marginBottom: '8px', cursor: 'pointer' }}
+                            >
                               <div className="item-main">
                                 <div className="item-name">{child.name}</div>
                                 <div className="item-meta">
@@ -215,23 +188,6 @@ export default function ExpenseTypeManagementPage() {
                                     {abbreviateAmount(-childTotal)}€
                                   </span>
                                 </div>
-                              </div>
-
-                              <div className="item-actions">
-                                <button
-                                  className="action-btn"
-                                  onClick={() => handleEdit(child)}
-                                  title="Modifica"
-                                >
-                                  ✏️
-                                </button>
-                                <button
-                                  className="action-btn delete"
-                                  onClick={() => handleDelete(child)}
-                                  title="Elimina"
-                                >
-                                  🗑️
-                                </button>
                               </div>
                             </div>
                           );
@@ -244,37 +200,7 @@ export default function ExpenseTypeManagementPage() {
             </div>
           </>
         )}
-
-        {/* Create Button */}
-        <div className="floating-button">
-          <button className="btn-primary-large" onClick={handleCreate}>
-            + Crea Categoria
-          </button>
-        </div>
       </main>
-
-      <ConfirmModal
-        open={!!deleteTarget}
-        title="Elimina Categoria"
-        lines={
-          deleteInfo &&
-          (deleteInfo.expensesCount > 0 || deleteInfo.childCount > 0) ? (
-            <>
-              Questa categoria ha:
-              <br />• {deleteInfo.expensesCount} spesa{deleteInfo.expensesCount === 1 ? '' : 'e'} per{' '}
-              {Math.abs(deleteInfo.expensesTotal).toFixed(2)}€
-              <br />• {deleteInfo.childCount} sottocategoria{deleteInfo.childCount === 1 ? '' : 'e'}
-              <br />
-              <br />
-              Tutte le spese e le sottocategorie collegate verranno eliminate.
-            </>
-          ) : (
-            <>Eliminare questa categoria?</>
-          )
-        }
-        onConfirm={confirmDelete}
-        onCancel={closeDeleteModal}
-      />
     </div>
   );
 }

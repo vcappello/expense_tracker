@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { DateRange } from '../types';
-import Header from '../components/Header';
+import TitleBar from '../components/TitleBar';
 import MultiSelectFilter from '../components/MultiSelectFilter';
 import MovementsChart, { DailyTotal } from '../components/MovementsChart';
 import MonthBreakdownChart from '../components/MonthBreakdownChart';
@@ -136,7 +136,32 @@ export default function AnalyticsPage() {
 
   return (
     <div className="analytics-page">
-      <Header title="Analisi" showBack={true} />
+      <TitleBar
+        title="Analisi"
+        actions={[
+          {
+            content: '📋 Report',
+            label: 'Report',
+            kind: 'toggle',
+            active: view === 'report',
+            onClick: () => setView('report'),
+          },
+          {
+            content: '📊 Grafico',
+            label: 'Grafico',
+            kind: 'toggle',
+            active: view === 'grafico',
+            onClick: () => setView('grafico'),
+          },
+        ]}
+        menu={[
+          {
+            label: 'Esporta CSV',
+            onClick: () => exportMovementsToCSV(filteredMovements, accounts, expenseTypes),
+            disabled: filteredMovements.length === 0,
+          },
+        ]}
+      />
 
       <main className="analytics-content">
         {/* Filters */}
@@ -178,36 +203,6 @@ export default function AnalyticsPage() {
               onChange={setSelectedTypeIds}
             />
           </div>
-
-          <div className="filter-group export-group">
-            <label>&nbsp;</label>
-            <button
-              type="button"
-              className="btn-export"
-              onClick={() => exportMovementsToCSV(filteredMovements, accounts, expenseTypes)}
-              disabled={filteredMovements.length === 0}
-            >
-              ⬇️ Esporta CSV
-            </button>
-          </div>
-        </div>
-
-        {/* View toggle: Report / Grafico */}
-        <div className="view-toggle">
-          <button
-            type="button"
-            className={view === 'report' ? 'active' : ''}
-            onClick={() => setView('report')}
-          >
-            📋 Report
-          </button>
-          <button
-            type="button"
-            className={view === 'grafico' ? 'active' : ''}
-            onClick={() => setView('grafico')}
-          >
-            📊 Grafico
-          </button>
         </div>
 
         {isLoading ? (

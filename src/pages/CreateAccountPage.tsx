@@ -1,19 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
+import { useApp, AccountDeleteInfo } from '../context/AppContext';
 import { Account } from '../types';
-import Header from '../components/Header';
+import TitleBar, { TitleBarAction } from '../components/TitleBar';
+import { CheckIcon, TrashIcon } from '../components/icons';
+import ConfirmModal from '../components/ConfirmModal';
 import '../styles/EntityForm.css';
 
 export default function CreateAccountPage() {
   const navigate = useNavigate();
   const { id: accountId } = useParams<{ id: string }>();
-  const { createAccount, updateAccount, getAccount } = useApp();
+  const { createAccount, updateAccount, getAccount, getAccountDeleteInfo, deleteAccountCascade } = useApp();
 
   const [formData, setFormData] = useState({
     name: '',
   });
   const [isLoading, setIsLoading] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [deleteInfo, setDeleteInfo] = useState<AccountDeleteInfo | null>(null);
 
   // Pre-populate form when editing an existing account
   useEffect(() => {
@@ -76,16 +80,60 @@ export default function CreateAccountPage() {
     }
   };
 
-  const handleCancel = () => {
-    navigate('/accounts');
+  const handleDelete = async () => {
+    if (!accountId) return;
+    try {
+      const info = await getAccountDeleteInfo(accountId);
+      setDeleteInfo(info);
+    } catch (err) {
+      console.error('Failed to load account delete info:', err);
+      alert('Errore durante il caricamento dei dati');
+    }
   };
+
+  const confirmDelete = async () => {
+    if (!accountId) return;
+    try {
+      await deleteAccountCascade(accountId);
+      setDeleteInfo(null);
+      navigate('/accounts');
+    } catch (err) {
+      console.error('Failed to delete account:', err);
+      alert('Errore durante l\'eliminazione del conto');
+    }
+  };
+
+  const closeDeleteModal = () => setDeleteInfo(null);
+
+  const titleBarActions: TitleBarAction[] = [];
+  if (accountId) {
+    titleBarActions.push({
+      content: <TrashIcon />,
+      label: 'Elimina',
+      kind: 'danger',
+      iconOnly: true,
+      onClick: handleDelete,
+      disabled: isLoading,
+    });
+  }
+  titleBarActions.push({
+    content: <CheckIcon />,
+    label: accountId ? 'Aggiorna' : 'Crea',
+    kind: 'primary',
+    iconOnly: true,
+    onClick: () => formRef.current?.requestSubmit(),
+    disabled: isLoading,
+  });
 
   return (
     <div className="entity-page">
-      <Header title={accountId ? 'Modifica Conto' : 'Crea Conto'} showBack={true} />
+      <TitleBar
+        title={accountId ? 'Modifica Conto' : 'Crea Conto'}
+        actions={titleBarActions}
+      />
 
       <main className="entity-content">
-        <form className="entity-form" onSubmit={handleSubmit}>
+        <form ref={formRef} className="entity-form" onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="name">Nome Conto *</label>
             <input
@@ -100,21 +148,33 @@ export default function CreateAccountPage() {
             />
           </div>
 
-          <div className="form-actions">
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={handleCancel}
-              disabled={isLoading}
-            >
-              Annulla
-            </button>
-            <button type="submit" className="btn-primary" disabled={isLoading}>
-              {isLoading ? 'Salvataggio...' : accountId ? 'Aggiorna' : 'Crea'}
-            </button>
-          </div>
+          <button type="submit" className="sr-only" tabIndex={-1} aria-hidden="true" />
         </form>
       </main>
+
+      <ConfirmModal
+        open={!!deleteInfo}
+        title="Elimina Conto"
+        lines={
+          deleteInfo &&
+          (deleteInfo.expensesCount > 0 || deleteInfo.cashflowsCount > 0) ? (
+            <>
+              Questo conto ha:
+              <br />• {deleteInfo.cashflowsCount} {deleteInfo.cashflowsCount === 1 ? 'entrata' : 'entrate'} per{' '}
+              {Math.abs(deleteInfo.cashflowsTotal).toFixed(2)}€
+              <br />• {deleteInfo.expensesCount} {deleteInfo.expensesCount === 1 ? 'spesa' : 'spese'} per{' '}
+              {Math.abs(deleteInfo.expensesTotal).toFixed(2)}€
+              <br />
+              <br />
+              Tutti i movimenti collegati verranno eliminati.
+            </>
+          ) : (
+            <>Eliminare questo conto?</>
+          )
+        }
+        onConfirm={confirmDelete}
+        onCancel={closeDeleteModal}
+      />
     </div>
   );
 }

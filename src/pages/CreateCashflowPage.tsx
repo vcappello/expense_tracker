@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Cashflow } from '../types';
-import Header from '../components/Header';
+import TitleBar, { TitleBarAction } from '../components/TitleBar';
+import { CheckIcon, TrashIcon } from '../components/icons';
 import '../styles/CashflowForm.css';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -16,7 +17,7 @@ const formatTimeToHHMMSS = (date: Date): string => {
 export default function CreateCashflowPage() {
   const navigate = useNavigate();
   const { id: cashflowId } = useParams<{ id: string }>();
-  const { accounts, createCashflow, updateCashflow, getCashflow } = useApp();
+  const { accounts, cashflows, createCashflow, updateCashflow, getCashflow, deleteCashflow } = useApp();
 
   const now = new Date();
   const [formData, setFormData] = useState({
@@ -28,6 +29,7 @@ export default function CreateCashflowPage() {
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
   // Pre-populate form when editing an existing cashflow
   useEffect(() => {
@@ -184,16 +186,60 @@ export default function CreateCashflowPage() {
     }
   };
 
-  const handleCancel = () => {
-    navigate('/');
+  const handleDelete = async () => {
+    if (!cashflowId) return;
+    if (!window.confirm('Vuoi eliminare questa entrata?')) return;
+    try {
+      const current = await getCashflow(cashflowId);
+      if (current?.routingAccountId) {
+        // Delete also the negative counterpart of the routing transfer
+        const key = `${new Date(current.date).getTime()}|${current.time || ''}|${Math.abs(current.amount)}`;
+        const counterpart = cashflows.find(
+          (c) =>
+            c.id !== current.id &&
+            !c.routingAccountId &&
+            c.amount < 0 &&
+            `${new Date(c.date).getTime()}|${c.time || ''}|${Math.abs(c.amount)}` === key
+        );
+        if (counterpart) await deleteCashflow(counterpart.id);
+      }
+      await deleteCashflow(cashflowId);
+      navigate('/');
+    } catch (err) {
+      console.error('Failed to delete cashflow:', err);
+      alert('Errore durante l\'eliminazione dell\'entrata');
+    }
   };
+
+  const titleBarActions: TitleBarAction[] = [];
+  if (cashflowId) {
+    titleBarActions.push({
+      content: <TrashIcon />,
+      label: 'Elimina',
+      kind: 'danger',
+      iconOnly: true,
+      onClick: handleDelete,
+      disabled: isLoading,
+    });
+  }
+  titleBarActions.push({
+    content: <CheckIcon />,
+    label: cashflowId ? 'Aggiorna' : 'Crea',
+    kind: 'primary',
+    iconOnly: true,
+    onClick: () => formRef.current?.requestSubmit(),
+    disabled: isLoading,
+  });
 
   return (
     <div className="cashflow-page">
-      <Header title={cashflowId ? 'Modifica entrata' : 'Nuova entrata'} showBack={true} />
+      <TitleBar
+        title={cashflowId ? 'Modifica entrata' : 'Nuova entrata'}
+        actions={titleBarActions}
+      />
 
       <main className="page-content">
-        <form className="cashflow-form" onSubmit={handleSubmit}>
+        <form ref={formRef} className="cashflow-form" onSubmit={handleSubmit}>
           {/* Date Field */}
           <div className="form-group">
             <label htmlFor="date">Data *</label>
@@ -288,24 +334,8 @@ export default function CreateCashflowPage() {
             )}
           </div>
 
-          {/* Action Buttons */}
-          <div className="form-actions">
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={handleCancel}
-              disabled={isLoading}
-            >
-              Annulla
-            </button>
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={isLoading}
-            >
-              {isLoading ? 'Salvataggio...' : cashflowId ? 'Aggiorna' : 'Crea'}
-            </button>
-          </div>
+          {/* Hidden submit button to keep native form submission (e.g. Enter key) */}
+          <button type="submit" className="sr-only" tabIndex={-1} aria-hidden="true" />
         </form>
       </main>
     </div>

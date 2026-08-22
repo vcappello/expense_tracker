@@ -3,17 +3,24 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { MovementFilters, DateRange } from '../types';
 import { formatDate, abbreviateAmount, formatTime } from '../utils/formatting';
-import Header from '../components/Header';
+import TitleBar from '../components/TitleBar';
+import ActionMenu from '../components/ActionMenu';
+import { FunnelIcon, PlusIcon } from '../components/icons';
 import '../styles/MainView.css';
 
 export default function MainView() {
   const navigate = useNavigate();
-  const { movements, loadMovements, isLoading, deleteExpense, deleteCashflow } = useApp();
+  const { movements, loadMovements, isLoading, accounts, expenseTypes, loadAccounts, loadExpenseTypes } = useApp();
   const [filters, setFilters] = useState<MovementFilters>({
     dateRange: 'current-month',
   });
   const [page, setPage] = useState(0);
   const ITEMS_PER_PAGE = 20;
+
+  useEffect(() => {
+    loadAccounts();
+    loadExpenseTypes();
+  }, []);
 
   useEffect(() => {
     loadMovements(filters);
@@ -44,29 +51,18 @@ export default function MainView() {
     navigate('/accounts');
   };
 
+  const dateRangeOptions: { label: string; value: DateRange }[] = [
+    { label: 'Mese corrente', value: 'current-month' },
+    { label: 'Mese scorso', value: 'previous-month' },
+    { label: "Quest'anno", value: 'current-year' },
+    { label: 'Tutti', value: 'all' },
+  ];
+
   const handleMovementClick = (movementId: string, type: 'expense' | 'cashflow') => {
     if (type === 'expense') {
       navigate(`/expense/${movementId}/edit`);
     } else {
       navigate(`/cashflow/${movementId}/edit`);
-    }
-  };
-
-  const handleDeleteMovement = async (movementId: string, type: 'expense' | 'cashflow') => {
-    if (!confirm('Vuoi eliminare questo movimento?')) {
-      return;
-    }
-
-    try {
-      if (type === 'expense') {
-        await deleteExpense(movementId);
-      } else {
-        await deleteCashflow(movementId);
-      }
-      loadMovements(filters);
-    } catch (err) {
-      console.error('Failed to delete movement:', err);
-      alert('Errore durante l\'eliminazione del movimento');
     }
   };
 
@@ -83,52 +79,53 @@ export default function MainView() {
 
   return (
     <div className="main-view">
-      <Header
+      <TitleBar
         title="💰 Gestione Spese"
-        onNewExpense={handleNewExpense}
-        onNewCashflow={handleNewCashflow}
+        showBack={false}
+        actions={[
+          {
+            content: (
+              <>
+                <PlusIcon /> Spesa
+              </>
+            ),
+            label: 'Nuova spesa',
+            kind: 'primary',
+            onClick: handleNewExpense,
+          },
+          {
+            content: (
+              <>
+                <PlusIcon /> Entrata
+              </>
+            ),
+            label: 'Nuova entrata',
+            kind: 'primary',
+            onClick: handleNewCashflow,
+          },
+        ]}
       />
 
       <div className="main-content">
         <div className="actions-bar">
-          <div className="date-filters">
-            <button
-              className={filters.dateRange === 'current-month' ? 'active' : ''}
-              onClick={() => handleDateRangeChange('current-month')}
-            >
-              Questo mese
-            </button>
-            <button
-              className={filters.dateRange === 'previous-month' ? 'active' : ''}
-              onClick={() => handleDateRangeChange('previous-month')}
-            >
-              Mese scorso
-            </button>
-            <button
-              className={filters.dateRange === 'current-year' ? 'active' : ''}
-              onClick={() => handleDateRangeChange('current-year')}
-            >
-              Quest'anno
-            </button>
-            <button
-              className={filters.dateRange === 'all' ? 'active' : ''}
-              onClick={() => handleDateRangeChange('all')}
-            >
-              Tutti
-            </button>
-          </div>
-
-          <div className="secondary-actions">
-            <button className="btn-secondary" onClick={handleAnalytics}>
-              📊 Analisi
-            </button>
-            <button className="btn-secondary" onClick={handleExpenseTypes}>
-              🏷️ Categorie
-            </button>
-            <button className="btn-secondary" onClick={handleAccounts}>
-              🏦 Conti
-            </button>
-          </div>
+          <ActionMenu
+            triggerLabel="Filtri"
+            trigger={<FunnelIcon />}
+            align="left"
+            items={dateRangeOptions.map((opt) => ({
+              label: opt.label,
+              active: filters.dateRange === opt.value,
+              onClick: () => handleDateRangeChange(opt.value),
+            }))}
+          />
+          <ActionMenu
+            triggerLabel="Azioni"
+            items={[
+              { label: '📊 Analisi', onClick: handleAnalytics },
+              { label: '🏦 Conti', onClick: handleAccounts },
+              { label: '🏷️ Categorie', onClick: handleExpenseTypes },
+            ]}
+          />
         </div>
 
         {isLoading && !movements.length ? (
@@ -144,15 +141,32 @@ export default function MainView() {
           <div className="movements-list-container" onScroll={handleScroll}>
             <ul className="movements-list">
               {paginatedMovements.map((movement) => (
-                <div key={movement.id} className="movement-item">
-                  <li className="movement-content">
+                <li
+                  key={movement.id}
+                  className="movement-item"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleMovementClick(movement.id, movement.type)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      handleMovementClick(movement.id, movement.type);
+                    }
+                  }}
+                >
+                  <div className="movement-content">
                     <div className="movement-info">
                       <div className="date">
                         {formatDate(movement.date)}
                         {movement.time && <span className="time">{formatTime(movement.time)}</span>}
                       </div>
                       <div className="type">
-                        {movement.type === 'expense' ? '💸 Spesa' : '💰 Entrata'}
+                        {movement.type === 'expense'
+                          ? `💸 ${expenseTypes.find((t) => t.id === movement.expenseTypeId)?.name || 'Spesa'}`
+                          : movement.routingAccountId
+                          ? `🔄 ${accounts.find((a) => a.id === movement.routingAccountId)?.name || '?'} → ${
+                              accounts.find((a) => a.id === movement.accountId)?.name || '?'
+                            }`
+                          : `💰 ${accounts.find((a) => a.id === movement.accountId)?.name || '?'}`}
                       </div>
                     </div>
                     <div
@@ -167,24 +181,8 @@ export default function MainView() {
                       {movement.type === 'expense' && '-'}
                       {abbreviateAmount(movement.amount)}
                     </div>
-                    <div className="item-actions">
-                      <button
-                        className="action-btn"
-                        onClick={() => handleMovementClick(movement.id, movement.type)}
-                        title="Modifica"
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        className="action-btn delete"
-                        onClick={() => handleDeleteMovement(movement.id, movement.type)}
-                        title="Elimina"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </li>
-                </div>
+                  </div>
+                </li>
               ))}
             </ul>
 

@@ -1,17 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useApp, AccountDeleteInfo } from '../context/AppContext';
+import { useApp } from '../context/AppContext';
 import { Account } from '../types';
-import Header from '../components/Header';
-import ConfirmModal from '../components/ConfirmModal';
+import TitleBar from '../components/TitleBar';
 import { abbreviateAmount } from '../utils/formatting';
 import '../styles/ManagementPage.css';
 
 export default function AccountManagementPage() {
   const navigate = useNavigate();
-  const { accounts, loadAccounts, movements, isLoading, getAccountDeleteInfo, deleteAccountCascade, loadMovements } = useApp();
-  const [deleteTarget, setDeleteTarget] = useState<Account | null>(null);
-  const [deleteInfo, setDeleteInfo] = useState<AccountDeleteInfo | null>(null);
+  const { accounts, loadAccounts, movements, isLoading } = useApp();
 
   useEffect(() => {
     loadAccounts();
@@ -25,37 +22,6 @@ export default function AccountManagementPage() {
     navigate(`/account/${account.id}/edit`);
   };
 
-  const handleDelete = async (account: Account) => {
-    try {
-      const info = await getAccountDeleteInfo(account.id);
-      setDeleteInfo(info);
-      setDeleteTarget(account);
-    } catch (err) {
-      console.error('Failed to load account delete info:', err);
-      alert('Errore durante il caricamento dei dati');
-    }
-  };
-
-  const confirmDelete = async () => {
-    if (!deleteTarget) return;
-
-    try {
-      await deleteAccountCascade(deleteTarget.id);
-      setDeleteTarget(null);
-      setDeleteInfo(null);
-      await loadAccounts();
-      await loadMovements({ dateRange: 'all' });
-    } catch (err) {
-      console.error('Failed to delete account:', err);
-      alert('Errore durante l\'eliminazione del conto');
-    }
-  };
-
-  const closeDeleteModal = () => {
-    setDeleteTarget(null);
-    setDeleteInfo(null);
-  };
-
   const getLastMovementForAccount = (accountId: string) => {
     const accountMovements = movements.filter((m) => m.accountId === accountId);
     if (accountMovements.length === 0) return null;
@@ -66,7 +32,10 @@ export default function AccountManagementPage() {
 
   return (
     <div className="management-page">
-      <Header title="Gestione Conti" showBack={true} />
+      <TitleBar
+        title="Gestione Conti"
+        actions={[{ content: '+ Crea Conto', label: 'Crea conto', kind: 'primary', onClick: handleCreate }]}
+      />
 
       <main className="page-content">
         {isLoading && !accounts.length ? (
@@ -83,7 +52,17 @@ export default function AccountManagementPage() {
             {accounts.map((account) => {
               const lastMovement = getLastMovementForAccount(account.id);
               return (
-                <div key={account.id} className="list-item">
+                <div
+                  key={account.id}
+                  className="list-item"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleEdit(account)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') handleEdit(account);
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
                   <div className="item-main">
                     <div className="item-name">{account.name}</div>
                     {lastMovement && (
@@ -102,60 +81,12 @@ export default function AccountManagementPage() {
                       </div>
                     )}
                   </div>
-
-                  <div className="item-actions">
-                    <button
-                      className="action-btn"
-                      onClick={() => handleEdit(account)}
-                      title="Modifica"
-                    >
-                      ✏️
-                    </button>
-                    <button
-                      className="action-btn delete"
-                      onClick={() => handleDelete(account)}
-                      title="Elimina"
-                    >
-                      🗑️
-                    </button>
-                  </div>
                 </div>
               );
             })}
           </div>
         )}
-
-        {/* Create Button */}
-        <div className="floating-button">
-          <button className="btn-primary-large" onClick={handleCreate}>
-            + Crea Conto
-          </button>
-        </div>
       </main>
-
-      <ConfirmModal
-        open={!!deleteTarget}
-        title="Elimina Conto"
-        lines={
-          deleteInfo &&
-          (deleteInfo.expensesCount > 0 || deleteInfo.cashflowsCount > 0) ? (
-            <>
-              Questo conto ha:
-              <br />• {deleteInfo.cashflowsCount} entrata{deleteInfo.cashflowsCount === 1 ? '' : 'e'} per{' '}
-              {Math.abs(deleteInfo.cashflowsTotal).toFixed(2)}€
-              <br />• {deleteInfo.expensesCount} spesa{deleteInfo.expensesCount === 1 ? '' : 'e'} per{' '}
-              {Math.abs(deleteInfo.expensesTotal).toFixed(2)}€
-              <br />
-              <br />
-              Tutti i movimenti collegati verranno eliminati.
-            </>
-          ) : (
-            <>Eliminare questo conto?</>
-          )
-        }
-        onConfirm={confirmDelete}
-        onCancel={closeDeleteModal}
-      />
     </div>
   );
 }

@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Expense, ExpenseType } from '../types';
-import Header from '../components/Header';
+import TitleBar, { TitleBarAction } from '../components/TitleBar';
+import { CheckIcon, TrashIcon } from '../components/icons';
 import Toast from '../components/Toast';
 import '../styles/ExpenseForm.css';
 import { v4 as uuidv4 } from 'uuid';
@@ -17,7 +18,7 @@ const formatTimeToHHMMSS = (date: Date): string => {
 export default function CreateExpensePage() {
   const navigate = useNavigate();
   const { id: expenseId } = useParams<{ id: string }>();
-  const { accounts, expenseTypes, createExpense, updateExpense, createExpenseType, getExpense } = useApp();
+  const { accounts, expenseTypes, createExpense, updateExpense, createExpenseType, getExpense, deleteExpense } = useApp();
 
   const now = new Date();
   const [formData, setFormData] = useState({
@@ -32,6 +33,7 @@ export default function CreateExpensePage() {
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
 
@@ -210,18 +212,49 @@ export default function CreateExpensePage() {
     }
   };
 
-  const handleCancel = () => {
-    navigate('/');
+  const handleDelete = async () => {
+    if (!expenseId) return;
+    if (!window.confirm('Vuoi eliminare questa spesa?')) return;
+    try {
+      await deleteExpense(expenseId);
+      navigate('/');
+    } catch (err) {
+      console.error('Failed to delete expense:', err);
+      alert('Errore durante l\'eliminazione della spesa');
+    }
   };
+
+  const titleBarActions: TitleBarAction[] = [];
+  if (expenseId) {
+    titleBarActions.push({
+      content: <TrashIcon />,
+      label: 'Elimina',
+      kind: 'danger',
+      iconOnly: true,
+      onClick: handleDelete,
+      disabled: isLoading,
+    });
+  }
+  titleBarActions.push({
+    content: <CheckIcon />,
+    label: expenseId ? 'Aggiorna' : 'Crea',
+    kind: 'primary',
+    iconOnly: true,
+    onClick: () => formRef.current?.requestSubmit(),
+    disabled: isLoading,
+  });
 
   const selectedType = expenseTypes.find((t) => t.id === formData.expenseTypeId);
 
   return (
     <div className="expense-page">
-      <Header title={expenseId ? 'Modifica spesa' : 'Nuova spesa'} showBack={true} />
+      <TitleBar
+        title={expenseId ? 'Modifica spesa' : 'Nuova spesa'}
+        actions={titleBarActions}
+      />
 
       <main className="page-content">
-        <form className="expense-form" onSubmit={handleSubmit}>
+        <form ref={formRef} className="expense-form" onSubmit={handleSubmit}>
           {/* Date Field */}
           <div className="form-group">
             <label htmlFor="date">Data *</label>
@@ -322,24 +355,8 @@ export default function CreateExpensePage() {
             </select>
           </div>
 
-          {/* Action Buttons */}
-          <div className="form-actions">
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={handleCancel}
-              disabled={isLoading}
-            >
-              Annulla
-            </button>
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={isLoading}
-            >
-              {isLoading ? 'Salvataggio...' : expenseId ? 'Aggiorna' : 'Crea'}
-            </button>
-          </div>
+          {/* Hidden submit button to keep native form submission (e.g. Enter key) */}
+          <button type="submit" className="sr-only" tabIndex={-1} aria-hidden="true" />
         </form>
       </main>
 
