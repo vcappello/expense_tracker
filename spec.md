@@ -108,8 +108,10 @@ Actions:
 When the user click Account management button a new page is displayed.
 In the account management the list of created account is displayed, for each account is displayed:
 - the account name
+- the current balance *abbreviated*: initialBalance + cashflows − expenses, displayed with color based on sign (green if positive, red if negative)
 - last cash flow movement with date, time and amount *abbreviated*
 - Edit and Delete buttons on the right side
+- preferred accounts (isPreferred flag) are displayed first, with a star indicator
 
 Actions:
 - Create: a new page is displayed to create the Account, when the user confirm the Account list need to refresh
@@ -122,6 +124,8 @@ Actions:
 When the user click create or edit Account a new page is displayed.
 The user can enter:
 - (mandatory) the Account name
+- (optional, default 0) the Account initial balance (giacenza iniziale): the amount the account had when created; it is not a movement, so it does not affect the period Analytics
+- (optional) the preferred flag (isPreferred): when set, the Account is shown first in the account lists during Expense/Cashflow insertion (default account) and in the account management list
 
 Actions:
 - Confirm: create or update the Account and go back
@@ -259,6 +263,9 @@ The app is installable on the phone home screen and usable offline:
 - Desired changes:
   - The create button is in the title bar, right aligned (see Shared components).
   - In the list no Edit/Delete buttons are displayed: each item is clickable and navigates to the Edit Account view (like the Main view movement list). Delete is only available from the Edit Account view.
+  - Each account displays the current balance (initialBalance + cashflows − expenses), *abbreviated* and colored by sign.
+  - Preferred accounts (isPreferred) are shown first in the account dropdowns during Expense/Cashflow insertion (the first preferred account is the default) and in the account management list, with a star indicator.
+  - The Create/Edit Account view includes a "Giacenza iniziale (€)" field (optional, default 0) and a "Conto preferito" checkbox (isPreferred): they are stored on the Account (not movements), so the period Analytics stay clean.
   - Edit Account view title bar: no "Cancel" button (the Back button cancels the modifications and goes back). Right aligned: Confirm (checkmark icon) and Delete (trash icon) buttons (see Shared components).
   - Create Account view: no "Delete" button, only Confirm (checkmark icon) right aligned; Back cancels and goes back (see Shared components).
 

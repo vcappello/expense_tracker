@@ -103,7 +103,14 @@ export const getAccounts = async (): Promise<Account[]> => {
     const request = store.getAll();
 
     request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      const accounts = (request.result as Account[]).map((a) => ({
+        ...a,
+        initialBalance: typeof a.initialBalance === 'number' ? a.initialBalance : 0,
+        isPreferred: a.isPreferred === true,
+      }));
+      resolve(accounts);
+    };
   });
 };
 
@@ -115,7 +122,18 @@ export const getAccount = async (id: string): Promise<Account | undefined> => {
     const request = store.get(id);
 
     request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      const account = request.result as Account | undefined;
+      if (!account) {
+        resolve(undefined);
+        return;
+      }
+      resolve({
+        ...account,
+        initialBalance: typeof account.initialBalance === 'number' ? account.initialBalance : 0,
+        isPreferred: account.isPreferred === true,
+      });
+    };
   });
 };
 

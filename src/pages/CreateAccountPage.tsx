@@ -14,6 +14,8 @@ export default function CreateAccountPage() {
 
   const [formData, setFormData] = useState({
     name: '',
+    initialBalance: '',
+    isPreferred: false,
   });
   const [isLoading, setIsLoading] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
@@ -26,7 +28,11 @@ export default function CreateAccountPage() {
       try {
         const account = await getAccount(accountId);
         if (account) {
-          setFormData({ name: account.name });
+          setFormData({
+            name: account.name,
+            initialBalance: account.initialBalance ? String(account.initialBalance) : '',
+            isPreferred: account.isPreferred === true,
+          });
         }
       } catch (err) {
         console.error('Failed to load account:', err);
@@ -37,7 +43,14 @@ export default function CreateAccountPage() {
   }, [accountId, getAccount]);
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ name: e.target.value });
+    setFormData((prev) => ({ ...prev, name: e.target.value }));
+  };
+
+  const handleInitialBalanceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+      setFormData((prev) => ({ ...prev, initialBalance: value }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -51,6 +64,7 @@ export default function CreateAccountPage() {
     try {
       setIsLoading(true);
       const now = new Date();
+      const initialBalance = parseFloat(formData.initialBalance) || 0;
 
       if (accountId) {
         const existing = await getAccount(accountId);
@@ -58,6 +72,8 @@ export default function CreateAccountPage() {
           await updateAccount({
             ...existing,
             name: formData.name,
+            initialBalance,
+            isPreferred: formData.isPreferred,
             updatedAt: now,
           });
         }
@@ -65,6 +81,8 @@ export default function CreateAccountPage() {
         const newAccount: Account = {
           id: Date.now().toString(),
           name: formData.name,
+          initialBalance,
+          isPreferred: formData.isPreferred,
           createdAt: now,
           updatedAt: now,
         };
@@ -146,6 +164,33 @@ export default function CreateAccountPage() {
               autoFocus
               required
             />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="initialBalance">Giacenza iniziale (€)</label>
+            <input
+              type="text"
+              id="initialBalance"
+              inputMode="decimal"
+              placeholder="0.00"
+              value={formData.initialBalance}
+              onChange={handleInitialBalanceChange}
+              className="form-input"
+            />
+          </div>
+
+          <div className="form-group checkbox-group">
+            <label className="checkbox-label" htmlFor="isPreferred">
+              <input
+                type="checkbox"
+                id="isPreferred"
+                checked={formData.isPreferred}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, isPreferred: e.target.checked }))
+                }
+              />
+              Conto preferito (visualizzato per primo nell'inserimento spese)
+            </label>
           </div>
 
           <button type="submit" className="sr-only" tabIndex={-1} aria-hidden="true" />

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Expense, ExpenseType } from '../types';
+import { sortAccountsPreferred } from '../utils/accounts';
 import TitleBar, { TitleBarAction } from '../components/TitleBar';
 import { CheckIcon, TrashIcon } from '../components/icons';
 import Toast from '../components/Toast';
@@ -19,6 +20,7 @@ export default function CreateExpensePage() {
   const navigate = useNavigate();
   const { id: expenseId } = useParams<{ id: string }>();
   const { accounts, expenseTypes, createExpense, updateExpense, createExpenseType, getExpense, deleteExpense } = useApp();
+  const sortedAccounts = sortAccountsPreferred(accounts);
 
   const now = new Date();
   const [formData, setFormData] = useState({
@@ -26,7 +28,7 @@ export default function CreateExpensePage() {
     time: formatTimeToHHMMSS(now),
     amount: '',
     expenseTypeId: '',
-    accountId: accounts[0]?.id || '',
+    accountId: sortedAccounts[0]?.id || '',
   });
 
   const [expenseTypeSearch, setExpenseTypeSearch] = useState('');
@@ -65,7 +67,7 @@ export default function CreateExpensePage() {
     if (!formData.accountId && accounts.length > 0) {
       setFormData((prev) => ({
         ...prev,
-        accountId: accounts[0].id,
+        accountId: sortedAccounts[0].id,
       }));
     }
   }, [accounts]);
@@ -347,7 +349,7 @@ export default function CreateExpensePage() {
               required
               className="form-input"
             >
-              {accounts.map((account) => (
+              {sortedAccounts.map((account) => (
                 <option key={account.id} value={account.id}>
                   {account.name}
                 </option>

@@ -27,6 +27,8 @@ const doInitializeDefaultData = async () => {
       const cashAccount: Account = {
         id: 'acc-cash',
         name: 'Cash',
+        initialBalance: 0,
+        isPreferred: false,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -34,6 +36,8 @@ const doInitializeDefaultData = async () => {
       const bankAccount: Account = {
         id: 'acc-bank',
         name: 'Bank account',
+        initialBalance: 0,
+        isPreferred: true,
         createdAt: new Date(),
         updatedAt: new Date(),
       };

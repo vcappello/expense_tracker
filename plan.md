@@ -44,6 +44,8 @@
 - [x] **Main view — allineamento lista movimenti**: fix del conflitto CSS (la classe `.movement-info` di `AnalyticsPage.css` sovrascriveva quella della Main view rendendola colonna centrata); ora data, ora e descrizione sono **allineati a sinistra** (`.movement-info` esplicito in riga); classe Analytics rinominata in `.movement-detail-info`
 - [x] **Edit Expense — larghezza campo Categoria (ExpenseType)**: aggiunto `width: 100%` a `.form-input`/`.form-select` in `ExpenseForm.css` e `CashflowForm.css`; il campo categoria ora è largo come gli altri campi del form
 - [x] **Distanziare i pulsanti Delete e Save in tutte le view**: aggiunto `margin-right: 18px` al pulsante danger (Elimina) nella `TitleBar`; distanza tra Elimina e Conferma ~26px (prima ~8px) per evitare pressioni accidentali
+- [x] **Giacenza iniziale conti (`initialBalance`)**: nuovo campo `initialBalance` sull'`Account` (default 0, normalizzato in lettura per i conti esistenti); campo **"Giacenza iniziale (€)"** in creazione/modifica conto; nella **gestione Conti** mostrato il **saldo corrente** (`initialBalance + cashflows − expenses`, abbreviato e colorato per segno) accanto al conto; Analytics invariati (la giacenza non è un movimento, nessuno skew al primo mese); `spec.md` aggiornata
+- [x] **Conto preferito (`isPreferred`)**: nuovo flag `isPreferred` sull'`Account` (default false, normalizzato in lettura); checkbox **"Conto preferito"** in creazione/modifica conto; i conti preferiti vengono mostrati **per primi** nei dropdown di inserimento Spese/Entrate (il primo preferito è il default, es. Bank account nel seed) e nella lista Conti con ★; nuovo util `src/utils/accounts.ts` (`sortAccountsPreferred`); `spec.md` aggiornata
 
 ## 🔄 In corso / Prossimi
 

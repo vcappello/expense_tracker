@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Cashflow } from '../types';
+import { sortAccountsPreferred } from '../utils/accounts';
 import TitleBar, { TitleBarAction } from '../components/TitleBar';
 import { CheckIcon, TrashIcon } from '../components/icons';
 import '../styles/CashflowForm.css';
@@ -18,6 +19,7 @@ export default function CreateCashflowPage() {
   const navigate = useNavigate();
   const { id: cashflowId } = useParams<{ id: string }>();
   const { accounts, cashflows, createCashflow, updateCashflow, getCashflow, deleteCashflow } = useApp();
+  const sortedAccounts = sortAccountsPreferred(accounts);
 
   const now = new Date();
   const [formData, setFormData] = useState({
@@ -59,7 +61,7 @@ export default function CreateCashflowPage() {
     if (!formData.accountId && accounts.length > 0) {
       setFormData((prev) => ({
         ...prev,
-        accountId: accounts[0].id,
+        accountId: sortedAccounts[0].id,
       }));
     }
   }, [accounts, formData.accountId]);
@@ -292,7 +294,7 @@ export default function CreateCashflowPage() {
               className="form-input"
             >
               <option value="">Seleziona conto</option>
-              {accounts.map((account) => (
+              {sortedAccounts.map((account) => (
                 <option key={account.id} value={account.id}>
                   {account.name}
                 </option>
@@ -310,7 +312,7 @@ export default function CreateCashflowPage() {
               className="form-input"
             >
               <option value="">Nessuno</option>
-              {accounts.map((account) => (
+              {sortedAccounts.map((account) => (
                 <option
                   key={account.id}
                   value={account.id}

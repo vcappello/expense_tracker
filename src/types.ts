@@ -2,6 +2,8 @@
 export interface Account {
   id: string;
   name: string;
+  initialBalance: number;
+  isPreferred: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

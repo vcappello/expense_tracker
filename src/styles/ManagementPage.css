@@ -56,6 +56,10 @@
   font-size: 1rem;
 }
 
+.preferred-star {
+  color: #eab308;
+}
+
 .item-name .chevron {
   display: inline-block;
   margin-right: 6px;
@@ -72,6 +76,12 @@
 
 .meta-date {
   color: #a5b4cf;
+}
+
+.meta-saldo {
+  color: #e5eefb;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .meta-amount {

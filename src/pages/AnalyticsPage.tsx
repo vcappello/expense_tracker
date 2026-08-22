@@ -6,6 +6,7 @@ import MultiSelectFilter from '../components/MultiSelectFilter';
 import MovementsChart, { DailyTotal } from '../components/MovementsChart';
 import MonthBreakdownChart from '../components/MonthBreakdownChart';
 import { getDateRange, abbreviateAmount, formatCurrency, formatDate } from '../utils/formatting';
+import { sortAccountsPreferred } from '../utils/accounts';
 import { isRoutingCashflow } from '../utils/routing';
 import { exportMovementsToCSV } from '../utils/csv';
 import '../styles/AnalyticsPage.css';
@@ -186,7 +187,7 @@ export default function AnalyticsPage() {
             <label>Conto</label>
             <MultiSelectFilter
               label="Conto"
-              options={accounts.map((acc) => ({ value: acc.id, label: acc.name }))}
+              options={sortAccountsPreferred(accounts).map((acc) => ({ value: acc.id, label: acc.name }))}
               selected={selectedAccountIds}
               onChange={setSelectedAccountIds}
             />
