@@ -306,7 +306,7 @@ export default function AnalyticsPage() {
                         key={`${movement.type}-${movement.id}`}
                         className={`movement-detail ${movement.type}`}
                       >
-                        <div className="movement-info">
+                        <div className="movement-detail-info">
                           <div className="movement-type">{typeName || 'Sconosciuto'}</div>
                           <div className="movement-account">{accountName}</div>
                           <div className="movement-date">

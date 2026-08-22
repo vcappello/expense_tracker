@@ -106,6 +106,7 @@
   background: rgba(239, 68, 68, 0.15);
   border-color: rgba(239, 68, 68, 0.4);
   color: #f87171;
+  margin-right: 18px;
 }
 
 .title-bar-action.danger:hover:not(:disabled) {

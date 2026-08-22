@@ -83,9 +83,13 @@
 
 .movement-info {
   display: flex;
-  gap: 12px;
+  flex-direction: row;
   align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  text-align: left;
   flex: 1;
+  min-width: 0;
 }
 
 .movement-info .date {

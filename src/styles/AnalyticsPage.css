@@ -372,7 +372,7 @@
   border-left: 3px solid #22c55e;
 }
 
-.movement-info {
+.movement-detail-info {
   display: flex;
   flex-direction: column;
   gap: 2px;
