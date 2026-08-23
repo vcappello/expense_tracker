@@ -1,21 +1,31 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { MovementFilters, DateRange } from '../types';
 import { formatDate, abbreviateAmount, formatTime } from '../utils/formatting';
+import { exportDatabase, readBackupFile, BackupData } from '../utils/backup';
 import TitleBar from '../components/TitleBar';
 import ActionMenu from '../components/ActionMenu';
+import ConfirmModal from '../components/ConfirmModal';
+import AlertModal from '../components/AlertModal';
+import Toast from '../components/Toast';
 import { FunnelIcon, PlusIcon } from '../components/icons';
 import '../styles/MainView.css';
 
 export default function MainView() {
   const navigate = useNavigate();
-  const { movements, loadMovements, isLoading, accounts, expenseTypes, loadAccounts, loadExpenseTypes } = useApp();
+  const { movements, loadMovements, isLoading, accounts, expenseTypes, loadAccounts, loadExpenseTypes, restoreBackup } = useApp();
   const [filters, setFilters] = useState<MovementFilters>({
     dateRange: 'current-month',
   });
   const [page, setPage] = useState(0);
   const ITEMS_PER_PAGE = 20;
+
+  // Backup / Restore state
+  const [pendingImport, setPendingImport] = useState<BackupData | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadAccounts();
@@ -25,6 +35,13 @@ export default function MainView() {
   useEffect(() => {
     loadMovements(filters);
   }, [filters]);
+
+  // Auto-hide the confirmation toast after ~2.5s
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 2500);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   const handleDateRangeChange = (range: DateRange) => {
     setFilters({ ...filters, dateRange: range });
@@ -49,6 +66,47 @@ export default function MainView() {
 
   const handleAccounts = () => {
     navigate('/accounts');
+  };
+
+  const handleExportBackup = async () => {
+    try {
+      await exportDatabase();
+      setToast('Backup esportato');
+    } catch (err) {
+      setImportError(
+        err instanceof Error ? err.message : "Errore durante l'esportazione del backup"
+      );
+    }
+  };
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Reset the input so the same file can be selected again
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const data = await readBackupFile(file);
+      setPendingImport(data);
+    } catch (err) {
+      setImportError(
+        err instanceof Error ? err.message : 'Errore durante la lettura del file'
+      );
+    }
+  };
+
+  const handleRestoreConfirm = async () => {
+    if (!pendingImport) return;
+    try {
+      await restoreBackup(pendingImport);
+      // Reload the movement list with the restored data
+      await loadMovements(filters);
+      setPendingImport(null);
+      setToast('Backup ripristinato con successo');
+    } catch (err) {
+      setImportError(
+        err instanceof Error ? err.message : 'Errore durante il ripristino del backup'
+      );
+    }
   };
 
   const dateRangeOptions: { label: string; value: DateRange }[] = [
@@ -124,6 +182,8 @@ export default function MainView() {
               { label: '📊 Analisi', onClick: handleAnalytics },
               { label: '🏦 Conti', onClick: handleAccounts },
               { label: '🏷️ Categorie', onClick: handleExpenseTypes },
+              { label: '💾 Esporta backup', onClick: handleExportBackup },
+              { label: '📥 Ripristina backup', onClick: () => fileInputRef.current?.click() },
             ]}
           />
         </div>
@@ -194,6 +254,47 @@ export default function MainView() {
           </div>
         )}
       </div>
+
+      {/* Hidden file input for the backup restore */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json,application/json"
+        style={{ display: 'none' }}
+        onChange={handleFileSelected}
+      />
+
+      <ConfirmModal
+        open={pendingImport !== null}
+        title="Ripristina backup"
+        confirmLabel="Ripristina"
+        lines={
+          pendingImport ? (
+            <div className="restore-info">
+              <p>
+                Il ripristino <strong>sostituirà tutti i dati</strong> attuali con
+                quelli del file di backup.
+              </p>
+              <ul>
+                <li>{pendingImport.accounts.length} conti</li>
+                <li>{pendingImport.expenseTypes.length} categorie</li>
+                <li>{pendingImport.expenses.length} spese</li>
+                <li>{pendingImport.cashflows.length} entrate</li>
+              </ul>
+            </div>
+          ) : null
+        }
+        onConfirm={handleRestoreConfirm}
+        onCancel={() => setPendingImport(null)}
+      />
+
+      <AlertModal
+        open={importError !== null}
+        message={importError}
+        onClose={() => setImportError(null)}
+      />
+
+      <Toast message={toast} />
     </div>
   );
 }

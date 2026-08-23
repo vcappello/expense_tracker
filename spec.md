@@ -177,6 +177,25 @@ The app is installable on the phone home screen and usable offline:
 - service worker registered only in production (`import.meta.env.PROD`) to avoid caching during development
 - production serving: `npm run build` then `npm run preview` (host 0.0.0.0:4173) or any static server on the `dist/` folder
 
+## Backup / Ripristino (Export / Import database)
+
+The app data lives in a browser-local IndexedDB that is bound to the origin (scheme + host + port).
+Switching origin (e.g. from http to https, or from the dev server to the production one) leaves the
+data on the old origin: the new origin starts with an empty database (and the default seed is created
+again). To preserve the data across origins the app provides a JSON backup:
+
+- **Esporta backup**: downloads a single JSON file (`expense-tracker-backup-YYYY-MM-DD.json`) containing
+  all four stores (`accounts`, `expenseTypes`, `expenses`, `cashflows`). Dates are serialized as ISO
+  strings (JSON standard). The export is origin-independent and can be re-imported on any origin.
+- **Ripristina backup**: the user selects a backup JSON file; a `ConfirmModal` warns that the import
+  will replace all existing data. On confirm, the database is cleared and rewritten with the imported
+  records in a single atomic IndexedDB transaction (all-or-nothing: a failure leaves the current data
+  untouched). Afterwards the whole app state is reloaded. Invalid files show an `AlertModal` error.
+  Field normalization on import: `initialBalance` defaults to 0 and `isPreferred` to false on accounts.
+
+Both actions are available in the Main view "Azioni" menu. This is the recommended way to move the data
+when switching to the HTTPS server (or any other origin change).
+
 ## User Interface (UI redesign) — Work in progress
 
 > Sezione dedicata al restyling dell'interfaccia grafica. Struttura pronta da compilare.

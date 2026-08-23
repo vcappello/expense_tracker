@@ -49,6 +49,7 @@
 - [x] **Fix navigazione dopo save/delete (Back button)**: dopo aver salvato o eliminato da una view create/edit la navigazione usava `navigate('/...')` (push) che inquinava lo stack del browser e rompeva il Back (es. main → conti → crea conto → salva → al secondo Back si tornava alla form invece che a main). Ora save/delete usano `navigate(-1)` per tornare alla view di origine preservando lo stack; nuovo helper `src/utils/navigation.ts` (`useNavigateBack`) con fallback alla route canonica quando non c'è storia precedente (reload/accesso diretto). Applicato a create/edit di Account, ExpenseType, Expense e Cashflow. Verificato nel browser: main → conti → crea conto → salva → Back → main; main → categorie → crea categoria → salva → Back → main; `spec.md` aggiornata
 - [x] **Sostituite le modali native con modali custom (componenti shared)**: eliminati `window.confirm` (delete Spesa/Entrata) e tutte le `alert()` (validazione/errori) dai 4 form create/edit. Nuovo componente base **`Modal`** (`src/components/Modal.tsx` + `src/styles/Modal.css`: overlay + titolo + contenuto + azioni, chiusura su backdrop/ESC, `aria-modal`); **`ConfirmModal`** ora è un wrapper sopra `Modal` (2 bottoni) usato per delete di Account, ExpenseType, **Spesa ed Entrata**; nuovo **`AlertModal`** (1 bottone OK) per gli errori (salvataggio/caricamento/eliminazione); le validazioni campi obbligatori usano il **`Toast`** (nuova prop `icon`, ⚠️ per i warning); eliminato `ConfirmModal.css` (stili spostati in `Modal.css`); `spec.md` aggiornata
 - [x] **Importo con tastiera numerica su smartphone**: aggiunto `inputMode="decimal"` al campo **Importo (€)** dei form Spesa (`CreateExpensePage`) ed Entrata (`CreateCashflowPage`), come nel campo "Giacenza iniziale (€)" dei conti — su smartphone si apre la tastiera numerica
+- [x] **Backup/Ripristino database (Export/Import JSON)**: nuove voci "Esporta backup" / "Ripristina backup" nel menu Azioni della Main view. **Export**: scarica un file JSON (`expense-tracker-backup-YYYY-MM-DD.json`) con tutti e 4 gli store (Account, ExpenseType, Expense, Cashflow), date ISO, indipendente dall'origine. **Import**: selezione file → `ConfirmModal` di avviso ("sostituirà tutti i dati") con conteggi → sostituzione **atomica** (clear + insert nella stessa transazione IndexedDB, `db.importAllData`) → reload dello stato (conti, categorie, spese, entrate, movimenti) via `restoreBackup` in `AppContext`; file non validi → `AlertModal`; successo → `Toast`. Nuovo `src/utils/backup.ts` (`exportDatabase`, `readBackupFile` con normalizzazione di `initialBalance`/`isPreferred`/`parentId`/`routingAccountId` e riconversione date ISO → `Date`). Necessario perché IndexedDB è legato all'origine: al passaggio a HTTPS i dati non vengono ereditati. Verificato in browser (:5173, round-trip con gerarchia categorie, routing, conto preferito e giacenza; file invalido rifiutato senza toccare i dati). `spec.md` aggiornata
 
 ## 🔄 In corso / Prossimi
 
@@ -56,7 +57,7 @@
 
 ## ⏳ Da fare
 
-*(Sezione completata — le attività pianificate (modali custom + tastiera numerica importo) sono state implementate il 23/08/2026 — vedi sezione ✅ Completati.)*
+*(Sezione completata — il task Backup/Ripristino (Export/Import JSON) è stato implementato e verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 
 ## 🐛 Bug da correggere
 

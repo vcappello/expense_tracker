@@ -474,3 +474,50 @@ export const deleteExpensesByAccount = (accountId: string): Promise<void> => {
 export const deleteCashflowsByAccount = (accountId: string): Promise<void> => {
   return deleteAllByIndex(STORES.CASHFLOWS, 'accountId', accountId);
 };
+
+// ============ BACKUP / RESTORE ============
+
+/**
+ * Replace the whole database content with the given records in a single
+ * atomic transaction (clear + insert across all stores). All-or-nothing:
+ * if any insert fails the transaction aborts and the previous data is
+ * preserved. Used by the JSON backup restore (see `src/utils/backup.ts`).
+ */
+export const importAllData = async (data: {
+  accounts: Account[];
+  expenseTypes: ExpenseType[];
+  expenses: Expense[];
+  cashflows: Cashflow[];
+}): Promise<void> => {
+  const database = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(
+      [
+        STORES.ACCOUNTS,
+        STORES.EXPENSE_TYPES,
+        STORES.EXPENSES,
+        STORES.CASHFLOWS,
+      ],
+      'readwrite'
+    );
+
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error);
+
+    const accounts = transaction.objectStore(STORES.ACCOUNTS);
+    const expenseTypes = transaction.objectStore(STORES.EXPENSE_TYPES);
+    const expenses = transaction.objectStore(STORES.EXPENSES);
+    const cashflows = transaction.objectStore(STORES.CASHFLOWS);
+
+    accounts.clear();
+    expenseTypes.clear();
+    expenses.clear();
+    cashflows.clear();
+
+    data.accounts.forEach((a) => accounts.put(a));
+    data.expenseTypes.forEach((et) => expenseTypes.put(et));
+    data.expenses.forEach((e) => expenses.put(e));
+    data.cashflows.forEach((c) => cashflows.put(c));
+  });
+};

@@ -4,6 +4,7 @@ import * as db from '../db/database';
 import { getDateRange, toDateTime } from '../utils/formatting';
 import { initializeDefaultData } from '../utils/initialization';
 import { routingCounterpartIds } from '../utils/routing';
+import { BackupData } from '../utils/backup';
 
 // Impact info for the critical delete confirmation popups
 export interface AccountDeleteInfo {
@@ -61,6 +62,9 @@ interface AppContextType {
   // Movements (combined Expense + Cashflow)
   movements: Movement[];
   loadMovements: (filters: MovementFilters) => Promise<void>;
+
+  // Backup / Restore (JSON export/import, see utils/backup.ts)
+  restoreBackup: (data: BackupData) => Promise<void>;
 
   // Loading state
   isLoading: boolean;
@@ -420,6 +424,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     []
   );
 
+  // ============ BACKUP / RESTORE ============
+  const restoreBackup = useCallback(
+    async (data: BackupData) => {
+      try {
+        clearError();
+        await db.importAllData(data);
+        await Promise.all([
+          loadAccounts(),
+          loadExpenseTypes(),
+          loadExpenses(),
+          loadCashflows(),
+        ]);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to restore backup');
+        throw err;
+      }
+    },
+    [loadAccounts, loadExpenseTypes, loadExpenses, loadCashflows]
+  );
+
   const value: AppContextType = {
     // Accounts
     accounts,
@@ -462,6 +486,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Movements
     movements,
     loadMovements,
+
+    // Backup / Restore
+    restoreBackup,
 
     // State
     isLoading,
