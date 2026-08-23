@@ -46,6 +46,9 @@
 - [x] **Distanziare i pulsanti Delete e Save in tutte le view**: aggiunto `margin-right: 18px` al pulsante danger (Elimina) nella `TitleBar`; distanza tra Elimina e Conferma ~26px (prima ~8px) per evitare pressioni accidentali
 - [x] **Giacenza iniziale conti (`initialBalance`)**: nuovo campo `initialBalance` sull'`Account` (default 0, normalizzato in lettura per i conti esistenti); campo **"Giacenza iniziale (€)"** in creazione/modifica conto; nella **gestione Conti** mostrato il **saldo corrente** (`initialBalance + cashflows − expenses`, abbreviato e colorato per segno) accanto al conto; Analytics invariati (la giacenza non è un movimento, nessuno skew al primo mese); `spec.md` aggiornata
 - [x] **Conto preferito (`isPreferred`)**: nuovo flag `isPreferred` sull'`Account` (default false, normalizzato in lettura); checkbox **"Conto preferito"** in creazione/modifica conto; i conti preferiti vengono mostrati **per primi** nei dropdown di inserimento Spese/Entrate (il primo preferito è il default, es. Bank account nel seed) e nella lista Conti con ★; nuovo util `src/utils/accounts.ts` (`sortAccountsPreferred`); `spec.md` aggiornata
+- [x] **Fix navigazione dopo save/delete (Back button)**: dopo aver salvato o eliminato da una view create/edit la navigazione usava `navigate('/...')` (push) che inquinava lo stack del browser e rompeva il Back (es. main → conti → crea conto → salva → al secondo Back si tornava alla form invece che a main). Ora save/delete usano `navigate(-1)` per tornare alla view di origine preservando lo stack; nuovo helper `src/utils/navigation.ts` (`useNavigateBack`) con fallback alla route canonica quando non c'è storia precedente (reload/accesso diretto). Applicato a create/edit di Account, ExpenseType, Expense e Cashflow. Verificato nel browser: main → conti → crea conto → salva → Back → main; main → categorie → crea categoria → salva → Back → main; `spec.md` aggiornata
+- [x] **Sostituite le modali native con modali custom (componenti shared)**: eliminati `window.confirm` (delete Spesa/Entrata) e tutte le `alert()` (validazione/errori) dai 4 form create/edit. Nuovo componente base **`Modal`** (`src/components/Modal.tsx` + `src/styles/Modal.css`: overlay + titolo + contenuto + azioni, chiusura su backdrop/ESC, `aria-modal`); **`ConfirmModal`** ora è un wrapper sopra `Modal` (2 bottoni) usato per delete di Account, ExpenseType, **Spesa ed Entrata**; nuovo **`AlertModal`** (1 bottone OK) per gli errori (salvataggio/caricamento/eliminazione); le validazioni campi obbligatori usano il **`Toast`** (nuova prop `icon`, ⚠️ per i warning); eliminato `ConfirmModal.css` (stili spostati in `Modal.css`); `spec.md` aggiornata
+- [x] **Importo con tastiera numerica su smartphone**: aggiunto `inputMode="decimal"` al campo **Importo (€)** dei form Spesa (`CreateExpensePage`) ed Entrata (`CreateCashflowPage`), come nel campo "Giacenza iniziale (€)" dei conti — su smartphone si apre la tastiera numerica
 
 ## 🔄 In corso / Prossimi
 
@@ -53,7 +56,7 @@
 
 ## ⏳ Da fare
 
-*(Sezione completata — tutte le attività pianificate sono state implementate.)*
+*(Sezione completata — le attività pianificate (modali custom + tastiera numerica importo) sono state implementate il 23/08/2026 — vedi sezione ✅ Completati.)*
 
 ## 🐛 Bug da correggere
 

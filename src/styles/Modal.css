@@ -1,4 +1,4 @@
-/* Critical confirmation modal */
+/* Shared modal (base for ConfirmModal and AlertModal) */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -71,4 +71,15 @@
 .modal-actions .btn-danger:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
+}
+
+.modal-actions .btn-primary {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.modal-actions .btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
 }

@@ -1,10 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Cashflow } from '../types';
 import { sortAccountsPreferred } from '../utils/accounts';
+import { useNavigateBack } from '../utils/navigation';
 import TitleBar, { TitleBarAction } from '../components/TitleBar';
 import { CheckIcon, TrashIcon } from '../components/icons';
+import Toast from '../components/Toast';
+import ConfirmModal from '../components/ConfirmModal';
+import AlertModal from '../components/AlertModal';
 import '../styles/CashflowForm.css';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -16,7 +20,7 @@ const formatTimeToHHMMSS = (date: Date): string => {
 };
 
 export default function CreateCashflowPage() {
-  const navigate = useNavigate();
+  const navigateBack = useNavigateBack('/');
   const { id: cashflowId } = useParams<{ id: string }>();
   const { accounts, cashflows, createCashflow, updateCashflow, getCashflow, deleteCashflow } = useApp();
   const sortedAccounts = sortAccountsPreferred(accounts);
@@ -32,6 +36,10 @@ export default function CreateCashflowPage() {
 
   const [isLoading, setIsLoading] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const [toast, setToast] = useState<{ message: string; icon?: string } | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
+  const [alertMessage, setAlertMessage] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Pre-populate form when editing an existing cashflow
   useEffect(() => {
@@ -65,6 +73,27 @@ export default function CreateCashflowPage() {
       }));
     }
   }, [accounts, formData.accountId]);
+
+  // Show a transient toast (default success ✅, pass ⚠️ for warnings), resetting any pending timer
+  const showToast = (message: string, icon = '✅') => {
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+    setToast({ message, icon });
+    toastTimerRef.current = window.setTimeout(() => {
+      setToast(null);
+      toastTimerRef.current = null;
+    }, 2500);
+  };
+
+  // Clear the toast timer on unmount
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({
@@ -108,7 +137,7 @@ export default function CreateCashflowPage() {
     e.preventDefault();
 
     if (!formData.date || !formData.amount || !formData.accountId) {
-      alert('Compila tutti i campi obbligatori');
+      showToast('Compila tutti i campi obbligatori', '⚠️');
       return;
     }
 
@@ -179,18 +208,22 @@ export default function CreateCashflowPage() {
         }
       }
 
-      navigate('/');
+      navigateBack();
     } catch (err) {
       console.error('Failed to save cashflow:', err);
-      alert('Errore durante il salvataggio dell\'entrata');
+      setAlertMessage('Errore durante il salvataggio dell\'entrata');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!cashflowId) return;
-    if (!window.confirm('Vuoi eliminare questa entrata?')) return;
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!cashflowId) return;
     try {
       const current = await getCashflow(cashflowId);
       if (current?.routingAccountId) {
@@ -206,10 +239,10 @@ export default function CreateCashflowPage() {
         if (counterpart) await deleteCashflow(counterpart.id);
       }
       await deleteCashflow(cashflowId);
-      navigate('/');
+      navigateBack();
     } catch (err) {
       console.error('Failed to delete cashflow:', err);
-      alert('Errore durante l\'eliminazione dell\'entrata');
+      setAlertMessage('Errore durante l\'eliminazione dell\'entrata');
     }
   };
 
@@ -274,6 +307,7 @@ export default function CreateCashflowPage() {
             <label htmlFor="amount">Importo (€) *</label>
             <input
               type="text"
+              inputMode="decimal"
               id="amount"
               placeholder="0.00"
               value={formData.amount}
@@ -340,6 +374,23 @@ export default function CreateCashflowPage() {
           <button type="submit" className="sr-only" tabIndex={-1} aria-hidden="true" />
         </form>
       </main>
+
+      <Toast message={toast?.message ?? null} icon={toast?.icon} />
+
+      <ConfirmModal
+        open={showDeleteConfirm}
+        title="Elimina Entrata"
+        lines="Vuoi eliminare questa entrata?"
+        confirmLabel="Elimina"
+        onConfirm={confirmDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
+
+      <AlertModal
+        open={!!alertMessage}
+        message={alertMessage}
+        onClose={() => setAlertMessage(null)}
+      />
     </div>
   );
 }

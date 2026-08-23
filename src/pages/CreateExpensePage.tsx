@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Expense, ExpenseType } from '../types';
 import { sortAccountsPreferred } from '../utils/accounts';
+import { useNavigateBack } from '../utils/navigation';
 import TitleBar, { TitleBarAction } from '../components/TitleBar';
 import { CheckIcon, TrashIcon } from '../components/icons';
 import Toast from '../components/Toast';
+import ConfirmModal from '../components/ConfirmModal';
+import AlertModal from '../components/AlertModal';
 import '../styles/ExpenseForm.css';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -17,7 +20,7 @@ const formatTimeToHHMMSS = (date: Date): string => {
 };
 
 export default function CreateExpensePage() {
-  const navigate = useNavigate();
+  const navigateBack = useNavigateBack('/');
   const { id: expenseId } = useParams<{ id: string }>();
   const { accounts, expenseTypes, createExpense, updateExpense, createExpenseType, getExpense, deleteExpense } = useApp();
   const sortedAccounts = sortAccountsPreferred(accounts);
@@ -36,8 +39,10 @@ export default function CreateExpensePage() {
   const [isLoading, setIsLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; icon?: string } | null>(null);
   const toastTimerRef = useRef<number | null>(null);
+  const [alertMessage, setAlertMessage] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     const loadExpense = async () => {
@@ -87,12 +92,12 @@ export default function CreateExpensePage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Show a transient confirmation toast, resetting any pending timer
-  const showToast = (message: string) => {
+  // Show a transient toast (default success ✅, pass ⚠️ for warnings), resetting any pending timer
+  const showToast = (message: string, icon = '✅') => {
     if (toastTimerRef.current) {
       window.clearTimeout(toastTimerRef.current);
     }
-    setToast(message);
+    setToast({ message, icon });
     toastTimerRef.current = window.setTimeout(() => {
       setToast(null);
       toastTimerRef.current = null;
@@ -181,7 +186,7 @@ export default function CreateExpensePage() {
     e.preventDefault();
 
     if (!formData.date || !formData.amount || !formData.expenseTypeId || !formData.accountId) {
-      alert('Compila tutti i campi obbligatori');
+      showToast('Compila tutti i campi obbligatori', '⚠️');
       return;
     }
 
@@ -205,24 +210,28 @@ export default function CreateExpensePage() {
         await createExpense(expense);
       }
 
-      navigate('/');
+      navigateBack();
     } catch (err) {
       console.error('Failed to save expense:', err);
-      alert('Errore durante il salvataggio della spesa');
+      setAlertMessage('Errore durante il salvataggio della spesa');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!expenseId) return;
-    if (!window.confirm('Vuoi eliminare questa spesa?')) return;
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!expenseId) return;
     try {
       await deleteExpense(expenseId);
-      navigate('/');
+      navigateBack();
     } catch (err) {
       console.error('Failed to delete expense:', err);
-      alert('Errore durante l\'eliminazione della spesa');
+      setAlertMessage('Errore durante l\'eliminazione della spesa');
     }
   };
 
@@ -289,6 +298,7 @@ export default function CreateExpensePage() {
             <label htmlFor="amount">Importo (€) *</label>
             <input
               type="text"
+              inputMode="decimal"
               id="amount"
               placeholder="0.00"
               value={formData.amount}
@@ -362,7 +372,22 @@ export default function CreateExpensePage() {
         </form>
       </main>
 
-      <Toast message={toast} />
+      <Toast message={toast?.message ?? null} icon={toast?.icon} />
+
+      <ConfirmModal
+        open={showDeleteConfirm}
+        title="Elimina Spesa"
+        lines="Vuoi eliminare questa spesa?"
+        confirmLabel="Elimina"
+        onConfirm={confirmDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
+
+      <AlertModal
+        open={!!alertMessage}
+        message={alertMessage}
+        onClose={() => setAlertMessage(null)}
+      />
     </div>
   );
 }

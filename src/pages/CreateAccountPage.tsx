@@ -1,14 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useApp, AccountDeleteInfo } from '../context/AppContext';
 import { Account } from '../types';
 import TitleBar, { TitleBarAction } from '../components/TitleBar';
 import { CheckIcon, TrashIcon } from '../components/icons';
 import ConfirmModal from '../components/ConfirmModal';
+import Toast from '../components/Toast';
+import AlertModal from '../components/AlertModal';
+import { useNavigateBack } from '../utils/navigation';
 import '../styles/EntityForm.css';
 
 export default function CreateAccountPage() {
-  const navigate = useNavigate();
+  const navigateBack = useNavigateBack('/accounts');
   const { id: accountId } = useParams<{ id: string }>();
   const { createAccount, updateAccount, getAccount, getAccountDeleteInfo, deleteAccountCascade } = useApp();
 
@@ -20,6 +23,9 @@ export default function CreateAccountPage() {
   const [isLoading, setIsLoading] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const [deleteInfo, setDeleteInfo] = useState<AccountDeleteInfo | null>(null);
+  const [toast, setToast] = useState<{ message: string; icon?: string } | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
+  const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
   // Pre-populate form when editing an existing account
   useEffect(() => {
@@ -42,6 +48,27 @@ export default function CreateAccountPage() {
     loadAccount();
   }, [accountId, getAccount]);
 
+  // Show a transient toast (default success ✅, pass ⚠️ for warnings), resetting any pending timer
+  const showToast = (message: string, icon = '✅') => {
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+    setToast({ message, icon });
+    toastTimerRef.current = window.setTimeout(() => {
+      setToast(null);
+      toastTimerRef.current = null;
+    }, 2500);
+  };
+
+  // Clear the toast timer on unmount
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
+
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({ ...prev, name: e.target.value }));
   };
@@ -57,7 +84,7 @@ export default function CreateAccountPage() {
     e.preventDefault();
 
     if (!formData.name.trim()) {
-      alert('Inserisci il nome del conto');
+      showToast('Inserisci il nome del conto', '⚠️');
       return;
     }
 
@@ -89,10 +116,10 @@ export default function CreateAccountPage() {
         await createAccount(newAccount);
       }
 
-      navigate('/accounts');
+      navigateBack();
     } catch (err) {
       console.error('Failed to save account:', err);
-      alert('Errore durante il salvataggio del conto');
+      setAlertMessage('Errore durante il salvataggio del conto');
     } finally {
       setIsLoading(false);
     }
@@ -105,7 +132,7 @@ export default function CreateAccountPage() {
       setDeleteInfo(info);
     } catch (err) {
       console.error('Failed to load account delete info:', err);
-      alert('Errore durante il caricamento dei dati');
+      setAlertMessage('Errore durante il caricamento dei dati');
     }
   };
 
@@ -114,10 +141,10 @@ export default function CreateAccountPage() {
     try {
       await deleteAccountCascade(accountId);
       setDeleteInfo(null);
-      navigate('/accounts');
+      navigateBack();
     } catch (err) {
       console.error('Failed to delete account:', err);
-      alert('Errore durante l\'eliminazione del conto');
+      setAlertMessage('Errore durante l\'eliminazione del conto');
     }
   };
 
@@ -219,6 +246,14 @@ export default function CreateAccountPage() {
         }
         onConfirm={confirmDelete}
         onCancel={closeDeleteModal}
+      />
+
+      <Toast message={toast?.message ?? null} icon={toast?.icon} />
+
+      <AlertModal
+        open={!!alertMessage}
+        message={alertMessage}
+        onClose={() => setAlertMessage(null)}
       />
     </div>
   );
