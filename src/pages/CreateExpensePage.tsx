@@ -24,6 +24,7 @@ export default function CreateExpensePage() {
   const { id: expenseId } = useParams<{ id: string }>();
   const { accounts, expenseTypes, createExpenseType, getExpense, deleteExpense, saveExpenseWithCoins, getCashflows } = useApp();
   const sortedAccounts = sortAccountsPreferred(accounts);
+  const coinAccounts = sortedAccounts.filter((a) => a.isCoinAccount);
 
   const now = new Date();
   const [formData, setFormData] = useState({
@@ -457,7 +458,7 @@ export default function CreateExpensePage() {
                 className="form-input"
               >
                 <option value="">Nessuno</option>
-                {sortedAccounts.map((account) => (
+                {coinAccounts.map((account) => (
                   <option
                     key={account.id}
                     value={account.id}
@@ -466,7 +467,20 @@ export default function CreateExpensePage() {
                     {account.name}
                   </option>
                 ))}
+                {/* keep a legacy selection even if the coin flag was removed */}
+                {formData.coinsAccountId &&
+                  !coinAccounts.some((a) => a.id === formData.coinsAccountId) && (
+                    <option value={formData.coinsAccountId}>
+                      {accounts.find((a) => a.id === formData.coinsAccountId)?.name ||
+                        '?'}
+                    </option>
+                  )}
               </select>
+              {coinAccounts.length === 0 && (
+                <p className="field-hint">
+                  Nessun conto monete: crealo dalla gestione Conti.
+                </p>
+              )}
             </div>
             {coinsActive && (
               <div className="form-info">

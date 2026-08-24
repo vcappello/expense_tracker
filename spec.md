@@ -71,10 +71,12 @@ Actions:
 ## Expense paid partly from a second account (coin split)
 
 When paying a cash expense partly with coins (an untracked stash of coins), the user can
-enter, in addition to the normal fields, an optional **second account** (the coins account)
-and an optional **second amount** (the coin portion, between 0 and the total amount). This
-records the true total spend in Analytics while keeping the main account (banknotes)
-decreased only by the non-coin portion.
+enter, in addition to the normal fields, an optional **second amount** (the coin portion,
+between 0 and the total amount) and pick the **coins account** from the "Conto monete"
+dropdown, which lists **only the accounts flagged as coin accounts** (`isCoinAccount`, set
+in the account management). This records the true total spend in Analytics while keeping
+the main account (banknotes) decreased only by the non-coin portion. When no coin account
+exists, a hint in the form suggests creating one.
 
 Example: a €10.50 expense paid with €10 from "Cash" (banknotes) and €0.50 in coins creates
 the following records:
@@ -177,6 +179,7 @@ In the account management the list of created account is displayed, for each acc
 - last cash flow movement with date, time and amount *abbreviated*
 - Edit and Delete buttons on the right side
 - preferred accounts (isPreferred flag) are displayed first, with a star indicator
+- coin accounts (isCoinAccount flag) are marked with a coin badge (🪙)
 
 Actions:
 - Create: a new page is displayed to create the Account, when the user confirm the Account list need to refresh
@@ -191,6 +194,7 @@ The user can enter:
 - (mandatory) the Account name
 - (optional, default 0) the Account initial balance (giacenza iniziale): the amount the account had when created; it is not a movement, so it does not affect the period Analytics
 - (optional) the preferred flag (isPreferred): when set, the Account is shown first in the account lists during Expense/Cashflow insertion (default account) and in the account management list
+- (optional) the coin account flag (isCoinAccount): when set, the Account is a "coins" account (untracked coin stash) and it is the only account offered in the "Conto monete" dropdown of the Expense form (see "Expense paid partly from a second account (coin split)"); in the account management list it is marked with a 🪙 badge
 
 Actions:
 - Confirm: create or update the Account and go back
@@ -256,8 +260,8 @@ again). To preserve the data across origins the app provides a JSON backup:
   will replace all existing data. On confirm, the database is cleared and rewritten with the imported
   records in a single atomic IndexedDB transaction (all-or-nothing: a failure leaves the current data
   untouched). Afterwards the whole app state is reloaded. Invalid files show an `AlertModal` error.
-  Field normalization on import: `initialBalance` defaults to 0 and `isPreferred` to false on accounts;
-  `routingPairId` defaults to null on both Expense and Cashflow records.
+  Field normalization on import: `initialBalance` defaults to 0, `isPreferred` and `isCoinAccount`
+  to false on accounts; `routingPairId` defaults to null on both Expense and Cashflow records.
 
 Both actions are available in the Main view "Azioni" menu. This is the recommended way to move the data
 when switching to the HTTPS server (or any other origin change).

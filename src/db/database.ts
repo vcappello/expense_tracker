@@ -126,6 +126,7 @@ export const getAccounts = async (): Promise<Account[]> => {
         ...a,
         initialBalance: typeof a.initialBalance === 'number' ? a.initialBalance : 0,
         isPreferred: a.isPreferred === true,
+        isCoinAccount: a.isCoinAccount === true,
       }));
       resolve(accounts);
     };
@@ -150,6 +151,7 @@ export const getAccount = async (id: string): Promise<Account | undefined> => {
         ...account,
         initialBalance: typeof account.initialBalance === 'number' ? account.initialBalance : 0,
         isPreferred: account.isPreferred === true,
+        isCoinAccount: account.isCoinAccount === true,
       });
     };
   });

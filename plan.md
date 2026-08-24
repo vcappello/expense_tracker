@@ -66,9 +66,36 @@
       (sezione "Expense paid partly from a second account (coin split)"), regole in
       `AGENTS.md`.
 
+- [x] **Conto monete (flag `isCoinAccount`)**: nuovo flag su `Account` (default false,
+      normalizzato in lettura/import) per marcare il conto "monete"; checkbox "Conto monete"
+      nell'anagrafica conto; badge 🪙 nella gestione Conti; nel form spesa il dropdown
+      "Conto monete" elenca **solo** i conti con il flag (niente più elenco di tutti i conti),
+      con hint quando non ce ne sono e opzione di ripiego per selezioni legacy. Verificato E2E
+      nel browser. Spec in `spec.md`, attività in `AGENTS.md`.
+
 ## 🔄 In corso / Prossimi
 
-### Spesa pagata in parte con monete (secondo conto) — da implementare
+### Conto monete (flag isCoinAccount) — completata
+
+> Rifinitura UX della feature "spesa con monete": nel dropdown "Conto monete" del form spesa
+> mostrare solo i conti marcati come conto moneta nell'anagrafica (flag `isCoinAccount`),
+> non tutti i conti. Stesso pattern di `isPreferred` (opzionale, normalizzato in lettura,
+> niente bump DB_VERSION).
+
+- [x] **DB + types**: campo `isCoinAccount: boolean` su `Account` (default false), normalizzato
+      in lettura in `database.ts` (`getAccounts`/`getAccount`) e in import in `backup.ts`;
+      seed account aggiornati (`isCoinAccount: false`)
+- [x] **CreateAccountPage**: checkbox "Conto monete (usato come conto per le monete nelle
+      spese)" (crea+edit), salvata in `isCoinAccount`
+- [x] **AccountManagementPage**: badge 🪙 accanto ai conti moneta (come la ★ dei preferiti)
+- [x] **CreateExpensePage**: dropdown "Conto monete" filtrato a `isCoinAccount` (escluso il
+      conto principale; opzione di ripiego per mantenere una selezione legacy se il flag è
+      stato rimosso); hint "Nessun conto monete: crealo dalla gestione Conti" se non ce ne sono
+- [x] **Test E2E** nel browser: senza conti flaggati dropdown vuoto + hint; conto Monete con
+      flag → badge 🪙 in Conti e dropdown monete con solo "Monete"; spesa con monete creata
+      (Main view 2 righe); build OK
+
+### Spesa pagata in parte con monete (secondo conto) — completata
 
 > Spec: sezione "Expense paid partly from a second account (coin split)" in `spec.md`.
 > Obiettivo: registrare la spesa TOTALE vera in Analytics, facendo scalare al conto

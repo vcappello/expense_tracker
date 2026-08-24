@@ -87,6 +87,11 @@ export default function AccountManagementPage() {
                           ★{' '}
                         </span>
                       )}
+                      {account.isCoinAccount && (
+                        <span className="coin-badge" title="Conto monete">
+                          🪙{' '}
+                        </span>
+                      )}
                       {account.name}
                     </div>
                     <div className="item-meta">

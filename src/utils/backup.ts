@@ -65,6 +65,7 @@ const normalizeAccount = (raw: Record<string, unknown>): Account => ({
   name: String(raw.name),
   initialBalance: typeof raw.initialBalance === 'number' ? raw.initialBalance : 0,
   isPreferred: raw.isPreferred === true,
+  isCoinAccount: raw.isCoinAccount === true,
   createdAt: toDate(raw.createdAt),
   updatedAt: toDate(raw.updatedAt),
 });

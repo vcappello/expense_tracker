@@ -171,6 +171,13 @@
   line-height: 1.5;
 }
 
+/* Field hint (small muted helper text) */
+.field-hint {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
 @media (max-width: 640px) {
   .page-content {
     padding: 16px 12px;

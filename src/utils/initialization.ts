@@ -29,6 +29,7 @@ const doInitializeDefaultData = async () => {
         name: 'Cash',
         initialBalance: 0,
         isPreferred: false,
+        isCoinAccount: false,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -38,6 +39,7 @@ const doInitializeDefaultData = async () => {
         name: 'Bank account',
         initialBalance: 0,
         isPreferred: true,
+        isCoinAccount: false,
         createdAt: new Date(),
         updatedAt: new Date(),
       };

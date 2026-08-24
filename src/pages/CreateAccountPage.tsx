@@ -19,6 +19,7 @@ export default function CreateAccountPage() {
     name: '',
     initialBalance: '',
     isPreferred: false,
+    isCoinAccount: false,
   });
   const [isLoading, setIsLoading] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
@@ -38,6 +39,7 @@ export default function CreateAccountPage() {
             name: account.name,
             initialBalance: account.initialBalance ? String(account.initialBalance) : '',
             isPreferred: account.isPreferred === true,
+            isCoinAccount: account.isCoinAccount === true,
           });
         }
       } catch (err) {
@@ -101,6 +103,7 @@ export default function CreateAccountPage() {
             name: formData.name,
             initialBalance,
             isPreferred: formData.isPreferred,
+            isCoinAccount: formData.isCoinAccount,
             updatedAt: now,
           });
         }
@@ -110,6 +113,7 @@ export default function CreateAccountPage() {
           name: formData.name,
           initialBalance,
           isPreferred: formData.isPreferred,
+          isCoinAccount: formData.isCoinAccount,
           createdAt: now,
           updatedAt: now,
         };
@@ -217,6 +221,20 @@ export default function CreateAccountPage() {
                 }
               />
               Conto preferito (visualizzato per primo nell'inserimento spese)
+            </label>
+          </div>
+
+          <div className="form-group checkbox-group">
+            <label className="checkbox-label" htmlFor="isCoinAccount">
+              <input
+                type="checkbox"
+                id="isCoinAccount"
+                checked={formData.isCoinAccount}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, isCoinAccount: e.target.checked }))
+                }
+              />
+              Conto monete (usato come conto per le monete nelle spese)
             </label>
           </div>
 
