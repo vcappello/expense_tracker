@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { MovementFilters, DateRange } from '../types';
+import { Movement, MovementFilters, DateRange } from '../types';
 import { formatDate, abbreviateAmount, formatTime } from '../utils/formatting';
+import { routingCounterpartIds } from '../utils/routing';
 import { exportDatabase, readBackupFile, BackupData } from '../utils/backup';
 import TitleBar from '../components/TitleBar';
 import ActionMenu from '../components/ActionMenu';
@@ -116,15 +117,40 @@ export default function MainView() {
     { label: 'Tutti', value: 'all' },
   ];
 
-  const handleMovementClick = (movementId: string, type: 'expense' | 'cashflow') => {
-    if (type === 'expense') {
-      navigate(`/expense/${movementId}/edit`);
-    } else {
-      navigate(`/cashflow/${movementId}/edit`);
+  const handleMovementClick = (movement: Movement) => {
+    if (movement.type === 'expense') {
+      navigate(`/expense/${movement.id}/edit`);
+      return;
     }
+    // If the routing receiving leg belongs to a coin-split expense (an Expense
+    // in the list shares the same routingPairId), open the expense edit
+    // instead of the cashflow edit.
+    if (movement.routingPairId) {
+      const linkedExpense = movements.find(
+        (m) =>
+          m.type === 'expense' && m.routingPairId === movement.routingPairId
+      );
+      if (linkedExpense) {
+        navigate(`/expense/${linkedExpense.id}/edit`);
+        return;
+      }
+    }
+    navigate(`/cashflow/${movement.id}/edit`);
   };
 
-  const paginatedMovements = movements.slice(0, (page + 1) * ITEMS_PER_PAGE);
+  // Display: hide routing counterparts (negative legs) and coin-split internal
+  // incomes, keeping only the receiving leg (yellow) visible.
+  const hiddenCashflowIds = useMemo(
+    () => routingCounterpartIds(movements.filter((m) => m.type === 'cashflow')),
+    [movements]
+  );
+  const displayMovements = movements.filter(
+    (m) => m.type === 'expense' || !hiddenCashflowIds.has(m.id)
+  );
+  const paginatedMovements = displayMovements.slice(
+    0,
+    (page + 1) * ITEMS_PER_PAGE
+  );
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const element = e.currentTarget;
@@ -192,7 +218,7 @@ export default function MainView() {
           <div className="loading-state">
             <p>Caricamento movimenti...</p>
           </div>
-        ) : movements.length === 0 ? (
+        ) : displayMovements.length === 0 ? (
           <div className="empty-state">
             <p>Nessun movimento</p>
             <p className="subtitle">Clicca "Nuova spesa" per iniziare</p>
@@ -206,10 +232,10 @@ export default function MainView() {
                   className="movement-item"
                   role="button"
                   tabIndex={0}
-                  onClick={() => handleMovementClick(movement.id, movement.type)}
+                  onClick={() => handleMovementClick(movement)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
-                      handleMovementClick(movement.id, movement.type);
+                      handleMovementClick(movement);
                     }
                   }}
                 >
@@ -246,7 +272,7 @@ export default function MainView() {
               ))}
             </ul>
 
-            {paginatedMovements.length < movements.length && (
+            {paginatedMovements.length < displayMovements.length && (
               <div className="load-more">
                 <p>Scorri per altri...</p>
               </div>

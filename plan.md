@@ -51,9 +51,102 @@
 - [x] **Importo con tastiera numerica su smartphone**: aggiunto `inputMode="decimal"` al campo **Importo (€)** dei form Spesa (`CreateExpensePage`) ed Entrata (`CreateCashflowPage`), come nel campo "Giacenza iniziale (€)" dei conti — su smartphone si apre la tastiera numerica
 - [x] **Backup/Ripristino database (Export/Import JSON)**: nuove voci "Esporta backup" / "Ripristina backup" nel menu Azioni della Main view. **Export**: scarica un file JSON (`expense-tracker-backup-YYYY-MM-DD.json`) con tutti e 4 gli store (Account, ExpenseType, Expense, Cashflow), date ISO, indipendente dall'origine. **Import**: selezione file → `ConfirmModal` di avviso ("sostituirà tutti i dati") con conteggi → sostituzione **atomica** (clear + insert nella stessa transazione IndexedDB, `db.importAllData`) → reload dello stato (conti, categorie, spese, entrate, movimenti) via `restoreBackup` in `AppContext`; file non validi → `AlertModal`; successo → `Toast`. Nuovo `src/utils/backup.ts` (`exportDatabase`, `readBackupFile` con normalizzazione di `initialBalance`/`isPreferred`/`parentId`/`routingAccountId` e riconversione date ISO → `Date`). Necessario perché IndexedDB è legato all'origine: al passaggio a HTTPS i dati non vengono ereditati. Verificato in browser (:5173, round-trip con gerarchia categorie, routing, conto preferito e giacenza; file invalido rifiutato senza toccare i dati). `spec.md` aggiornata
 
+- [x] **Spesa pagata in parte con monete (secondo conto — coin split)**: nuova feature per
+      registrare la spesa TOTALE vera facendo scalare al conto principale solo la parte
+      non-monete (un conto "Monete" resta sempre a 0, stash non tracciato). Implementazione:
+      campo `routingPairId` su `Expense`/`Cashflow` con **link esplicito** (fallback
+      euristico per dati legacy, niente bump `DB_VERSION`); `routing.ts` basato sul link;
+      operazioni atomiche del gruppo (`createExpenseGroup`/`updateExpenseGroup`/
+      `deleteExpenseGroup`); `saveExpenseWithCoins` in AppContext + `buildCoinSplitCashflows`
+      (`src/utils/coins.ts`); campi "Pagato in parte con monete" nel form spesa (preview,
+      validazioni); click riga gialla → modifica spesa; **Analytics opzione A** (l'entrata
+      interna conta: `movements` del context = TUTTI i movimenti, filtraggio display per-view
+      in MainView/Analytics, mai in `loadMovements`); delete a cascata conti/categorie senza
+      leg orfani; backup normalizzato. Verificato E2E nel browser. Spec in `spec.md`
+      (sezione "Expense paid partly from a second account (coin split)"), regole in
+      `AGENTS.md`.
+
 ## 🔄 In corso / Prossimi
 
-*(Nessun punto in corso — sezione completata.)*
+### Spesa pagata in parte con monete (secondo conto) — da implementare
+
+> Spec: sezione "Expense paid partly from a second account (coin split)" in `spec.md`.
+> Obiettivo: registrare la spesa TOTALE vera in Analytics, facendo scalare al conto
+> principale (banconote) solo la parte non-monete; un conto "Monete" resta sempre a 0
+> (stash di monete non tracciato). Opzione A scelta (l'entrata interna conta nelle Entrate,
+> Net coerente coi saldi); Main view a 2 righe (entrata interna nascosta).
+
+- [x] **DB — campo `routingPairId`**: aggiunto su `Cashflow` (leg di routing) e su `Expense`
+      (gruppi spesa con monete), normalizzato in lettura (null per i record esistenti in
+      `src/db/database.ts`); logica in `src/utils/routing.ts` passa dal matching
+      data+ora+importo al **link esplicito**, con **fallback euristico** per i dati
+      preesistenti (scelta: fallback, niente bump `DB_VERSION` — massima sicurezza per i
+      dati già presenti). Wiring del link anche nei routing normali: `CreateCashflowPage`
+      crea i 2 leg con lo stesso `routingPairId`, in edit preserva il pair id e rimuove la
+      vecchia controparte negativa (fix orfani), in delete la rimuove via link; nuovo
+      `getCashflows` nel context; normalizzazione `routingPairId` anche in `backup.ts`.
+      Verificato nel browser: crea/edit/delete routing con link, fallback dati legacy
+      (lista 1 riga gialla, esclusione da Analytics), build OK
+- [x] **DB — operazioni atomiche gruppo spesa-con-monete**: in `database.ts` nuove funzioni
+      `createExpenseGroup` / `updateExpenseGroup` / `deleteExpenseGroup` che creano/aggiornano/
+      eliminano il gruppo (Expense + entrata interna + coppia routing) in **un'unica
+      transazione** su `expenses` + `cashflows` (all-or-nothing: un errore annulla tutto).
+      Verificato in browser su :5173 (import del modulo via Vite dev): create (1+3 record),
+      atomicità (id duplicato → abort, nessun record parziale), update (vecchi cashflow
+      sostituiti), delete (0/0); build OK
+- [x] **`AppContext` — metodi spesa con monete**: nuovo metodo **`saveExpenseWithCoins`**
+      (create + edit del gruppo via link: riconcilia vecchi/nuovi cashflow, preserva il pair
+      id in edit, rimuove il gruppo se togli le monete, lo crea se le aggiungi); helper
+      `buildCoinSplitCashflows` in `src/utils/coins.ts`; `deleteExpense` elimina anche i
+      cashflow del gruppo; `deleteAccountCascade` ora rimuove i cashflow del gruppo
+      (conto principale O conto monete) e **scollega** le spese del gruppo non sul conto
+      eliminato (niente leg orfani); `deleteExpenseTypeCascade` pulisce i gruppi delle spese
+      eliminate; `getAccountDeleteInfo` conta anche i cashflow del gruppo (popup accurato).
+      `loadMovements` nasconde l'entrata interna (già coperto da `routingCounterpartIds`
+      dello step 1). Verificato nel browser: 2 righe in Main view (spesa + routing giallo,
+      entrata nascosta), saldi Cash −(totale−monete) e Monete 0, delete conto principale
+      (gruppo intero via) e delete conto monete (cashflow via + spesa scollegata), delete
+      spesa con monete (gruppo via); build OK
+- [x] **`CreateExpensePage` — campi "pagato in monete"**: sezione opzionale "Pagato in parte
+      con monete" con **Importo in monete (€)** + **Conto monete** (dropdown che esclude il
+      conto principale); anteprima dei 3 movimenti quando attiva; validazioni (importo
+      monete > 0 se conto scelto, conto richiesto se importo > 0, importo ≤ totale);
+      salvataggio via **`saveExpenseWithCoins`**; in edit pre-carica i campi monete dal
+      gruppo (entrata interna via `routingPairId`); rimozione monete → spesa semplice,
+      aggiunta → crea gruppo; delete elimina il gruppo (già in `deleteExpense`). Verificato
+      nel browser: crea con monete (2 righe in Main view, 1+3 record stesso pairId, saldi
+      Cash −(totale−monete)/Monete 0), edit importo (pair preservato, cashflow sostituiti),
+      rimuovi monete (gruppo via, spesa semplice), aggiungi monete (gruppo creato),
+      validazione importo>totale (toast ⚠️); build OK
+- [x] **Main view / navigazione**: `handleMovementClick` in `MainView.tsx` ora riceve l'intero
+      movimento; se un cashflow routing ha `routingPairId` e nella lista esiste una spesa con
+      lo stesso `routingPairId` (spesa con monete) apre la modifica della **spesa**, altrimenti
+      resta la modifica entrata (routing normale). Nessun dato extra caricato (usa la stessa
+      `movements` già renderizzata). Verificato nel browser: click riga gialla di coin split →
+      "Modifica spesa" con monete pre-caricate; click routing normale → "Modifica entrata";
+      build OK
+- [x] **Analytics (opzione A) — fix trovata e applicata**: `loadMovements` ora mantiene
+      **tutti** i movimenti del periodo nel context (non nasconde più i cashflow interni);
+      il nascondimento (controparti negative + entrate interne di coin split) è diventato
+      un filtro di **visualizzazione** di ogni view: `MainView` usa `routingCounterpartIds`,
+      `AnalyticsPage` usa lo stesso filtro per la lista report e il CSV (`reportMovements`)
+      mentre i **totali** usano `isRoutingCashflow` → l'entrata interna CONTA in Total
+      Cashflow (opzione A, Net coerente coi saldi) e i leg di routing restano esclusi.
+      Verificato nel browser: Totale Entrate +100.50 (100 reale + 0.50 interna), Saldo 70.00
+      (= somma saldi conti), lista report senza entrata interna, Main view ancora 2 righe;
+      build OK
+- [x] **Backup/Ripristino**: la normalizzazione di `routingPairId` (Expense e Cashflow) in
+      `src/utils/backup.ts` era già stata aggiunta nello step 1; verificato il **round-trip**
+      completo nel browser: export (JSON contiene `routingPairId`) → `readBackupFile` +
+      `importAllData` → dopo l'import spesa e gruppo coin-split intatti (pair id preservato,
+      3 cashflow −/+/+), routing normale preservato, Main view mostra di nuovo 2 righe per
+      la spesa con monete; build OK
+- [x] **Test end-to-end**: verificati in browser tutti i percorsi tramite UI: crea conto
+      Monete, crea spesa con monete (Main view 2 righe, saldi Cash −(totale−monete)/Monete 0,
+      Analytics opzione A: Entrate +0.50, Saldo −10.00 = somma saldi), CSV export senza
+      errori, edit/rimuovi/aggiungi monete, delete spesa (gruppo via), delete cascata conto
+      monete (cashflow via + spesa scollegata); backup round-trip (gruppo preservato);
+      build finale OK
 
 ## ⏳ Da fare
 

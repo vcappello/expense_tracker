@@ -7,7 +7,7 @@ import MovementsChart, { DailyTotal } from '../components/MovementsChart';
 import MonthBreakdownChart from '../components/MonthBreakdownChart';
 import { getDateRange, abbreviateAmount, formatCurrency, formatDate } from '../utils/formatting';
 import { sortAccountsPreferred } from '../utils/accounts';
-import { isRoutingCashflow } from '../utils/routing';
+import { isRoutingCashflow, routingCounterpartIds } from '../utils/routing';
 import { exportMovementsToCSV } from '../utils/csv';
 import '../styles/AnalyticsPage.css';
 
@@ -133,6 +133,16 @@ export default function AnalyticsPage() {
     };
   }, [filteredMovements, cashflows]);
 
+  // Movements shown in the report list / CSV export: same display rule as the
+  // Main view (hide routing counterparts and coin-split internal incomes),
+  // while the summary totals still count the internal income (option A).
+  const reportMovements = useMemo(() => {
+    const hiddenCashflowIds = routingCounterpartIds(cashflows);
+    return filteredMovements.filter(
+      (m) => m.type === 'expense' || !hiddenCashflowIds.has(m.id)
+    );
+  }, [filteredMovements, cashflows]);
+
   const isMonthView = dateRange === 'current-month' || dateRange === 'previous-month';
 
   return (
@@ -158,8 +168,8 @@ export default function AnalyticsPage() {
         menu={[
           {
             label: 'Esporta CSV',
-            onClick: () => exportMovementsToCSV(filteredMovements, accounts, expenseTypes),
-            disabled: filteredMovements.length === 0,
+            onClick: () => exportMovementsToCSV(reportMovements, accounts, expenseTypes),
+            disabled: reportMovements.length === 0,
           },
         ]}
       />
@@ -293,7 +303,7 @@ export default function AnalyticsPage() {
             <div className="movements-section">
               <h2>Movimenti</h2>
               <div className="movements-list">
-                {filteredMovements
+                {[...reportMovements]
                   .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                   .map((movement) => {
                     const typeName =

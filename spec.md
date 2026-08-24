@@ -10,6 +10,10 @@ Tables:
 - ExpenseType
 - Account
 
+The `Expense` and `Cashflow` records support an optional `routingPairId` used to link the
+movements of a routing transfer or of a coin-split expense (see "Expense paid partly from a
+second account (coin split)").
+
 Default initial values for Account:
 - Cash
 - Bank account
@@ -28,6 +32,7 @@ In the main view is displayed the list of movement by date and time, a movement 
 - the date and time (hh:mm:ss)
 - for Expense: the category name, the Expense amount with negative sign and displayed in red
 - for Cashflow: the amount displayed in green (Note: if the Cashflow was created using a routing account only one movement must be displayed with color yellow)
+- for an Expense paid partly from a second account (coin split): two movements are displayed — the Expense (red) and the routing receiving movement (yellow, source → target); the internal income on the second account is hidden
 - Edit and Delete buttons on the right side of each item
 Movements are sorted by date and time, most recent first.
 The movement list must be paginated with automatic load when the user scroll over last displayed line.
@@ -62,6 +67,66 @@ Actions:
 - Create from photo: open the smartphone camera for take a photo of a receipt, the new Expense is created reading information from the receipt using AI
 - Confirm: create the Expense and store it in the local database
 - Cancel: go back without save any data (this does not save also any new expese type created)
+
+## Expense paid partly from a second account (coin split)
+
+When paying a cash expense partly with coins (an untracked stash of coins), the user can
+enter, in addition to the normal fields, an optional **second account** (the coins account)
+and an optional **second amount** (the coin portion, between 0 and the total amount). This
+records the true total spend in Analytics while keeping the main account (banknotes)
+decreased only by the non-coin portion.
+
+Example: a €10.50 expense paid with €10 from "Cash" (banknotes) and €0.50 in coins creates
+the following records:
+
+| Record | Type | Account | Amount |
+|---|---|---|---|
+| Expense | spesa | Cash | −10.50 |
+| Cashflow | entrata (internal income) | Monete | +0.50 |
+| Cashflow | routing (negative leg) | Monete | −0.50 |
+| Cashflow | routing (positive leg) | Cash (Monete → Cash) | +0.50 |
+
+Resulting balances:
+- Cash: −10.50 + 0.50 = **−10.00** (only banknotes are consumed)
+- Monete: +0.50 − 0.50 = **0.00** (kept at zero — the coins are an untracked stash)
+- Analytics Total Expenses: **10.50** (the true total)
+
+### Routing link (`routingPairId`)
+- Every Cashflow that is a routing leg (the negative leg on the source account and the
+  positive receiving leg) and every record of a coin-split group (Expense, internal income
+  and the two routing legs) share the same **`routingPairId`**. Plain Expenses and plain
+  Cashflows have `routingPairId = null`.
+- The date/time/amount heuristic in `src/utils/routing.ts` is replaced by the explicit
+  link (kept only as fallback for pre-existing records, optionally backfilled in a DB v2
+  migration). Routing detection: a Cashflow is a routing leg when it has `routingPairId`
+  AND (`routingAccountId` is set OR `amount < 0`). A positive Cashflow with
+  `routingPairId` but no `routingAccountId` is the internal income of a coin split.
+
+### Main view
+- A coin-split expense is displayed as **two movements**: the Expense (red) and the routing
+  receiving movement (yellow, source → target). The internal income on the second account
+  is **hidden** (bookkeeping artifact).
+- Clicking the yellow routing row of a coin split navigates to the **edit of the Expense**
+  (the Expense is the real object).
+
+### Analytics
+- Total Expenses include the full expense amount (the true total).
+- Total Cashflow includes the internal coin income (**option A**, chosen): this keeps the
+  Net Balance consistent with the sum of the account balances. The two routing legs are
+  excluded as usual.
+
+### Edit / Delete
+- Editing an Expense with coins loads the whole group via `routingPairId` and recreates it
+  on save when date/time/amount/coins change; removing the coins deletes the group and
+  clears the link; adding coins to a plain Expense creates the group.
+- Deleting an Expense with coins deletes the Expense and its linked group (internal income
+  + routing pair) atomically.
+- The Account cascade delete must also clean up the linked group cashflows of the deleted
+  account to avoid orphan routing legs, and clear the link on the affected Expenses.
+
+### Backup / Ripristino
+- `routingPairId` is normalized on import (null when missing) for both Expense and
+  Cashflow records.
 
 ## Edit or Create Cashflow
 When the user click the new Cashflow button a new page is displayed.
@@ -145,7 +210,7 @@ The Analytics view has two toggle buttons that switch between two visualizations
 ### Report
 Display a summary card with the following metrics calculated from filtered movements:
 - Total Expenses: sum of all Expense amounts in the selected period, displayed in red with negative sign and *abbreviated*
-- Total Cashflow: sum of all Cashflow amounts (excluding routing), displayed in green and *abbreviated*
+- Total Cashflow: sum of all Cashflow amounts (excluding routing), displayed in green and *abbreviated* (Note: the internal income of a coin-split expense IS counted — option A — keeping the Net consistent with the account balances)
 - Net Balance: Total Cashflow - Total Expenses, displayed with color based on sign (green if positive, red if negative) and *abbreviated*
 - Average Daily Expense: Total Expenses / number of days in selected period, displayed in red and *abbreviated*
 - Top 3 Categories: list of the 3 ExpenseType with highest spending in the period, for each show the category name and the total amount *abbreviated* in red
@@ -191,7 +256,8 @@ again). To preserve the data across origins the app provides a JSON backup:
   will replace all existing data. On confirm, the database is cleared and rewritten with the imported
   records in a single atomic IndexedDB transaction (all-or-nothing: a failure leaves the current data
   untouched). Afterwards the whole app state is reloaded. Invalid files show an `AlertModal` error.
-  Field normalization on import: `initialBalance` defaults to 0 and `isPreferred` to false on accounts.
+  Field normalization on import: `initialBalance` defaults to 0 and `isPreferred` to false on accounts;
+  `routingPairId` defaults to null on both Expense and Cashflow records.
 
 Both actions are available in the Main view "Azioni" menu. This is the recommended way to move the data
 when switching to the HTTPS server (or any other origin change).

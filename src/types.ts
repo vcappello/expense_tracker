@@ -23,6 +23,7 @@ export interface Expense {
   amount: number;
   expenseTypeId: string;
   accountId: string;
+  routingPairId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,6 +35,7 @@ export interface Cashflow {
   amount: number;
   accountId: string;
   routingAccountId: string | null;
+  routingPairId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -81,6 +81,24 @@ export const closeDB = () => {
   }
 };
 
+/**
+ * Normalize legacy Expense records that predate the `routingPairId` link
+ * (missing field → null). Keeps existing data backward compatible.
+ */
+const normalizeExpense = (e: Expense): Expense => ({
+  ...e,
+  routingPairId: e.routingPairId ?? null,
+});
+
+/**
+ * Normalize legacy Cashflow records that predate the `routingPairId` link
+ * (missing field → null). Keeps existing data backward compatible.
+ */
+const normalizeCashflow = (c: Cashflow): Cashflow => ({
+  ...c,
+  routingPairId: c.routingPairId ?? null,
+});
+
 // ============ ACCOUNT OPERATIONS ============
 
 export const createAccount = async (account: Account): Promise<Account> => {
@@ -249,7 +267,7 @@ export const getExpenses = async (): Promise<Expense[]> => {
     const request = store.getAll();
 
     request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => resolve(request.result.map(normalizeExpense));
   });
 };
 
@@ -261,7 +279,8 @@ export const getExpense = async (id: string): Promise<Expense | undefined> => {
     const request = store.get(id);
 
     request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () =>
+      resolve(request.result ? normalizeExpense(request.result) : undefined);
   });
 };
 
@@ -278,7 +297,7 @@ export const getExpensesByDateRange = async (
     const request = index.getAll(range);
 
     request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => resolve(request.result.map(normalizeExpense));
   });
 };
 
@@ -291,7 +310,7 @@ export const getExpensesByType = async (expenseTypeId: string): Promise<Expense[
     const request = index.getAll(expenseTypeId);
 
     request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => resolve(request.result.map(normalizeExpense));
   });
 };
 
@@ -304,7 +323,7 @@ export const getExpensesByAccount = async (accountId: string): Promise<Expense[]
     const request = index.getAll(accountId);
 
     request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => resolve(request.result.map(normalizeExpense));
   });
 };
 
@@ -354,7 +373,7 @@ export const getCashflows = async (): Promise<Cashflow[]> => {
     const request = store.getAll();
 
     request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => resolve(request.result.map(normalizeCashflow));
   });
 };
 
@@ -366,7 +385,8 @@ export const getCashflow = async (id: string): Promise<Cashflow | undefined> => 
     const request = store.get(id);
 
     request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () =>
+      resolve(request.result ? normalizeCashflow(request.result) : undefined);
   });
 };
 
@@ -383,7 +403,7 @@ export const getCashflowsByDateRange = async (
     const request = index.getAll(range);
 
     request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => resolve(request.result.map(normalizeCashflow));
   });
 };
 
@@ -396,7 +416,7 @@ export const getCashflowsByAccount = async (accountId: string): Promise<Cashflow
     const request = index.getAll(accountId);
 
     request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => resolve(request.result.map(normalizeCashflow));
   });
 };
 
@@ -473,6 +493,88 @@ export const deleteExpensesByAccount = (accountId: string): Promise<void> => {
  */
 export const deleteCashflowsByAccount = (accountId: string): Promise<void> => {
   return deleteAllByIndex(STORES.CASHFLOWS, 'accountId', accountId);
+};
+
+// ============ COIN-SPLIT EXPENSE GROUP (atomic) ============
+
+/**
+ * Atomically create an Expense plus its linked coin-split Cashflows (the
+ * internal income on the second account and the routing pair) in a single
+ * IndexedDB transaction (all-or-nothing). Used by the "paid partly from a
+ * second account (coin split)" feature: all records share the same
+ * `routingPairId`. If any insert fails the transaction aborts and no record
+ * is persisted.
+ */
+export const createExpenseGroup = async (
+  expense: Expense,
+  cashflows: Cashflow[]
+): Promise<void> => {
+  const database = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(
+      [STORES.EXPENSES, STORES.CASHFLOWS],
+      'readwrite'
+    );
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error);
+
+    transaction.objectStore(STORES.EXPENSES).add(expense);
+    const cashflowStore = transaction.objectStore(STORES.CASHFLOWS);
+    cashflows.forEach((c) => cashflowStore.add(c));
+  });
+};
+
+/**
+ * Atomically update an Expense and replace its linked coin-split Cashflows in
+ * a single transaction (all-or-nothing): the old linked cashflows are deleted
+ * and the new ones are added. Used when editing an Expense paid partly from a
+ * second account.
+ */
+export const updateExpenseGroup = async (
+  expense: Expense,
+  oldCashflowIds: string[],
+  newCashflows: Cashflow[]
+): Promise<void> => {
+  const database = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(
+      [STORES.EXPENSES, STORES.CASHFLOWS],
+      'readwrite'
+    );
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error);
+
+    transaction.objectStore(STORES.EXPENSES).put(expense);
+    const cashflowStore = transaction.objectStore(STORES.CASHFLOWS);
+    oldCashflowIds.forEach((id) => cashflowStore.delete(id));
+    newCashflows.forEach((c) => cashflowStore.add(c));
+  });
+};
+
+/**
+ * Atomically delete an Expense and its linked coin-split Cashflows in a single
+ * transaction (all-or-nothing).
+ */
+export const deleteExpenseGroup = async (
+  expenseId: string,
+  cashflowIds: string[]
+): Promise<void> => {
+  const database = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(
+      [STORES.EXPENSES, STORES.CASHFLOWS],
+      'readwrite'
+    );
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error);
+
+    transaction.objectStore(STORES.EXPENSES).delete(expenseId);
+    const cashflowStore = transaction.objectStore(STORES.CASHFLOWS);
+    cashflowIds.forEach((id) => cashflowStore.delete(id));
+  });
 };
 
 // ============ BACKUP / RESTORE ============

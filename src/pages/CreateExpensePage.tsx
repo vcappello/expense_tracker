@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { Expense, ExpenseType } from '../types';
+import { ExpenseType } from '../types';
 import { sortAccountsPreferred } from '../utils/accounts';
 import { useNavigateBack } from '../utils/navigation';
 import TitleBar, { TitleBarAction } from '../components/TitleBar';
@@ -22,7 +22,7 @@ const formatTimeToHHMMSS = (date: Date): string => {
 export default function CreateExpensePage() {
   const navigateBack = useNavigateBack('/');
   const { id: expenseId } = useParams<{ id: string }>();
-  const { accounts, expenseTypes, createExpense, updateExpense, createExpenseType, getExpense, deleteExpense } = useApp();
+  const { accounts, expenseTypes, createExpenseType, getExpense, deleteExpense, saveExpenseWithCoins, getCashflows } = useApp();
   const sortedAccounts = sortAccountsPreferred(accounts);
 
   const now = new Date();
@@ -32,6 +32,8 @@ export default function CreateExpensePage() {
     amount: '',
     expenseTypeId: '',
     accountId: sortedAccounts[0]?.id || '',
+    coinsAccountId: '',
+    coinsAmount: '',
   });
 
   const [expenseTypeSearch, setExpenseTypeSearch] = useState('');
@@ -50,12 +52,32 @@ export default function CreateExpensePage() {
         try {
           const expense = await getExpense(expenseId);
           if (expense) {
+            // Pre-fill the coin-split fields (if any) from the linked group:
+            // the internal income is the positive Cashflow with the same
+            // routingPairId and no routingAccountId.
+            let coinsAccountId = '';
+            let coinsAmount = '';
+            if (expense.routingPairId) {
+              const all = await getCashflows();
+              const income = all.find(
+                (c) =>
+                  c.routingPairId === expense.routingPairId &&
+                  c.routingAccountId === null &&
+                  c.amount > 0
+              );
+              if (income) {
+                coinsAccountId = income.accountId;
+                coinsAmount = Math.abs(income.amount).toString();
+              }
+            }
             setFormData({
               date: expense.date.toISOString().split('T')[0],
               time: expense.time || formatTimeToHHMMSS(new Date()),
               amount: Math.abs(expense.amount).toString(),
               expenseTypeId: expense.expenseTypeId,
               accountId: expense.accountId,
+              coinsAccountId,
+              coinsAmount,
             });
           }
         } catch (err) {
@@ -65,7 +87,7 @@ export default function CreateExpensePage() {
     };
     
     loadExpense();
-  }, [expenseId, getExpense]);
+  }, [expenseId, getExpense, getCashflows]);
 
   // Update default account when accounts change
   useEffect(() => {
@@ -138,9 +160,30 @@ export default function CreateExpensePage() {
   };
 
   const handleAccountChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const accountId = e.target.value;
     setFormData((prev) => ({
       ...prev,
-      accountId: e.target.value,
+      accountId,
+      // if the main account becomes the coins account, clear it
+      coinsAccountId:
+        prev.coinsAccountId === accountId ? '' : prev.coinsAccountId,
+    }));
+  };
+
+  const handleCoinsAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+      setFormData((prev) => ({
+        ...prev,
+        coinsAmount: value,
+      }));
+    }
+  };
+
+  const handleCoinsAccountChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setFormData((prev) => ({
+      ...prev,
+      coinsAccountId: e.target.value,
     }));
   };
 
@@ -190,25 +233,39 @@ export default function CreateExpensePage() {
       return;
     }
 
+    const total = parseFloat(formData.amount);
+    const coinsAmount = formData.coinsAmount
+      ? parseFloat(formData.coinsAmount)
+      : 0;
+    const coinsAccountSelected = formData.coinsAccountId !== '';
+    const hasCoins = coinsAccountSelected && coinsAmount > 0;
+
+    if (coinsAmount > 0 && !coinsAccountSelected) {
+      showToast('Seleziona il conto delle monete', '⚠️');
+      return;
+    }
+    if (coinsAccountSelected && coinsAmount <= 0) {
+      showToast('Inserisci l\'importo in monete', '⚠️');
+      return;
+    }
+    if (hasCoins && coinsAmount > total) {
+      showToast('L\'importo in monete non può superare l\'importo totale', '⚠️');
+      return;
+    }
+
     try {
       setIsLoading(true);
 
-      const expense: Expense = {
-        id: expenseId || uuidv4(),
+      await saveExpenseWithCoins({
+        expenseId: expenseId || undefined,
         date: new Date(formData.date),
         time: formData.time,
-        amount: parseFloat(formData.amount),
+        amount: total,
         expenseTypeId: formData.expenseTypeId,
         accountId: formData.accountId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      if (expenseId) {
-        await updateExpense(expense);
-      } else {
-        await createExpense(expense);
-      }
+        coinsAccountId: hasCoins ? formData.coinsAccountId : null,
+        coinsAmount: hasCoins ? coinsAmount : null,
+      });
 
       navigateBack();
     } catch (err) {
@@ -256,6 +313,13 @@ export default function CreateExpensePage() {
   });
 
   const selectedType = expenseTypes.find((t) => t.id === formData.expenseTypeId);
+
+  const coinsActive =
+    formData.coinsAccountId !== '' && parseFloat(formData.coinsAmount) > 0;
+  const mainAccountName =
+    accounts.find((a) => a.id === formData.accountId)?.name || '?';
+  const coinsAccountName =
+    accounts.find((a) => a.id === formData.coinsAccountId)?.name || '?';
 
   return (
     <div className="expense-page">
@@ -365,6 +429,57 @@ export default function CreateExpensePage() {
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Coin split (optional): paid partly from a second account */}
+          <div className="form-section">
+            <div className="form-section-title">
+              Pagato in parte con monete (opzionale)
+            </div>
+            <div className="form-group">
+              <label htmlFor="coinsAmount">Importo in monete (€)</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                id="coinsAmount"
+                placeholder="0.00"
+                value={formData.coinsAmount}
+                onChange={handleCoinsAmountChange}
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="coinsAccount">Conto monete</label>
+              <select
+                id="coinsAccount"
+                value={formData.coinsAccountId}
+                onChange={handleCoinsAccountChange}
+                className="form-input"
+              >
+                <option value="">Nessuno</option>
+                {sortedAccounts.map((account) => (
+                  <option
+                    key={account.id}
+                    value={account.id}
+                    disabled={account.id === formData.accountId}
+                  >
+                    {account.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {coinsActive && (
+              <div className="form-info">
+                <p className="info-text">
+                  💡 Verranno creati 3 movimenti:
+                  <br />• Spesa −{formData.amount || '0.00'}€ su{' '}
+                  {mainAccountName}
+                  <br />• Entrata +{formData.coinsAmount || '0.00'}€ su{' '}
+                  {coinsAccountName}
+                  <br />• 🔄 {coinsAccountName} → {mainAccountName}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Hidden submit button to keep native form submission (e.g. Enter key) */}

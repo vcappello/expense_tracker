@@ -22,7 +22,7 @@ const formatTimeToHHMMSS = (date: Date): string => {
 export default function CreateCashflowPage() {
   const navigateBack = useNavigateBack('/');
   const { id: cashflowId } = useParams<{ id: string }>();
-  const { accounts, cashflows, createCashflow, updateCashflow, getCashflow, deleteCashflow } = useApp();
+  const { accounts, createCashflow, updateCashflow, getCashflow, getCashflows, deleteCashflow } = useApp();
   const sortedAccounts = sortAccountsPreferred(accounts);
 
   const now = new Date();
@@ -145,21 +145,31 @@ export default function CreateCashflowPage() {
       setIsLoading(true);
 
       if (formData.routingAccountId) {
-        // Create 2 cashflows: one for routing account (negative), one for main account (positive)
-        const cashflow1: Cashflow = {
-          id: uuidv4(),
-          date: new Date(formData.date),
-          time: formData.time,
-          amount: -parseFloat(formData.amount),
-          accountId: formData.routingAccountId,
-          routingAccountId: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-
         if (cashflowId) {
           // Editing a routing cashflow: update the positive movement in place,
-          // then recreate the negative routing movement
+          // remove the previous negative counterpart(s) of the pair, then
+          // recreate the negative movement with the same routingPairId link.
+          const current = await getCashflow(cashflowId);
+          const pairId = current?.routingPairId ?? uuidv4();
+          const all = await getCashflows();
+          const previousLegs = all.filter(
+            (c) => c.routingPairId === pairId && c.id !== cashflowId
+          );
+          for (const leg of previousLegs) {
+            await deleteCashflow(leg.id);
+          }
+
+          const cashflow1: Cashflow = {
+            id: uuidv4(),
+            date: new Date(formData.date),
+            time: formData.time,
+            amount: -parseFloat(formData.amount),
+            accountId: formData.routingAccountId,
+            routingAccountId: null,
+            routingPairId: pairId,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
           const cashflow2: Cashflow = {
             id: cashflowId,
             date: new Date(formData.date),
@@ -167,6 +177,7 @@ export default function CreateCashflowPage() {
             amount: parseFloat(formData.amount),
             accountId: formData.accountId,
             routingAccountId: formData.routingAccountId,
+            routingPairId: pairId,
             createdAt: new Date(),
             updatedAt: new Date(),
           };
@@ -174,6 +185,21 @@ export default function CreateCashflowPage() {
           await updateCashflow(cashflow2);
           await createCashflow(cashflow1);
         } else {
+          // Create 2 cashflows: one for routing account (negative), one for
+          // main account (positive). Both legs share the same routingPairId so
+          // the pair is detected exactly (no date/time/amount heuristic).
+          const pairId = uuidv4();
+          const cashflow1: Cashflow = {
+            id: uuidv4(),
+            date: new Date(formData.date),
+            time: formData.time,
+            amount: -parseFloat(formData.amount),
+            accountId: formData.routingAccountId,
+            routingAccountId: null,
+            routingPairId: pairId,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
           const cashflow2: Cashflow = {
             id: uuidv4(),
             date: new Date(formData.date),
@@ -181,6 +207,7 @@ export default function CreateCashflowPage() {
             amount: parseFloat(formData.amount),
             accountId: formData.accountId,
             routingAccountId: formData.routingAccountId,
+            routingPairId: pairId,
             createdAt: new Date(),
             updatedAt: new Date(),
           };
@@ -197,6 +224,7 @@ export default function CreateCashflowPage() {
           amount: parseFloat(formData.amount),
           accountId: formData.accountId,
           routingAccountId: null,
+          routingPairId: null,
           createdAt: new Date(),
           updatedAt: new Date(),
         };
@@ -227,15 +255,26 @@ export default function CreateCashflowPage() {
     try {
       const current = await getCashflow(cashflowId);
       if (current?.routingAccountId) {
-        // Delete also the negative counterpart of the routing transfer
-        const key = `${new Date(current.date).getTime()}|${current.time || ''}|${Math.abs(current.amount)}`;
-        const counterpart = cashflows.find(
-          (c) =>
-            c.id !== current.id &&
-            !c.routingAccountId &&
-            c.amount < 0 &&
-            `${new Date(c.date).getTime()}|${c.time || ''}|${Math.abs(c.amount)}` === key
-        );
+        // Delete also the negative counterpart of the routing transfer. Prefer
+        // the explicit pair link; fall back to the date/time/amount heuristic
+        // for legacy records without a link.
+        const all = await getCashflows();
+        let counterpart = current.routingPairId
+          ? all.find(
+              (c) =>
+                c.routingPairId === current.routingPairId && c.id !== current.id
+            )
+          : undefined;
+        if (!counterpart) {
+          const key = `${new Date(current.date).getTime()}|${current.time || ''}|${Math.abs(current.amount)}`;
+          counterpart = all.find(
+            (c) =>
+              c.id !== current.id &&
+              !c.routingAccountId &&
+              c.amount < 0 &&
+              `${new Date(c.date).getTime()}|${c.time || ''}|${Math.abs(c.amount)}` === key
+          );
+        }
         if (counterpart) await deleteCashflow(counterpart.id);
       }
       await deleteCashflow(cashflowId);

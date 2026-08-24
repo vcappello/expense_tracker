@@ -3,8 +3,9 @@ import { Account, Expense, ExpenseType, Cashflow, Movement, MovementFilters } fr
 import * as db from '../db/database';
 import { getDateRange, toDateTime } from '../utils/formatting';
 import { initializeDefaultData } from '../utils/initialization';
-import { routingCounterpartIds } from '../utils/routing';
+import { buildCoinSplitCashflows } from '../utils/coins';
 import { BackupData } from '../utils/backup';
+import { v4 as uuidv4 } from 'uuid';
 
 // Impact info for the critical delete confirmation popups
 export interface AccountDeleteInfo {
@@ -19,6 +20,50 @@ export interface ExpenseTypeDeleteInfo {
   expensesTotal: number;
   childCount: number;
 }
+
+// Input for saving an Expense, optionally paid partly from a second account
+// (coin split). When coinsAccountId and coinsAmount > 0 are provided, the
+// whole group (Expense + internal income + routing pair) is saved atomically.
+export interface ExpenseWithCoinsInput {
+  expenseId?: string;
+  date: Date;
+  time: string;
+  amount: number;
+  expenseTypeId: string;
+  accountId: string;
+  coinsAccountId?: string | null;
+  coinsAmount?: number | null;
+}
+
+/**
+ * Ids of the cashflows affected by deleting `accountId`: all cashflows on the
+ * account (as own account or routing source) plus every cashflow of the same
+ * routing/coin-split group (routingPairId), so no orphan leg remains on the
+ * other account.
+ */
+const collectAccountCashflowIds = (
+  allCashflows: Cashflow[],
+  accountId: string
+): Set<string> => {
+  const ids = new Set(
+    allCashflows
+      .filter(
+        (c) => c.accountId === accountId || c.routingAccountId === accountId
+      )
+      .map((c) => c.id)
+  );
+  for (const c of allCashflows) {
+    if (
+      c.routingPairId &&
+      allCashflows.some(
+        (o) => o.routingPairId === c.routingPairId && ids.has(o.id)
+      )
+    ) {
+      ids.add(c.id);
+    }
+  }
+  return ids;
+};
 
 interface AppContextType {
   // Accounts
@@ -44,6 +89,7 @@ interface AppContextType {
   updateExpense: (expense: Expense) => Promise<Expense>;
   deleteExpense: (id: string) => Promise<void>;
   getExpense: (id: string) => Promise<Expense | undefined>;
+  saveExpenseWithCoins: (input: ExpenseWithCoinsInput) => Promise<Expense>;
 
   // Cashflows
   cashflows: Cashflow[];
@@ -52,6 +98,7 @@ interface AppContextType {
   updateCashflow: (cashflow: Cashflow) => Promise<Cashflow>;
   deleteCashflow: (id: string) => Promise<void>;
   getCashflow: (id: string) => Promise<Cashflow | undefined>;
+  getCashflows: () => Promise<Cashflow[]>;
 
   // Cascading deletes (Account / ExpenseType with linked movements)
   getAccountDeleteInfo: (accountId: string) => Promise<AccountDeleteInfo>;
@@ -260,7 +307,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const deleteExpense = useCallback(async (id: string) => {
     try {
       clearError();
-      await db.deleteExpense(id);
+      const current = await db.getExpense(id);
+      if (current?.routingPairId) {
+        // Delete also the linked coin-split cashflows (internal income +
+        // routing pair) atomically.
+        const groupCashflowIds = (await db.getCashflows())
+          .filter((c) => c.routingPairId === current.routingPairId)
+          .map((c) => c.id);
+        await db.deleteExpenseGroup(id, groupCashflowIds);
+      } else {
+        await db.deleteExpense(id);
+      }
       setExpenses((prev) => prev.filter((e) => e.id !== id));
     } catch (err) {
       throw err;
@@ -275,6 +332,108 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       throw err;
     }
   }, []);
+
+  /**
+   * Save an Expense, optionally paid partly from a second account (coin
+   * split). Handles both create and edit: when coins are provided the whole
+   * group (Expense + internal income + routing pair) is saved atomically; when
+   * editing, the previous linked cashflows are replaced/removed via the link.
+   */
+  const saveExpenseWithCoins = useCallback(
+    async (input: ExpenseWithCoinsInput): Promise<Expense> => {
+      try {
+        clearError();
+        const coinsAccountId = input.coinsAccountId || '';
+        const coinsAmount = input.coinsAmount ?? 0;
+        const coins =
+          coinsAccountId !== '' &&
+          coinsAccountId !== input.accountId &&
+          coinsAmount > 0;
+        if (coins && coinsAmount > input.amount) {
+          throw new Error(
+            'L\'importo in monete non può superare l\'importo totale della spesa'
+          );
+        }
+        const now = new Date();
+
+        if (input.expenseId) {
+          // EDIT: reconcile the existing group via the explicit link.
+          const current = await db.getExpense(input.expenseId);
+          const currentPairId = current?.routingPairId ?? null;
+          const pairId = coins ? currentPairId ?? uuidv4() : null;
+
+          const expense: Expense = {
+            id: input.expenseId,
+            date: input.date,
+            time: input.time,
+            amount: input.amount,
+            expenseTypeId: input.expenseTypeId,
+            accountId: input.accountId,
+            routingPairId: pairId,
+            createdAt: current?.createdAt ?? now,
+            updatedAt: now,
+          };
+
+          const oldCashflowIds = currentPairId
+            ? (await db.getCashflows())
+                .filter((c) => c.routingPairId === currentPairId)
+                .map((c) => c.id)
+            : [];
+
+          const newCashflows =
+            coins && pairId
+              ? buildCoinSplitCashflows({
+                  pairId,
+                  date: input.date,
+                  time: input.time,
+                  coinsAmount,
+                  mainAccountId: input.accountId,
+                  coinsAccountId,
+                })
+              : [];
+
+          await db.updateExpenseGroup(expense, oldCashflowIds, newCashflows);
+          setExpenses((prev) =>
+            prev.map((e) => (e.id === expense.id ? expense : e))
+          );
+          return expense;
+        }
+
+        // CREATE
+        const pairId = coins ? uuidv4() : null;
+        const expense: Expense = {
+          id: uuidv4(),
+          date: input.date,
+          time: input.time,
+          amount: input.amount,
+          expenseTypeId: input.expenseTypeId,
+          accountId: input.accountId,
+          routingPairId: pairId,
+          createdAt: now,
+          updatedAt: now,
+        };
+
+        if (coins && pairId) {
+          const cashflows = buildCoinSplitCashflows({
+            pairId,
+            date: input.date,
+            time: input.time,
+            coinsAmount,
+            mainAccountId: input.accountId,
+            coinsAccountId,
+          });
+          await db.createExpenseGroup(expense, cashflows);
+        } else {
+          await db.createExpense(expense);
+        }
+        setExpenses((prev) => [...prev, expense]);
+        return expense;
+      } catch (err) {
+        throw err;
+      }
+    },
+    []
+  );
 
   // ============ CASHFLOWS ============
   const loadCashflows = useCallback(async () => {
@@ -333,11 +492,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, []);
 
+  const getCashflows = useCallback(async () => {
+    try {
+      clearError();
+      return await db.getCashflows();
+    } catch (err) {
+      throw err;
+    }
+  }, []);
+
   // ============ CASCADING DELETES ============
 
   const getAccountDeleteInfo = useCallback(async (accountId: string) => {
-    const accountCashflows = await db.getCashflowsByAccount(accountId);
+    const allCashflows = await db.getCashflows();
     const accountExpenses = await db.getExpensesByAccount(accountId);
+    const cashflowIds = collectAccountCashflowIds(allCashflows, accountId);
+    const accountCashflows = allCashflows.filter((c) => cashflowIds.has(c.id));
     return {
       cashflowsCount: accountCashflows.length,
       cashflowsTotal: accountCashflows.reduce((sum, c) => sum + c.amount, 0),
@@ -347,11 +517,45 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   const deleteAccountCascade = useCallback(async (accountId: string) => {
-    await db.deleteCashflowsByAccount(accountId);
-    await db.deleteExpensesByAccount(accountId);
+    const allCashflows = await db.getCashflows();
+    const allExpenses = await db.getExpenses();
+
+    // Cashflows on the deleted account (as own account or routing source) plus
+    // the whole routing/coin-split group they belong to: no orphan legs.
+    const cashflowIds = collectAccountCashflowIds(allCashflows, accountId);
+
+    // Expenses on the deleted account.
+    const expenseIds = new Set(
+      allExpenses
+        .filter((e) => e.accountId === accountId)
+        .map((e) => e.id)
+    );
+
+    // Coin-split expenses NOT on the deleted account but whose group cashflows
+    // are removed (e.g. deleting the coins account): clear the link so the
+    // expense becomes a plain expense (no dangling reference).
+    const unlinkedExpenses = allExpenses
+      .filter(
+        (e) =>
+          e.accountId !== accountId &&
+          e.routingPairId &&
+          allCashflows.some(
+            (c) => c.routingPairId === e.routingPairId && cashflowIds.has(c.id)
+          )
+      )
+      .map((e) => ({ ...e, routingPairId: null, updatedAt: new Date() }));
+
+    for (const cid of cashflowIds) await db.deleteCashflow(cid);
+    for (const eid of expenseIds) await db.deleteExpense(eid);
+    for (const e of unlinkedExpenses) await db.updateExpense(e);
     await db.deleteAccount(accountId);
-    setCashflows((prev) => prev.filter((cf) => cf.accountId !== accountId));
-    setExpenses((prev) => prev.filter((e) => e.accountId !== accountId));
+
+    setCashflows((prev) => prev.filter((c) => !cashflowIds.has(c.id)));
+    setExpenses((prev) =>
+      prev
+        .filter((e) => !expenseIds.has(e.id))
+        .map((e) => unlinkedExpenses.find((u) => u.id === e.id) ?? e)
+    );
     setAccounts((prev) => prev.filter((a) => a.id !== accountId));
   }, []);
 
@@ -374,6 +578,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const allTypes = await db.getExpenseTypes();
     const children = allTypes.filter((t) => t.parentId === typeId);
     const affectedIds = new Set([typeId, ...children.map((c) => c.id)]);
+
+    // Clean up the coin-split groups of the deleted expenses (no orphan legs).
+    const allExpenses = await db.getExpenses();
+    const affectedExpenses = allExpenses.filter((e) =>
+      affectedIds.has(e.expenseTypeId)
+    );
+    const groupPairIds = new Set(
+      affectedExpenses
+        .map((e) => e.routingPairId)
+        .filter((p): p is string => !!p)
+    );
+    if (groupPairIds.size > 0) {
+      const groupCashflowIds = (await db.getCashflows())
+        .filter((c) => c.routingPairId && groupPairIds.has(c.routingPairId))
+        .map((c) => c.id);
+      for (const cid of groupCashflowIds) await db.deleteCashflow(cid);
+    }
 
     for (const id of affectedIds) {
       await db.deleteExpensesByType(id);
@@ -400,21 +621,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           ...cashflowData.map((cf) => ({ ...cf, type: 'cashflow' as const })),
         ];
 
-        // For routing transfers show only one movement (the receiving one,
-        // yellow); hide the negative counterpart on the routing account.
-        const hiddenCashflowIds = routingCounterpartIds(cashflowData);
-        const displayableMovements = movementList.filter(
-          (m) => m.type === 'expense' || !hiddenCashflowIds.has(m.id)
-        );
-
-        // Sort by date and time descending (most recent first)
-        displayableMovements.sort(
+        // Sort by date and time descending (most recent first). The list keeps
+        // ALL movements of the period; hiding the internal routing/coin-split
+        // cashflows is a display concern of each view (Main view, Analytics),
+        // so Analytics can still count the internal income (option A).
+        movementList.sort(
           (a, b) =>
             toDateTime(b.date, b.time).getTime() -
             toDateTime(a.date, a.time).getTime()
         );
 
-        setMovements(displayableMovements);
+        setMovements(movementList);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load movements');
       } finally {
@@ -468,6 +685,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     updateExpense,
     deleteExpense,
     getExpense,
+    saveExpenseWithCoins,
 
     // Cashflows
     cashflows,
@@ -476,6 +694,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     updateCashflow,
     deleteCashflow,
     getCashflow,
+    getCashflows,
 
     // Cascading deletes
     getAccountDeleteInfo,
