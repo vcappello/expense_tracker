@@ -75,6 +75,8 @@
 
 ## 🔄 In corso / Prossimi
 
+> Entrambe le attività di questa sezione sono **completate** (vedi sezione ✅ Completati).
+
 ### Conto monete (flag isCoinAccount) — completata
 
 > Rifinitura UX della feature "spesa con monete": nel dropdown "Conto monete" del form spesa
