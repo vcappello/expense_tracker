@@ -11,6 +11,7 @@
 - **Specifiche**: vedi `spec.md` (da aggiornare con ogni nuova feature).
 - **Piano attività**: vedi `plan.md` (step completati = marcati, mai cancellati).
 - **Convenzioni complete**: vedi `.copilot-instructions.md` (file di riferimento principale).
+- **⚠️ GIT + DEPLOY SEMPRE ATTIVI (cruciale)**: il progetto è su **GitHub** (remote `origin` = https://github.com/vcappello/expense_tracker.git, branch `main`) ed è **pubblicato su GitHub Pages** (https://vcappello.github.io/expense_tracker/, HTTPS, deploy automatico via `.github/workflows/deploy.yml` a ogni push su `main`; nome repo = `expense_tracker` con underscore, NON `expense-tracker-ai`). Dopo OGNI modifica rilevante: verificare `npm run build`, poi `git add -A && git commit -m "..." && git push` → il sito live si aggiorna da solo. Mai trattare il progetto come solo-locale.
 
 ## Comandi
 - Avvio dev server: `npm run dev` (serve **terminale unsandboxed** per ascoltare su rete).
