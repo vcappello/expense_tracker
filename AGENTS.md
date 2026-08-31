@@ -66,6 +66,17 @@
   usano `isRoutingCashflow` (l'entrata interna di coin split CONTA in Total Cashflow —
   opzione A — e i leg di routing restano esclusi). NON reintrodurre l'hiding in
   `loadMovements`: romperebbe i totali Analytics.
+- **GitHub Pages (HTTPS)**: l'app gira in una **sottocartella**
+  (`https://vcappello.github.io/expense_tracker/`). Regole da non violare:
+  `vite.config.ts` legge `process.env.BASE_URL` (default `/`; il workflow CI builda con
+  `BASE_URL=/expense_tracker/`); routing con **`HashRouter`** (URL `#/...` — GitHub Pages
+  non riscrive le route SPA, niente 404.html; `navigate(-1)` e `window.history.state.idx`
+  funzionano identici). Non reintrodurre `BrowserRouter` né percorsi assoluti: in
+  `public/sw.js` usare `self.registration.scope` (mai `/assets/`, `/index.html` hardcoded),
+  nel manifest `start_url`/`scope`/icone relativi, in `index.html` il placeholder
+  `%BASE_URL%` per manifest/icone, registrazione SW con `import.meta.env.BASE_URL`.
+  Build locale alla root resta valida (base default `/`). I dati IndexedDB sono legati
+  all'origine: da localhost non si ereditano → Esporta/Ripristina backup.
 
 ## Limiti noti (non bloccanti)
 - **Main view al primo load freddo**: a volte il filtro "This month" appare vuoto subito dopo il caricamento della pagina (comportamento transitorio legato a IndexedDB); cliccando un qualsiasi filtro i dati compaiono. Rivedere il timing di lettura se si ripresenta.

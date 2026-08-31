@@ -1,10 +1,21 @@
 // Service worker per Expense Tracker AI (PWA).
 // Strategie:
-//  - Navigazioni: network-first con fallback su /index.html (app shell, offline).
-//  - Asset statici (/assets/, /icons/, manifest): cache-first.
+//  - Navigazioni: network-first con fallback su index.html (app shell, offline).
+//  - Asset statici (assets/, icons/, manifest): cache-first.
 // I dati restano locali nel dispositivo (IndexedDB), non c'è API di rete.
-const CACHE = 'expense-tracker-v1';
-const PRECACHE = ['/', '/index.html', '/manifest.webmanifest'];
+//
+// GitHub Pages: l'app può essere servita dalla root (localhost/preview) o da una
+// sottocartella (es. /expense_tracker/). Tutti i percorsi derivano da
+// self.registration.scope (che termina sempre con '/'), quindi funzionano in
+// entrambi i casi senza hardcoded path.
+const CACHE = 'expense-tracker-v2';
+
+const BASE = self.registration.scope;
+const INDEX_HTML = new URL('index.html', BASE).href;
+const MANIFEST = new URL('manifest.webmanifest', BASE).href;
+const ASSETS_BASE = new URL('assets/', BASE).href;
+const ICONS_BASE = new URL('icons/', BASE).href;
+const PRECACHE = [BASE, INDEX_HTML, MANIFEST];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -37,19 +48,19 @@ self.addEventListener('fetch', (event) => {
       fetch(request)
         .then((res) => {
           const copy = res.clone();
-          caches.open(CACHE).then((cache) => cache.put('/index.html', copy));
+          caches.open(CACHE).then((cache) => cache.put(INDEX_HTML, copy));
           return res;
         })
-        .catch(() => caches.match('/index.html'))
+        .catch(() => caches.match(INDEX_HTML))
     );
     return;
   }
 
   // Asset statici: cache-first.
   const isStatic =
-    url.pathname.startsWith('/assets/') ||
-    url.pathname.startsWith('/icons/') ||
-    url.pathname === '/manifest.webmanifest';
+    url.href.startsWith(ASSETS_BASE) ||
+    url.href.startsWith(ICONS_BASE) ||
+    url.href === MANIFEST;
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;

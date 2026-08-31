@@ -1,4 +1,8 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+// HashRouter: su GitHub Pages le route SPA non vengono riscritte dal server,
+// quindi gli URL con hash (#/...) funzionano sempre (anche al refresh) senza
+// dover configurare un file 404. Il comportamento del Back (navigate(-1),
+// window.history.state.idx) resta identico al BrowserRouter.
+import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { initializeDefaultData } from './utils/initialization';

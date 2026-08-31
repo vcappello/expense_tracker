@@ -72,6 +72,17 @@
       "Conto monete" elenca **solo** i conti con il flag (niente più elenco di tutti i conti),
       con hint quando non ce ne sono e opzione di ripiego per selezioni legacy. Verificato E2E
       nel browser. Spec in `spec.md`, attività in `AGENTS.md`.
+- [x] **Pubblicazione su GitHub Pages (HTTPS)**: deploy automatico con GitHub Actions
+      (`.github/workflows/deploy.yml`: build con `BASE_URL=/expense_tracker/` e
+      pubblicazione di `dist/` su `gh-pages`, Pages → Source: GitHub Actions); base path
+      configurabile in `vite.config.ts` (`process.env.BASE_URL`, default `/`);
+      routing con **`HashRouter`** (URL `#/...`) perché GitHub Pages non riscrive le route
+      SPA (Back/stack invariati); service worker e manifest resi indipendenti dal path:
+      `public/sw.js` usa `self.registration.scope`, manifest con `start_url`/`scope` e icone
+      relative, `index.html` con `%BASE_URL%` per manifest/icone, registrazione SW con
+      `import.meta.env.BASE_URL`. Verificato: build locale alla root OK (base default).
+      Nota migrazione dati in `README.md` (IndexedDB è legato all'origine → esportare il
+      backup da localhost e ripristinarlo sul nuovo dominio github.io).
 
 ## 🔄 In corso / Prossimi
 

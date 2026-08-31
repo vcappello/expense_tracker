@@ -26,6 +26,30 @@ npm run preview   # serve la build su http://0.0.0.0:4173/
 Dal telefono apri `http://192.168.1.10:4173/` e scegli *Aggiungi a schermata Home* per installarla.
 Le icone PWA si rigenerano con `npm run icons` (nessuna dipendenza esterna).
 
+## Pubblicazione su GitHub Pages (HTTPS)
+L'app è pubblicata su **GitHub Pages** e usabile via HTTPS:
+
+- **URL**: `https://vcappello.github.io/expense_tracker/`
+- **Deploy**: automatico a ogni push su `main` tramite GitHub Actions
+  (`.github/workflows/deploy.yml`): build con `BASE_URL=/expense_tracker/` e
+  pubblicazione di `dist/` su `gh-pages`. In Impostazioni del repo → Pages impostare
+  **Source = GitHub Actions**.
+- **Routing**: `HashRouter` (URL con `#/...`) — GitHub Pages non riscrive le route SPA,
+  quindi con gli hash le view funzionano sempre, anche al refresh, senza file 404.
+- **Service worker e manifest**: percorsi relativi allo scope
+  (`self.registration.scope` in `public/sw.js`, `start_url`/`scope` relativi nel manifest,
+  `%BASE_URL%` nei link di `index.html`), così l'app funziona sia da root (locale) sia da
+  sottocartella (GitHub Pages).
+- In locale: `npm run build` + `npm run preview` continuano a funzionare alla root
+  (il base path default è `/`; si personalizza con la variabile d'ambiente `BASE_URL`).
+
+### ⚠️ Dati salvati nel browser
+IndexedDB è legato all'**origine**: i dati salvati su `localhost` **non** vengono ereditati
+dal dominio `https://vcappello.github.io/expense_tracker/`. Prima di passare a GitHub
+Pages, su localhost fai **Esporta backup** (menu Azioni della Main view), poi sul sito
+online fai **Ripristina backup**. Da quel momento i dati restano nel browser usato
+(l'origine `github.io` è condivisa tra i repo dello stesso utente).
+
 ## Funzioni principali
 - Interfaccia in **italiano** ottimizzata per smartphone
 - **Installabile** e **offline** (PWA: manifest, icone, service worker)
