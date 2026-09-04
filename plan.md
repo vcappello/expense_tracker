@@ -190,7 +190,47 @@
 
 ## ⏳ Da fare
 
-*(Sezione completata — il task Backup/Ripristino (Export/Import JSON) è stato implementato e verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
+> **Nuove funzionalità richieste il 04/09/2026** — in pianificazione. Prima di implementare
+> è stata aggiornata `spec.md` (sezioni "Notes and location on an Expense", "Movement list
+> grouped by day", UI redesign → Main view). Gli step andranno marcati [x] man mano.
+
+### Note e Luogo sulle spese (campi facoltativi) + Luogo da GPS
+- [ ] **DB + types**: campi `notes: string` (default '') e `location: string` (default '') su
+      `Expense`; normalizzati in lettura in `src/db/database.ts` (`normalizeExpense`) e in
+      import in `src/utils/backup.ts` (niente bump `DB_VERSION`)
+- [ ] **CreateExpensePage**: campo "Note" (testo libero facoltativo) e campo "Luogo" (testo
+      libero facoltativo), pre-caricati in edit, salvati sul record spesa; non influenzano
+      Analytics né i saldi conto
+- [ ] **Luogo da GPS**: bottone accanto al campo Luogo →
+      `navigator.geolocation.getCurrentPosition` → reverse geocoding **Nominatim** (online) →
+      nome luogo come default nel campo (modificabile). Gestire permesso negato/errore GPS/
+      offline con Toast ⚠️ (campo lasciato manuale, mai bloccare il salvataggio); nota
+      secure context (Geolocation richiede HTTPS o localhost, non funziona su HTTP su IP di
+      rete)
+- [ ] **Test E2E** nel browser (crea spesa con note/luogo; edit pre-caricato; bottone GPS con
+      e senza rete/permessi; build OK)
+
+### Main view — lista raggruppata per giorno (viste a mese)
+- [ ] **Raggruppamento solo a mese singolo**: per `current-month`/`previous-month` le righe
+      vengono raggruppate per giorno; per gli altri periodi resta la lista piatta con data
+      completa su ogni riga
+- [ ] **Header giorno**: separatore per giorno "giorno del mese + abbreviazione giorno della
+      settimana" (es. "4 ven", "5 sab"); oggi evidenziato con "· Oggi" (es. "4 ven · Oggi");
+      helper di formattazione con abbreviazioni italiane (lun/mar/mer/gio/ven/sab/dom)
+- [ ] **Righe con sola ora**: dentro ogni gruppo giorno le righe mostrano solo l'ora (la data
+      è nell'header del giorno)
+- [ ] **Dettaglio spesa con conto**: nella riga Spesa mostrare anche il **conto** (es.
+      "💸 Dinner · Cash"), oltre alla categoria; entrate e routing invariati (conto /
+      sorgente → destinazione)
+- [ ] **Ordinamento e paginazione**: gruppi giorno dal più recente; all'interno movimenti per
+      data+ora desc; il paginatore a scroll non deve tagliare un gruppo giorno (se il confine
+      di pagina cade a metà giorno, il giorno intero compare nella pagina successiva)
+- [ ] **CSS**: stile header giorno (separatore, eventuale sticky), evidenziazione oggi
+- [ ] **Test E2E** nel browser (switch filtri mese ↔ anno/Tutti, header oggi, righe spesa con
+      conto; build OK)
+
+*(Nota storica: il task Backup/Ripristino (Export/Import JSON) è stato implementato e
+verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 
 ## 🐛 Bug da correggere
 

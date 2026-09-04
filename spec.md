@@ -14,6 +14,10 @@ The `Expense` and `Cashflow` records support an optional `routingPairId` used to
 movements of a routing transfer or of a coin-split expense (see "Expense paid partly from a
 second account (coin split)").
 
+The `Expense` record also carries two optional free-text fields, `notes` and `location`
+(a note and a place), both defaulting to an empty string (see "Notes and location on an
+Expense").
+
 Default initial values for Account:
 - Cash
 - Bank account
@@ -52,6 +56,18 @@ Actions related to selected movement:
 - Edit movement: if the movement is an Expense navigate to Edit or Create Expense, if the movement is a Cashflow navigate to Edit or Create Cashflow
 - Delete movement: ask confirm and delete the related Expense or Cashflow
 
+### Movement list grouped by day (single-month date ranges)
+For the **single-month** date ranges (current month / previous month) the main-view
+movement list is **grouped by calendar day**. Each day has a section header showing the
+day-of-month number and the Italian abbreviated weekday (e.g. "4 ven", "5 sab"); the
+current day (today) is highlighted with "· Oggi" (e.g. "4 ven · Oggi"). Inside a day
+group the rows display **only the time** (the date is conveyed by the day header). Day
+groups are ordered from the most recent to the oldest; within a group the movements keep
+their date/time descending order. For the other date ranges (Quest'anno / Tutti) the flat
+list with the full date on each row is kept. The scroll pagination must never split a day
+group: when a page boundary falls inside a day, the whole day group is loaded in the
+following page.
+
 ##  Edit or Create Expense
 When the user click the new Expense button a new page is displayed.
 The user can enter:
@@ -60,11 +76,14 @@ The user can enter:
 - (mandatory) the Expense amount in EUR currency (in the future we will manage multiple currency)
 - (mandatory) the ExpenseType. The user can type any value, when the user type text a dropdown listbox display a list of already created ExpenseType that contains the inserted text and the user can select a value from the list. When the inserted text does not match any existing ExpenseType in the dropdown list the first entry is the inserted value with a badge showing the "new" info, the user can create the ExpenseType inline pressing this item. When the item is pressed a message toast display the correct creation of the ExpenseType. When the ExpenseType is created inline the system create a new ExpenseType with the inserted name and with null parent
 - (mandatory) the Account. This is a dropdown list, the default is the first defined Account (Cash)
+- (optional) the Note: a free-text annotation stored on the Expense (see "Notes and location on an Expense")
+- (optional) the Location: a free-text place name, optionally filled in from the GPS position (see "Notes and location on an Expense")
 
 When editing an existing Expense, all fields are pre-populated with the stored values.
 
 Actions:
 - Create from photo: open the smartphone camera for take a photo of a receipt, the new Expense is created reading information from the receipt using AI
+- Use current location: fill the Location field from the GPS position via the online Nominatim reverse geocoding service (see "Notes and location on an Expense")
 - Confirm: create the Expense and store it in the local database
 - Cancel: go back without save any data (this does not save also any new expese type created)
 
@@ -129,6 +148,40 @@ Resulting balances:
 ### Backup / Ripristino
 - `routingPairId` is normalized on import (null when missing) for both Expense and
   Cashflow records.
+
+## Notes and location on an Expense
+An Expense can carry two optional free-text annotations, stored directly on the record
+(`notes: string` and `location: string`, default `''`, normalized on read and on import for
+records created before this feature; no DB version bump required).
+
+- **Note (Note)**: a free annotation (e.g. "cena con amici", "numero fattura …"). Optional.
+- **Location (Luogo)**: a place name (e.g. "Via Roma 1, Milano", "Stazione Centrale").
+  Optional; the user can type it or fill it in from the GPS position (see below).
+
+Both fields are entered in the Create/Edit Expense page and pre-populated when editing an
+existing Expense. They do not affect Analytics or the account balances.
+
+### Fill location from GPS (reverse geocoding)
+In the Create/Edit Expense page a "use current position" button next to the Location field:
+1. Requests the current position with the **Geolocation API**
+   (`navigator.geolocation.getCurrentPosition`).
+2. Reverse-geocodes the coordinates to a human-readable place name/address using the
+   **online Nominatim** service of OpenStreetMap
+   (`https://nominatim.openstreetmap.org/reverse?...`).
+3. Fills the returned display name into the Location field, still editable by the user.
+
+Constraints and fallbacks:
+- Geolocation works only on a **secure context** (HTTPS or localhost). It is available on
+  GitHub Pages (HTTPS) and on the localhost dev server, but not on plain HTTP over the LAN
+  IP.
+- Reverse geocoding **requires a network connection**: it is the only network call of the
+  app and happens only when the button is pressed, never automatically.
+- On denied permission, GPS error or missing network the app shows a transient warning
+  (Toast) and leaves the field empty/manual: the Expense can always be saved because the
+  location is optional.
+- Nominatim usage policy: low volume; a descriptive User-Agent/Referer is sent. The result
+  is only stored in the local field (nothing is sent or stored server-side beyond the
+  geocoding request).
 
 ## Edit or Create Cashflow
 When the user click the new Cashflow button a new page is displayed.
@@ -261,7 +314,8 @@ again). To preserve the data across origins the app provides a JSON backup:
   records in a single atomic IndexedDB transaction (all-or-nothing: a failure leaves the current data
   untouched). Afterwards the whole app state is reloaded. Invalid files show an `AlertModal` error.
   Field normalization on import: `initialBalance` defaults to 0, `isPreferred` and `isCoinAccount`
-  to false on accounts; `routingPairId` defaults to null on both Expense and Cashflow records.
+  to false on accounts; `routingPairId` defaults to null on both Expense and Cashflow records;
+  `notes` and `location` default to '' on Expense records.
 
 Both actions are available in the Main view "Azioni" menu. This is the recommended way to move the data
 when switching to the HTTPS server (or any other origin change).
@@ -314,11 +368,16 @@ when switching to the HTTPS server (or any other origin change).
       - Analytics
       - Conti
       - Categorie
-  - the remaining page contains the movement list, for each item display:
-    - date
-    - time
+  - the remaining page contains the movement list. For the single-month date ranges
+    (Mese corrente / Mese scorso) the list is **grouped by day**: each day has a section
+    header with the day-of-month number and the abbreviated Italian weekday, e.g. "4 ven";
+    the current day is highlighted with "· Oggi" (e.g. "4 ven · Oggi"). Inside a day group
+    every row shows **only the time** (the date is conveyed by the day header). For the
+    other date ranges (Quest'anno / Tutti) the flat list with the full date on each row is
+    kept. Each movement row displays:
+    - time (only; the date is shown by the day header in the month views)
     - details that changes for movement type:
-      - Expense: display the expense category 
+      - Expense: display the expense category and the account it was paid from (e.g. "Dinner · Cash")
       - Cashflow: display the account
       - routing Cashflow: display bot the source and target account
     - amount with colors:
