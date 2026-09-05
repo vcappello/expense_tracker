@@ -226,11 +226,22 @@
 
 ## ⏳ Da fare
 
-> **Nuove funzionalità richieste il 04/09/2026**. Note/Luogo + GPS: **completata** (05/09/2026).
-> Resta da implementare la **Main view per giorno** (design righe aggiornato il 05/09/2026
-> dopo il wireframe `mainview-list.svg`: righe senza data/ora, raggruppamento per giorno in
-> tutti i filtri). Le specifiche sono in `spec.md` ("Movement list grouped by day", UI
-> redesign → Main view). Gli step andranno marcati [x] man mano.
+> Le **funzionalità richieste il 04/09/2026** sono completate: **Note/Luogo + GPS** e
+> **Main view per giorno** (con righe dettaglio e indicatore dell'intervallo nel pulsante
+> Filtri) — vedi sezione ✅ Completati e i blocchi [x] sotto. Qui sotto restano le voci
+> aperte (manutenzione/rifiniture). Gli step andranno marcati [x] man mano.
+
+### 🧹 Manutenzione — warning Fast Refresh su `AppContext.tsx`
+- [ ] **Risolvere il warning di Fast Refresh** che compare in dev (HMR) su
+      `src/context/AppContext.tsx` (messaggio tipo "`useApp` export is incompatible..."):
+      il file esporta sia il componente `AppProvider` sia non-componenti (hook `useApp` e
+      tipi/interfacce `*Input`/`*Info`), quindi react-refresh non può fare fast refresh e
+      ricade su un reload completo. È preesistente e innocuo (documentato in `AGENTS.md`,
+      "non bloccante"), ma ce lo portiamo avanti da molto → da sistemare.
+      Possibili fix da valutare: spostare `useApp` (e/o i tipi) in un file dedicato,
+      oppure silenziare il warning se non risolvibile senza rischi. Verifica: dopo il fix
+      l'HMR su `AppContext.tsx` non deve più emettere il warning / non deve fare full
+      reload.
 
 ### Note e Luogo sulle spese (campi facoltativi) + Luogo da GPS — completata il 05/09/2026
 - [x] **DB + types**: campi `notes: string` (default '') e `location: string` (default '') su
