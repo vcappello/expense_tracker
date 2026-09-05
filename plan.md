@@ -231,17 +231,16 @@
 > Filtri) — vedi sezione ✅ Completati e i blocchi [x] sotto. Qui sotto restano le voci
 > aperte (manutenzione/rifiniture). Gli step andranno marcati [x] man mano.
 
-### 🧹 Manutenzione — warning Fast Refresh su `AppContext.tsx`
-- [ ] **Risolvere il warning di Fast Refresh** che compare in dev (HMR) su
-      `src/context/AppContext.tsx` (messaggio tipo "`useApp` export is incompatible..."):
-      il file esporta sia il componente `AppProvider` sia non-componenti (hook `useApp` e
-      tipi/interfacce `*Input`/`*Info`), quindi react-refresh non può fare fast refresh e
-      ricade su un reload completo. È preesistente e innocuo (documentato in `AGENTS.md`,
-      "non bloccante"), ma ce lo portiamo avanti da molto → da sistemare.
-      Possibili fix da valutare: spostare `useApp` (e/o i tipi) in un file dedicato,
-      oppure silenziare il warning se non risolvibile senza rischi. Verifica: dopo il fix
-      l'HMR su `AppContext.tsx` non deve più emettere il warning / non deve fare full
-      reload.
+### 🧹 Manutenzione — deprecazione TS `moduleResolution=node10`
+- [ ] **Risolvere il warning TypeScript di deprecazione** che compare in compilazione:
+      "Option 'moduleResolution=node10' is deprecated and will stop functioning in
+      TypeScript 7.0. Specify compilerOption '\"ignoreDeprecations\": \"6.0\"' to silence
+      this error." Viene da `"moduleResolution": "Node"` (= modalità legacy "node10") in
+      `tsconfig.app.json` e `tsconfig.node.json`. Fix corretto (NON silenziare con
+      `ignoreDeprecations`): passare a **`"moduleResolution": "Bundler"** (app Vite e
+      `vite.config.ts`; `module` è già `ESNext`), coerente col bundling di Vite. Verifica:
+      `npm run build` e avvio dev senza warning; nessuna regressione sugli import
+      (in `tsconfig.node.json` resta `types: ["node"]`).
 
 ### Note e Luogo sulle spese (campi facoltativi) + Luogo da GPS — completata il 05/09/2026
 - [x] **DB + types**: campi `notes: string` (default '') e `location: string` (default '') su
