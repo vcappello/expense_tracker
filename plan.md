@@ -83,6 +83,21 @@
       `import.meta.env.BASE_URL`. Verificato: build locale alla root OK (base default).
       Nota migrazione dati in `README.md` (IndexedDB è legato all'origine → esportare il
       backup da localhost e ripristinarlo sul nuovo dominio github.io).
+- [x] **Note + Luogo sulle spese + Luogo da GPS**: nuovi campi facoltativi `notes` e
+      `location` su `Expense` (default '', normalizzati in lettura in `normalizeExpense` di
+      `database.ts` e in import in `backup.ts`, niente bump `DB_VERSION`). Sezione
+      "Informazioni aggiuntive (opzionale)" nel form spesa (crea+edit) con campo **Note**
+      (textarea) e campo **Luogo** (input) affiancato da un bottone 📍: `navigator.
+      geolocation.getCurrentPosition` → reverse geocoding **Nominatim** online
+      (`.../reverse?format=jsonv2&lat=..&lon=..&zoom=18&accept-language=it`) → nome luogo
+      compilato (modificabile). Fallback gestiti con Toast ⚠️ (permesso negato / posizione
+      non disponibile / timeout / errore di rete): il campo resta manuale e il salvataggio
+      non viene mai bloccato (luogo facoltativo). Geolocation richiede secure context
+      (HTTPS/localhost; su GitHub Pages OK). Nuova icona `LocateIcon` in `icons.tsx`,
+      spinner durante il rilevamento, stili in `ExpenseForm.css`. I campi non influenzano
+      Analytics né i saldi. Verificato E2E nel browser (crea spesa con note/luogo, edit
+      pre-caricato, GPS con errore → toast, GPS con posizione finta → luogo reale da
+      Nominatim). Spec in `spec.md` (sezione "Notes and location on an Expense").
 
 ## 🔄 In corso / Prossimi
 
@@ -194,20 +209,20 @@
 > è stata aggiornata `spec.md` (sezioni "Notes and location on an Expense", "Movement list
 > grouped by day", UI redesign → Main view). Gli step andranno marcati [x] man mano.
 
-### Note e Luogo sulle spese (campi facoltativi) + Luogo da GPS
-- [ ] **DB + types**: campi `notes: string` (default '') e `location: string` (default '') su
+### Note e Luogo sulle spese (campi facoltativi) + Luogo da GPS — completata il 05/09/2026
+- [x] **DB + types**: campi `notes: string` (default '') e `location: string` (default '') su
       `Expense`; normalizzati in lettura in `src/db/database.ts` (`normalizeExpense`) e in
       import in `src/utils/backup.ts` (niente bump `DB_VERSION`)
-- [ ] **CreateExpensePage**: campo "Note" (testo libero facoltativo) e campo "Luogo" (testo
+- [x] **CreateExpensePage**: campo "Note" (testo libero facoltativo) e campo "Luogo" (testo
       libero facoltativo), pre-caricati in edit, salvati sul record spesa; non influenzano
       Analytics né i saldi conto
-- [ ] **Luogo da GPS**: bottone accanto al campo Luogo →
+- [x] **Luogo da GPS**: bottone accanto al campo Luogo →
       `navigator.geolocation.getCurrentPosition` → reverse geocoding **Nominatim** (online) →
       nome luogo come default nel campo (modificabile). Gestire permesso negato/errore GPS/
       offline con Toast ⚠️ (campo lasciato manuale, mai bloccare il salvataggio); nota
       secure context (Geolocation richiede HTTPS o localhost, non funziona su HTTP su IP di
       rete)
-- [ ] **Test E2E** nel browser (crea spesa con note/luogo; edit pre-caricato; bottone GPS con
+- [x] **Test E2E** nel browser (crea spesa con note/luogo; edit pre-caricato; bottone GPS con
       e senza rete/permessi; build OK)
 
 ### Main view — lista raggruppata per giorno (viste a mese)

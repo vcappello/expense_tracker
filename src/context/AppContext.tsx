@@ -31,6 +31,8 @@ export interface ExpenseWithCoinsInput {
   amount: number;
   expenseTypeId: string;
   accountId: string;
+  notes?: string;
+  location?: string;
   coinsAccountId?: string | null;
   coinsAmount?: number | null;
 }
@@ -370,6 +372,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             expenseTypeId: input.expenseTypeId,
             accountId: input.accountId,
             routingPairId: pairId,
+            notes: input.notes ?? '',
+            location: input.location ?? '',
             createdAt: current?.createdAt ?? now,
             updatedAt: now,
           };
@@ -409,6 +413,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           expenseTypeId: input.expenseTypeId,
           accountId: input.accountId,
           routingPairId: pairId,
+          notes: input.notes ?? '',
+          location: input.location ?? '',
           createdAt: now,
           updatedAt: now,
         };

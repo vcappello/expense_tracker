@@ -78,6 +78,19 @@
   `%BASE_URL%` per manifest/icone, registrazione SW con `import.meta.env.BASE_URL`.
   Build locale alla root resta valida (base default `/`). I dati IndexedDB sono legati
   all'origine: da localhost non si ereditano → Esporta/Ripristina backup.
+- **Note/Luogo su Expense (`notes`, `location`)**: campi stringa facoltativi su `Expense`
+  (default `''`, normalizzati in lettura in `normalizeExpense` di `database.ts` e in import
+  in `backup.ts`; niente bump `DB_VERSION`). Non influenzano Analytics/saldi. Passare
+  `notes`/`location` nel form spesa e nell'input di `saveExpenseWithCoins` (oggetto
+  `Expense` in `AppContext`).
+- **Luogo da GPS (reverse geocoding)**: il bottone 📍 accanto al campo Luogo usa
+  `navigator.geolocation.getCurrentPosition` + **Nominatim** online
+  (`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=..&lon=..&zoom=18&accept-language=it`).
+  È l'**unica chiamata di rete** dell'app e avviene solo alla pressione del bottone.
+  Geolocation richiede **secure context** (HTTPS o localhost; NON su HTTP su IP di rete).
+  Gestire errore/permesso negato/timeout/offline con `Toast` ⚠️ e lasciare il campo
+  manuale: non bloccare MAI il salvataggio (luogo facoltativo). Errore GPS: codice 1 =
+  permesso negato, 2 = posizione non disponibile, 3 = timeout.
 
 ## Limiti noti (non bloccanti)
 - **Main view al primo load freddo**: a volte il filtro "This month" appare vuoto subito dopo il caricamento della pagina (comportamento transitorio legato a IndexedDB); cliccando un qualsiasi filtro i dati compaiono. Rivedere il timing di lettura se si ripresenta.

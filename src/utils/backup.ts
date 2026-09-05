@@ -86,6 +86,8 @@ const normalizeExpense = (raw: Record<string, unknown>): Expense => ({
   expenseTypeId: String(raw.expenseTypeId),
   accountId: String(raw.accountId),
   routingPairId: typeof raw.routingPairId === 'string' ? raw.routingPairId : null,
+  notes: typeof raw.notes === 'string' ? raw.notes : '',
+  location: typeof raw.location === 'string' ? raw.location : '',
   createdAt: toDate(raw.createdAt),
   updatedAt: toDate(raw.updatedAt),
 });

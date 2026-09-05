@@ -5,7 +5,7 @@ import { ExpenseType } from '../types';
 import { sortAccountsPreferred } from '../utils/accounts';
 import { useNavigateBack } from '../utils/navigation';
 import TitleBar, { TitleBarAction } from '../components/TitleBar';
-import { CheckIcon, TrashIcon } from '../components/icons';
+import { CheckIcon, TrashIcon, LocateIcon } from '../components/icons';
 import Toast from '../components/Toast';
 import ConfirmModal from '../components/ConfirmModal';
 import AlertModal from '../components/AlertModal';
@@ -35,6 +35,8 @@ export default function CreateExpensePage() {
     accountId: sortedAccounts[0]?.id || '',
     coinsAccountId: '',
     coinsAmount: '',
+    notes: '',
+    location: '',
   });
 
   const [expenseTypeSearch, setExpenseTypeSearch] = useState('');
@@ -46,6 +48,7 @@ export default function CreateExpensePage() {
   const toastTimerRef = useRef<number | null>(null);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
 
   useEffect(() => {
     const loadExpense = async () => {
@@ -79,6 +82,8 @@ export default function CreateExpensePage() {
               accountId: expense.accountId,
               coinsAccountId,
               coinsAmount,
+              notes: expense.notes ?? '',
+              location: expense.location ?? '',
             });
           }
         } catch (err) {
@@ -169,6 +174,75 @@ export default function CreateExpensePage() {
       coinsAccountId:
         prev.coinsAccountId === accountId ? '' : prev.coinsAccountId,
     }));
+  };
+
+  const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setFormData((prev) => ({
+      ...prev,
+      notes: e.target.value,
+    }));
+  };
+
+  const handleLocationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({
+      ...prev,
+      location: e.target.value,
+    }));
+  };
+
+  /**
+   * Fill the Location field from the current GPS position via the online
+   * Nominatim reverse geocoding service. This is the only network call of the
+   * app and only happens when the button is pressed. Geolocation requires a
+   * secure context (HTTPS/localhost); failures never block saving the Expense
+   * (the location is optional).
+   */
+  const handleUseCurrentLocation = () => {
+    if (!('geolocation' in navigator)) {
+      showToast('Geolocalizzazione non supportata dal dispositivo', '⚠️');
+      return;
+    }
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&accept-language=it`
+          );
+          if (!response.ok) {
+            throw new Error('network');
+          }
+          const data = (await response.json()) as { display_name?: string };
+          const placeName = data.display_name ?? '';
+          setFormData((prev) => ({
+            ...prev,
+            location: placeName,
+          }));
+          if (placeName) {
+            showToast('Luogo rilevato dalla posizione');
+          } else {
+            showToast('Nessun luogo trovato per la posizione', '⚠️');
+          }
+        } catch (err) {
+          console.error('Reverse geocoding failed:', err);
+          showToast('Errore di rete nel rilevare il luogo', '⚠️');
+        } finally {
+          setIsLocating(false);
+        }
+      },
+      (error) => {
+        setIsLocating(false);
+        const message =
+          error.code === 1
+            ? 'Permesso di geolocalizzazione negato'
+            : error.code === 2
+              ? 'Posizione non disponibile'
+              : 'Tempo scaduto nel rilevare la posizione';
+        showToast(message, '⚠️');
+      },
+      { timeout: 10000, maximumAge: 60000 }
+    );
   };
 
   const handleCoinsAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -264,6 +338,8 @@ export default function CreateExpensePage() {
         amount: total,
         expenseTypeId: formData.expenseTypeId,
         accountId: formData.accountId,
+        notes: formData.notes,
+        location: formData.location,
         coinsAccountId: hasCoins ? formData.coinsAccountId : null,
         coinsAmount: hasCoins ? coinsAmount : null,
       });
@@ -430,6 +506,51 @@ export default function CreateExpensePage() {
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Additional info (optional): note and location */}
+          <div className="form-section">
+            <div className="form-section-title">
+              Informazioni aggiuntive (opzionale)
+            </div>
+            <div className="form-group">
+              <label htmlFor="notes">Note</label>
+              <textarea
+                id="notes"
+                rows={2}
+                placeholder="Es. cena con amici, numero fattura…"
+                value={formData.notes}
+                onChange={handleNotesChange}
+                className="form-textarea"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="location">Luogo</label>
+              <div className="location-row">
+                <input
+                  type="text"
+                  id="location"
+                  placeholder="Es. Via Roma 1, Milano"
+                  value={formData.location}
+                  onChange={handleLocationChange}
+                  className="form-input"
+                />
+                <button
+                  type="button"
+                  className="location-button"
+                  onClick={handleUseCurrentLocation}
+                  disabled={isLocating}
+                  title={
+                    isLocating
+                      ? 'Rilevamento posizione…'
+                      : 'Compila il luogo con la posizione attuale'
+                  }
+                  aria-label="Compila il luogo con la posizione attuale"
+                >
+                  {isLocating ? <span className="locating-dot" /> : <LocateIcon />}
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Coin split (optional): paid partly from a second account */}

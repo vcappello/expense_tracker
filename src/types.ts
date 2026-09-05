@@ -25,6 +25,8 @@ export interface Expense {
   expenseTypeId: string;
   accountId: string;
   routingPairId: string | null;
+  notes: string; // optional free-text annotation (default '')
+  location: string; // optional free-text place name (default '')
   createdAt: Date;
   updatedAt: Date;
 }
