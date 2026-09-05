@@ -32,14 +32,25 @@ Default initial values for ExpenseType:
 The output of amount values, when indicated as *abbreviated* must display the amount in K when the amount in greather than 999 and in M when the amount is greather than 999.999, with 2 decimal places
 
 ## Main view
-In the main view is displayed the list of movement by date and time, a movement can be an Expense o a Cashflow. For each item need to display:
-- the date and time (hh:mm:ss)
-- for Expense: the category name, the Expense amount with negative sign and displayed in red
-- for Cashflow: the amount displayed in green (Note: if the Cashflow was created using a routing account only one movement must be displayed with color yellow)
-- for an Expense paid partly from a second account (coin split): two movements are displayed — the Expense (red) and the routing receiving movement (yellow, source → target); the internal income on the second account is hidden
-- Edit and Delete buttons on the right side of each item
-Movements are sorted by date and time, most recent first.
-The movement list must be paginated with automatic load when the user scroll over last displayed line.
+In the main view is displayed the list of movements (Expense or Cashflow), **grouped by
+calendar day** for every date range (see "Movement list grouped by day"). The movement rows
+show only the movement details — never the date nor the time (the date is conveyed by the
+day header; the time is used only for the ordering). For each item need to display:
+- for Expense: the category and the account it was paid from (e.g. "Dinner · Cash"); when
+  the location is set it appears on a second row (e.g. "📍 Via Roma 1, Milano"); the amount
+  with negative sign and displayed in red
+- for Cashflow: the account; the amount displayed in green (Note: if the Cashflow was
+  created using a routing account only one movement must be displayed with color yellow,
+  showing the source → target accounts)
+- for an Expense paid partly from a second account (coin split): two movements are
+  displayed — the Expense (red) and the routing receiving movement (yellow, source →
+  target); the internal income on the second account is hidden
+Each row is clickable and navigates to the related edit view (no Edit/Delete buttons in the
+list; the Delete is available in the related edit view).
+Within a day the movements are sorted by date and time, most recent first.
+The movement list must be paginated with automatic load when the user scroll over last
+displayed line (a day group is never split across pages — see "Movement list grouped by
+day").
 
 List filters:
 - date range: current month, previous month, current year, all
@@ -56,17 +67,23 @@ Actions related to selected movement:
 - Edit movement: if the movement is an Expense navigate to Edit or Create Expense, if the movement is a Cashflow navigate to Edit or Create Cashflow
 - Delete movement: ask confirm and delete the related Expense or Cashflow
 
-### Movement list grouped by day (single-month date ranges)
-For the **single-month** date ranges (current month / previous month) the main-view
-movement list is **grouped by calendar day**. Each day has a section header showing the
-day-of-month number and the Italian abbreviated weekday (e.g. "4 ven", "5 sab"); the
-current day (today) is highlighted with "· Oggi" (e.g. "4 ven · Oggi"). Inside a day
-group the rows display **only the time** (the date is conveyed by the day header). Day
+### Movement list grouped by day
+The main-view movement list is **grouped by calendar day for every date range**. Day
 groups are ordered from the most recent to the oldest; within a group the movements keep
-their date/time descending order. For the other date ranges (Quest'anno / Tutti) the flat
-list with the full date on each row is kept. The scroll pagination must never split a day
-group: when a page boundary falls inside a day, the whole day group is loaded in the
-following page.
+their date/time descending order. The movement rows themselves never show the date nor the
+time (the date is conveyed by the day header, the time only matters for the ordering).
+
+Each day has a section header whose format depends on the range:
+- single-month ranges (current month / previous month): compact, the day-of-month number
+  and the abbreviated Italian weekday (e.g. "4 ven", "5 sab"); the month is implied by the
+  selected range.
+- wider ranges (Quest'anno / Tutti): the full Italian month name is added (e.g.
+  "Settembre 5 Sab"); the year is shown when the day does not belong to the current year
+  (possible in "Tutti").
+The current day (today) is always highlighted with "· Oggi" (e.g. "4 ven · Oggi").
+
+The scroll pagination must never split a day group: when a page boundary falls inside a
+day, the whole day group is loaded in the following page.
 
 ##  Edit or Create Expense
 When the user click the new Expense button a new page is displayed.
@@ -324,9 +341,10 @@ when switching to the HTTPS server (or any other origin change).
 
 > Sezione dedicata al restyling dell'interfaccia grafica. Struttura pronta da compilare.
 > Per ogni schermata: descrizione dei cambiamenti desiderati. Il riferimento al wireframe è indicato
-> solo dove è disponibile uno schizzo (al momento solo la Main view, `docs/wireframes/main-view.png`);
+> solo dove è disponibile uno schizzo (al momento la Main view: `docs/wireframes/main-view.png`
+> e lo schizzo delle righe della lista movimenti `docs/wireframes/mainview-list.svg`);
 > le altre schermate restano simili a quelle già esistenti.
-> I wireframe vanno messi come immagini PNG/JPG in `docs/wireframes/` (vedi `docs/wireframes/README.md`)
+> I wireframe vanno messi come immagini PNG/JPG/SVG in `docs/wireframes/` (vedi `docs/wireframes/README.md`)
 > e allegati anche nella chat di sviluppo per riferimento.
 
 ### Design goals
@@ -368,25 +386,24 @@ when switching to the HTTPS server (or any other origin change).
       - Analytics
       - Conti
       - Categorie
-  - the remaining page contains the movement list. For the single-month date ranges
-    (Mese corrente / Mese scorso) the list is **grouped by day**: each day has a section
-    header with the day-of-month number and the abbreviated Italian weekday, e.g. "4 ven";
-    the current day is highlighted with "· Oggi" (e.g. "4 ven · Oggi"). Inside a day group
-    every row shows **only the time** (the date is conveyed by the day header). For the
-    other date ranges (Quest'anno / Tutti) the flat list with the full date on each row is
-    kept. Each movement row displays:
-    - time (only; the date is shown by the day header in the month views)
-    - details that changes for movement type:
-      - Expense: display the expense category and the account it was paid from (e.g. "Dinner · Cash")
-      - Cashflow: display the account
-      - routing Cashflow: display bot the source and target account
+  - the remaining page contains the movement list, **grouped by calendar day for every date
+    range** (see "Movement list grouped by day"). Each day has a section header: for the
+    single-month ranges (Mese corrente / Mese scorso) it is compact (day-of-month number +
+    abbreviated Italian weekday, e.g. "4 ven"); the current day is highlighted with "· Oggi"
+    (e.g. "4 ven · Oggi"). For the wider ranges (Quest'anno / Tutti) the header also shows
+    the full Italian month name (e.g. "Settembre 5 Sab"), and the year when the range spans
+    more than one year. Movement rows display **only the details — no date and no time**:
+    - for Expense: the category and the account it was paid from (e.g. "Dinner · Cash")
+      and, when the location is set, the place on a second line (e.g. "📍 Via Roma 1, Milano")
+    - for Cashflow: the account
+    - for routing Cashflow: both the source and target account (e.g. "Cash → Bank account")
     - amount with colors:
       - red for Expense
       - green for Cashflow (not routing)
-      - yellor for routing Cashflow
+      - yellow for routing Cashflow
     No button is displayed to the right. When a movement is pressed the user navigate to the related edit view. The delete movement is moved inside the edit movement view.
 
-- Wireframe: `docs/wireframes/main-view.png`
+- Wireframe: `docs/wireframes/main-view.png` (schermata) — righe movimento: `docs/wireframes/mainview-list.svg`
 
 ### Edit or Create Expense
 - Desired changes:

@@ -205,9 +205,11 @@
 
 ## ⏳ Da fare
 
-> **Nuove funzionalità richieste il 04/09/2026** — in pianificazione. Prima di implementare
-> è stata aggiornata `spec.md` (sezioni "Notes and location on an Expense", "Movement list
-> grouped by day", UI redesign → Main view). Gli step andranno marcati [x] man mano.
+> **Nuove funzionalità richieste il 04/09/2026**. Note/Luogo + GPS: **completata** (05/09/2026).
+> Resta da implementare la **Main view per giorno** (design righe aggiornato il 05/09/2026
+> dopo il wireframe `mainview-list.svg`: righe senza data/ora, raggruppamento per giorno in
+> tutti i filtri). Le specifiche sono in `spec.md` ("Movement list grouped by day", UI
+> redesign → Main view). Gli step andranno marcati [x] man mano.
 
 ### Note e Luogo sulle spese (campi facoltativi) + Luogo da GPS — completata il 05/09/2026
 - [x] **DB + types**: campi `notes: string` (default '') e `location: string` (default '') su
@@ -225,24 +227,29 @@
 - [x] **Test E2E** nel browser (crea spesa con note/luogo; edit pre-caricato; bottone GPS con
       e senza rete/permessi; build OK)
 
-### Main view — lista raggruppata per giorno (viste a mese)
-- [ ] **Raggruppamento solo a mese singolo**: per `current-month`/`previous-month` le righe
-      vengono raggruppate per giorno; per gli altri periodi resta la lista piatta con data
-      completa su ogni riga
-- [ ] **Header giorno**: separatore per giorno "giorno del mese + abbreviazione giorno della
-      settimana" (es. "4 ven", "5 sab"); oggi evidenziato con "· Oggi" (es. "4 ven · Oggi");
-      helper di formattazione con abbreviazioni italiane (lun/mar/mer/gio/ven/sab/dom)
-- [ ] **Righe con sola ora**: dentro ogni gruppo giorno le righe mostrano solo l'ora (la data
-      è nell'header del giorno)
-- [ ] **Dettaglio spesa con conto**: nella riga Spesa mostrare anche il **conto** (es.
-      "💸 Dinner · Cash"), oltre alla categoria; entrate e routing invariati (conto /
-      sorgente → destinazione)
-- [ ] **Ordinamento e paginazione**: gruppi giorno dal più recente; all'interno movimenti per
-      data+ora desc; il paginatore a scroll non deve tagliare un gruppo giorno (se il confine
-      di pagina cade a metà giorno, il giorno intero compare nella pagina successiva)
-- [ ] **CSS**: stile header giorno (separatore, eventuale sticky), evidenziazione oggi
-- [ ] **Test E2E** nel browser (switch filtri mese ↔ anno/Tutti, header oggi, righe spesa con
-      conto; build OK)
+### Main view — lista per giorno con righe dettaglio (niente data/ora) — da implementare
+> Design aggiornato il 05/09/2026 dopo il wireframe `docs/wireframes/mainview-list.svg`
+> (righe senza ora) e le decisioni utente: raggruppamento per giorno in **tutti** i filtri
+> e righe che mostrano **solo i dettagli** (mai data/ora).
+- [ ] **Raggruppamento per giorno in tutti i filtri**: la lista Main view è raggruppata per
+      giorno per OGNI intervallo (`current-month`, `previous-month`, `current-year`, `all`);
+      gruppi dal più recente, dentro ogni giorno movimenti per data+ora desc
+- [ ] **Righe senza data/ora**: le righe movimento mostrano solo i dettagli (mai data né ora;
+      l'ora conta solo per l'ordinamento). Helper di formattazione: abbreviazioni settimana
+      italiane (lun/mar/mer/gio/ven/sab/dom) e nomi mese per l'header esteso
+- [ ] **Dettaglio righe** (da `docs/wireframes/mainview-list.svg`): Spesa = categoria + conto
+      (es. "💸 Dinner · Cash") e, se il luogo è compilato, seconda riga col luogo (es.
+      "📍 Via Roma 1, Milano"); Entrata = conto; routing = sorgente → destinazione
+- [ ] **Header giorno**: nei filtri a mese singolo formato compatto "4 ven" (+ oggi
+      "· Oggi"); in Quest'anno/Tutti header con il mese per esteso (es. "Settembre 5 Sab") e
+      con l'anno quando l'intervallo copre più anni (Tutti)
+- [ ] **Ordinamento e paginazione**: il paginatore a scroll non deve MAI tagliare un gruppo
+      giorno (se il confine di pagina cade a metà giorno, il giorno intero compare nella
+      pagina successiva)
+- [ ] **CSS**: stile header giorno (separatore, eventuale sticky), evidenziazione oggi, riga
+      spesa con eventuale seconda riga luogo
+- [ ] **Test E2E** nel browser (switch filtri, header oggi, header con mese in Quest'anno/
+      Tutti, righe spesa con conto e luogo; build OK)
 
 *(Nota storica: il task Backup/Ripristino (Export/Import JSON) è stato implementato e
 verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
