@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="640"
+   height="1136"
+   viewBox="0 0 640 1136"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.4.4 (dcaf3e7, 2026-05-05)"
+   sodipodi:docname="mainview-list.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="px"
+     inkscape:zoom="2.0092788"
+     inkscape:cx="271.49045"
+     inkscape:cy="181.90607"
+     inkscape:window-width="1920"
+     inkscape:window-height="1009"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs1" />
+  <g
+     inkscape:label="Livello 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <text
+       xml:space="preserve"
+       style="font-size:42.6667px;writing-mode:lr-tb;direction:ltr;fill:#cc0000;stroke:#cc0000"
+       x="390.2019"
+       y="184.07953"
+       id="text1"><tspan
+         sodipodi:role="line"
+         id="tspan1"
+         x="390.2019"
+         y="184.07953"
+         style="font-size:42.6667px;fill:#cc0000;stroke:#cc0000">125,75</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;writing-mode:lr-tb;direction:ltr;fill:#cc0000;stroke:#cc0000"
+       x="37.82452"
+       y="161.25189"
+       id="text2"><tspan
+         sodipodi:role="line"
+         id="tspan2"
+         x="37.82452"
+         y="161.25189"
+         style="fill:#404040;stroke:#404040">Expense type</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;writing-mode:lr-tb;direction:ltr;fill:#cc0000;stroke:#cc0000"
+       x="219.24692"
+       y="162.81523"
+       id="text2-8"><tspan
+         sodipodi:role="line"
+         id="tspan2-2"
+         x="219.24692"
+         y="162.81523"
+         style="fill:#404040;stroke:#404040">Account</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;writing-mode:lr-tb;direction:ltr;fill:#cc0000;stroke:#cc0000"
+       x="38.238724"
+       y="185.25751"
+       id="text2-7"><tspan
+         sodipodi:role="line"
+         id="tspan2-1"
+         x="38.238724"
+         y="185.25751"
+         style="fill:#404040;stroke:#404040">Place</tspan></text>
+    <rect
+       style="fill:none;stroke:#404040"
+       id="rect2"
+       width="526.55713"
+       height="58.229824"
+       x="27.870691"
+       y="139.35349" />
+    <text
+       xml:space="preserve"
+       style="font-size:42.6667px;writing-mode:lr-tb;direction:ltr;fill:#ff9900;stroke:#ff9900"
+       x="389.09552"
+       y="259.82532"
+       id="text1-6"><tspan
+         sodipodi:role="line"
+         id="tspan1-1"
+         x="389.09552"
+         y="259.82532"
+         style="font-size:42.6667px;fill:#ff9900;stroke:#ff9900">125,75</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;writing-mode:lr-tb;direction:ltr;fill:#cc0000;stroke:#cc0000"
+       x="36.718102"
+       y="236.9977"
+       id="text2-4"><tspan
+         sodipodi:role="line"
+         id="tspan2-23"
+         x="36.718102"
+         y="236.9977"
+         style="fill:#404040;stroke:#404040">Source Account</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;writing-mode:lr-tb;direction:ltr;fill:#cc0000;stroke:#cc0000"
+       x="218.14049"
+       y="238.56102"
+       id="text2-8-2"><tspan
+         sodipodi:role="line"
+         id="tspan2-2-2"
+         x="218.14049"
+         y="238.56102"
+         style="fill:#404040;stroke:#404040">Target Account</tspan></text>
+    <rect
+       style="fill:none;stroke:#404040"
+       id="rect2-8"
+       width="526.55713"
+       height="58.229824"
+       x="26.764273"
+       y="215.09929" />
+    <text
+       xml:space="preserve"
+       style="font-size:42.6667px;writing-mode:lr-tb;direction:ltr;fill:#00cc00;stroke:#00cc00"
+       x="388.31613"
+       y="332.23987"
+       id="text1-6-8"><tspan
+         sodipodi:role="line"
+         id="tspan1-1-9"
+         x="388.31613"
+         y="332.23987"
+         style="font-size:42.6667px;fill:#00cc00;stroke:#00cc00">125,75</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;writing-mode:lr-tb;direction:ltr;fill:#cc0000;stroke:#cc0000"
+       x="35.938713"
+       y="309.41226"
+       id="text2-4-2"><tspan
+         sodipodi:role="line"
+         id="tspan2-23-7"
+         x="35.938713"
+         y="309.41226"
+         style="fill:#404040;stroke:#404040">Account</tspan></text>
+    <rect
+       style="fill:none;stroke:#404040"
+       id="rect2-8-4"
+       width="526.55713"
+       height="58.229824"
+       x="25.984886"
+       y="287.51385" />
+  </g>
+</svg>
