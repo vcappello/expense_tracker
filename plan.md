@@ -119,6 +119,11 @@
       classe `.filter-menu`/`.filter-value`) che apre il menu; helper `formatMonthYear` in
       `formatting.ts`. Così il periodo mostrato è sempre chiaro anche senza data/ora sulle
       righe. Verificato in browser (i 4 intervalli aggiornano l'etichetta).
+- [x] **Fix deprecazione TS `moduleResolution=node10`**: rimosso il warning di compilazione
+      "moduleResolution=node10 is deprecated... TypeScript 7.0" passando
+      `"moduleResolution": "Bundler"` in `tsconfig.app.json` e `tsconfig.node.json`
+      (prima era "Node" = legacy node10). Verificato: `npm run build` e `tsc -b` senza
+      warning, nessuna regressione.
 
 ## 🔄 In corso / Prossimi
 
@@ -231,16 +236,16 @@
 > Filtri) — vedi sezione ✅ Completati e i blocchi [x] sotto. Qui sotto restano le voci
 > aperte (manutenzione/rifiniture). Gli step andranno marcati [x] man mano.
 
-### 🧹 Manutenzione — deprecazione TS `moduleResolution=node10`
-- [ ] **Risolvere il warning TypeScript di deprecazione** che compare in compilazione:
+### 🧹 Manutenzione — deprecazione TS `moduleResolution=node10` — completata il 05/09/2026
+- [x] **Risolto il warning TypeScript di deprecazione** che compariva in compilazione:
       "Option 'moduleResolution=node10' is deprecated and will stop functioning in
       TypeScript 7.0. Specify compilerOption '\"ignoreDeprecations\": \"6.0\"' to silence
-      this error." Viene da `"moduleResolution": "Node"` (= modalità legacy "node10") in
-      `tsconfig.app.json` e `tsconfig.node.json`. Fix corretto (NON silenziare con
-      `ignoreDeprecations`): passare a **`"moduleResolution": "Bundler"** (app Vite e
-      `vite.config.ts`; `module` è già `ESNext`), coerente col bundling di Vite. Verifica:
-      `npm run build` e avvio dev senza warning; nessuna regressione sugli import
-      (in `tsconfig.node.json` resta `types: ["node"]`).
+      this error." Veniva da `"moduleResolution": "Node"` (= modalità legacy "node10") in
+      `tsconfig.app.json` e `tsconfig.node.json`. Fix applicato (NON silenziato con
+      `ignoreDeprecations`): passato a **`"moduleResolution": "Bundler"`** (app Vite e
+      `vite.config.ts`; `module` è già `ESNext`), coerente col bundling di Vite. Verificato:
+      `npm run build` e `tsc -b` senza warning; nessuna regressione (in `tsconfig.node.json`
+      resta `types: ["node"]`).
 
 ### Note e Luogo sulle spese (campi facoltativi) + Luogo da GPS — completata il 05/09/2026
 - [x] **DB + types**: campi `notes: string` (default '') e `location: string` (default '') su

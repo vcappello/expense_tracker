@@ -102,6 +102,10 @@
   pagina cade a metà giorno, il giorno intero passa alla pagina successiva) con auto-load
   dei gruppi quando il contenuto non riempie il viewport (altrimenti niente scroll per
   caricare). NON ripristinare data/ora sulle righe.
+- **`moduleResolution` nei tsconfig**: usare **`"Bundler"`** (in `tsconfig.app.json` e
+  `tsconfig.node.json`), NON `"Node"` (modalità legacy "node10" → warning TS
+  "moduleResolution=node10 is deprecated ... TypeScript 7.0"). Fix già applicato il
+  05/09/2026.
 
 ## Limiti noti (non bloccanti)
 - **Main view al primo load freddo**: a volte il filtro "This month" appare vuoto subito dopo il caricamento della pagina (comportamento transitorio legato a IndexedDB); cliccando un qualsiasi filtro i dati compaiono. Rivedere il timing di lettura se si ripresenta.
