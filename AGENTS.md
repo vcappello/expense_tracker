@@ -91,6 +91,17 @@
   Gestire errore/permesso negato/timeout/offline con `Toast` ⚠️ e lasciare il campo
   manuale: non bloccare MAI il salvataggio (luogo facoltativo). Errore GPS: codice 1 =
   permesso negato, 2 = posizione non disponibile, 3 = timeout.
+- **Main view — lista per giorno (righe senza data/ora)**: la lista è raggruppata per giorno
+  in TUTTI i filtri; le righe mostrano **solo i dettagli** (mai data/ora; l'ora conta solo
+  per l'ordinamento): Spesa = "💸 Categoria · Conto" (+ 📍 Luogo su seconda riga se
+  `location` compilata), Entrata = conto, routing = sorgente → destinazione. Header giorno:
+  compatto nei filtri a mese singolo ("4 ven", oggi con "· Oggi"), con mese per esteso in
+  Quest'anno/Tutti ("Settembre 5 Sab", anno aggiunto per giorni fuori dall'anno corrente).
+  Helper in `src/utils/formatting.ts` (`isSameDay`/`isToday`/`formatDayHeader`). La
+  paginazione lavora su **gruppi giorno interi** (mai tagliare un giorno: se il confine di
+  pagina cade a metà giorno, il giorno intero passa alla pagina successiva) con auto-load
+  dei gruppi quando il contenuto non riempie il viewport (altrimenti niente scroll per
+  caricare). NON ripristinare data/ora sulle righe.
 
 ## Limiti noti (non bloccanti)
 - **Main view al primo load freddo**: a volte il filtro "This month" appare vuoto subito dopo il caricamento della pagina (comportamento transitorio legato a IndexedDB); cliccando un qualsiasi filtro i dati compaiono. Rivedere il timing di lettura se si ripresenta.

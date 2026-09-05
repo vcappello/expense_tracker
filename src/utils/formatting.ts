@@ -51,6 +51,59 @@ export const formatTime = (time?: string): string => {
   return time;
 };
 
+// Italian abbreviated weekdays indexed by Date#getDay() (0 = Sunday)
+const WEEKDAY_ABBREV = ['dom', 'lun', 'mar', 'mer', 'gio', 'ven', 'sab'];
+const WEEKDAY_ABBREV_CAP = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+// Italian month names indexed by Date#getMonth() (0 = January)
+const MONTH_NAMES_IT = [
+  'Gennaio',
+  'Febbraio',
+  'Marzo',
+  'Aprile',
+  'Maggio',
+  'Giugno',
+  'Luglio',
+  'Agosto',
+  'Settembre',
+  'Ottobre',
+  'Novembre',
+  'Dicembre',
+];
+
+/**
+ * True when the two dates fall on the same calendar day (local time).
+ */
+export const isSameDay = (a: Date, b: Date): boolean =>
+  a.getFullYear() === b.getFullYear() &&
+  a.getMonth() === b.getMonth() &&
+  a.getDate() === b.getDate();
+
+/**
+ * True when the date is today (local time).
+ */
+export const isToday = (date: Date): boolean => isSameDay(date, new Date());
+
+/**
+ * Label of the day section header in the Main view movement list.
+ * - compact (single-month ranges): day-of-month + abbreviated weekday, e.g. "4 ven".
+ * - wide (Quest'anno / Tutti): full month name is added, e.g. "Settembre 5 Sab";
+ *   `includeYear` appends the year (needed when the range spans multiple years).
+ */
+export const formatDayHeader = (
+  date: Date,
+  wide: boolean,
+  includeYear: boolean
+): string => {
+  if (wide) {
+    const month = MONTH_NAMES_IT[date.getMonth()];
+    const weekday = WEEKDAY_ABBREV_CAP[date.getDay()];
+    const year = includeYear ? ` ${date.getFullYear()}` : '';
+    return `${month} ${date.getDate()} ${weekday}${year}`;
+  }
+  const weekday = WEEKDAY_ABBREV[date.getDay()];
+  return `${date.getDate()} ${weekday}`;
+};
+
 /**
  * Combine a date with a time string (HH:mm:ss) into a single Date
  * for comparison/sorting purposes.

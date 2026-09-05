@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Movement, MovementFilters, DateRange } from '../types';
-import { formatDate, abbreviateAmount, formatTime } from '../utils/formatting';
+import { formatDayHeader, abbreviateAmount, isToday } from '../utils/formatting';
 import { routingCounterpartIds } from '../utils/routing';
 import { exportDatabase, readBackupFile, BackupData } from '../utils/backup';
 import TitleBar from '../components/TitleBar';
@@ -147,10 +147,67 @@ export default function MainView() {
   const displayMovements = movements.filter(
     (m) => m.type === 'expense' || !hiddenCashflowIds.has(m.id)
   );
-  const paginatedMovements = displayMovements.slice(
-    0,
-    (page + 1) * ITEMS_PER_PAGE
-  );
+
+  // Single-month ranges get a compact day header; Quest'anno/Tutti show the
+  // full month name (and the year when the day is not in the current year).
+  const wideRange =
+    filters.dateRange === 'current-year' || filters.dateRange === 'all';
+
+  // Group the (already date/time-desc sorted) movements by calendar day.
+  const dayGroups = useMemo(() => {
+    const groups: { key: string; date: Date; movements: Movement[] }[] = [];
+    const byKey = new Map<
+      string,
+      { key: string; date: Date; movements: Movement[] }
+    >();
+    for (const m of displayMovements) {
+      const d = new Date(
+        m.date.getFullYear(),
+        m.date.getMonth(),
+        m.date.getDate()
+      );
+      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      let group = byKey.get(key);
+      if (!group) {
+        group = { key, date: d, movements: [] };
+        byKey.set(key, group);
+        groups.push(group);
+      }
+      group.movements.push(m);
+    }
+    return groups;
+  }, [displayMovements]);
+
+  // Pagination by whole day groups: a page boundary never cuts a day, so the
+  // visible prefix always ends at a day boundary. When a boundary falls inside
+  // a day, the whole day group is deferred to the following page.
+  const visibleGroupCount = useMemo(() => {
+    const target = (page + 1) * ITEMS_PER_PAGE;
+    let cumulative = 0;
+    let count = 0;
+    for (const g of dayGroups) {
+      if (cumulative + g.movements.length > target) break;
+      cumulative += g.movements.length;
+      count += 1;
+    }
+    // A single day larger than a page is still shown whole (never split).
+    if (count === 0 && dayGroups.length > 0) count = 1;
+    return count;
+  }, [dayGroups, page]);
+
+  const visibleGroups = dayGroups.slice(0, visibleGroupCount);
+  const hasMore = visibleGroupCount < dayGroups.length;
+
+  // When the loaded whole-day groups do not yet fill the scroll container the
+  // user could never scroll to trigger the next load: auto-load more groups.
+  const listRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!hasMore) return;
+    const el = listRef.current;
+    if (el && el.scrollHeight <= el.clientHeight + 4) {
+      setPage((prev) => prev + 1);
+    }
+  }, [hasMore, visibleGroups]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const element = e.currentTarget;
@@ -224,55 +281,88 @@ export default function MainView() {
             <p className="subtitle">Clicca "Nuova spesa" per iniziare</p>
           </div>
         ) : (
-          <div className="movements-list-container" onScroll={handleScroll}>
+          <div ref={listRef} className="movements-list-container" onScroll={handleScroll}>
             <ul className="movements-list">
-              {paginatedMovements.map((movement) => (
-                <li
-                  key={movement.id}
-                  className="movement-item"
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => handleMovementClick(movement)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      handleMovementClick(movement);
-                    }
-                  }}
-                >
-                  <div className="movement-content">
-                    <div className="movement-info">
-                      <div className="date">
-                        {formatDate(movement.date)}
-                        {movement.time && <span className="time">{formatTime(movement.time)}</span>}
-                      </div>
-                      <div className="type">
-                        {movement.type === 'expense'
-                          ? `💸 ${expenseTypes.find((t) => t.id === movement.expenseTypeId)?.name || 'Spesa'}`
-                          : movement.routingAccountId
-                          ? `🔄 ${accounts.find((a) => a.id === movement.routingAccountId)?.name || '?'} → ${
-                              accounts.find((a) => a.id === movement.accountId)?.name || '?'
-                            }`
-                          : `💰 ${accounts.find((a) => a.id === movement.accountId)?.name || '?'}`}
-                      </div>
-                    </div>
-                    <div
-                      className={`amount ${
-                        movement.type === 'expense'
-                          ? 'expense'
-                          : movement.routingAccountId
-                          ? 'routing'
-                          : 'cashflow'
-                      }`}
-                    >
-                      {movement.type === 'expense' && '-'}
-                      {abbreviateAmount(movement.amount)}
-                    </div>
+              {visibleGroups.map((group) => (
+                <li key={group.key} className="day-group">
+                  <div className="day-header">
+                    {formatDayHeader(
+                      group.date,
+                      wideRange,
+                      group.date.getFullYear() !== new Date().getFullYear()
+                    )}
+                    {isToday(group.date) && (
+                      <span className="day-today">· Oggi</span>
+                    )}
                   </div>
+                  <ul className="day-movements">
+                    {group.movements.map((movement) => {
+                      const isExpense = movement.type === 'expense';
+                      const isRouting =
+                        movement.type === 'cashflow' &&
+                        movement.routingAccountId != null;
+                      const accountName =
+                        accounts.find((a) => a.id === movement.accountId)?.name ||
+                        '?';
+                      return (
+                        <li
+                          key={movement.id}
+                          className="movement-item"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => handleMovementClick(movement)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              handleMovementClick(movement);
+                            }
+                          }}
+                        >
+                          <div className="movement-content">
+                            <div className="movement-info">
+                              <div className="movement-type">
+                                {isExpense
+                                  ? `💸 ${
+                                      expenseTypes.find(
+                                        (t) => t.id === movement.expenseTypeId
+                                      )?.name || 'Spesa'
+                                    } · ${accountName}`
+                                  : isRouting
+                                  ? `🔄 ${
+                                      accounts.find(
+                                        (a) =>
+                                          a.id === movement.routingAccountId
+                                      )?.name || '?'
+                                    } → ${accountName}`
+                                  : `💰 ${accountName}`}
+                              </div>
+                              {isExpense && movement.location && (
+                                <div className="movement-place">
+                                  📍 {movement.location}
+                                </div>
+                              )}
+                            </div>
+                            <div
+                              className={`amount ${
+                                isExpense
+                                  ? 'expense'
+                                  : isRouting
+                                  ? 'routing'
+                                  : 'cashflow'
+                              }`}
+                            >
+                              {isExpense && '-'}
+                              {abbreviateAmount(movement.amount)}
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </li>
               ))}
             </ul>
 
-            {paginatedMovements.length < displayMovements.length && (
+            {hasMore && (
               <div className="load-more">
                 <p>Scorri per altri...</p>
               </div>
