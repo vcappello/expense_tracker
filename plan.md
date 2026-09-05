@@ -111,6 +111,14 @@
       `MainView.css`. Verificato E2E nel browser (header compatto/esteso, oggi, luogo su
       seconda riga, giorno con 22 spese mai tagliato). Design da
       `docs/wireframes/mainview-list.svg`; spec in `spec.md` ("Movement list grouped by day").
+- [x] **Main view — indicatore dell'intervallo nel pulsante Filtri**: il pulsante Filtri
+      della action bar mostra accanto all'imbuto l'**intervallo attivo** come testo: per i
+      filtri a mese singolo "Mese + anno" (es. "Settembre 2026", "Agosto 2026" — l'anno
+      evita ambiguità per "Mese scorso" a cavallo d'anno), per "Quest'anno" solo l'anno
+      ("2026"), per "Tutti" la scritta "Tutti". Pulsante unico pill (imbuto + etichetta,
+      classe `.filter-menu`/`.filter-value`) che apre il menu; helper `formatMonthYear` in
+      `formatting.ts`. Così il periodo mostrato è sempre chiaro anche senza data/ora sulle
+      righe. Verificato in browser (i 4 intervalli aggiornano l'etichetta).
 
 ## 🔄 In corso / Prossimi
 

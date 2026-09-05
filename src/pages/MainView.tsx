@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Movement, MovementFilters, DateRange } from '../types';
-import { formatDayHeader, abbreviateAmount, isToday } from '../utils/formatting';
+import { formatDayHeader, formatMonthYear, abbreviateAmount, isToday } from '../utils/formatting';
 import { routingCounterpartIds } from '../utils/routing';
 import { exportDatabase, readBackupFile, BackupData } from '../utils/backup';
 import TitleBar from '../components/TitleBar';
@@ -153,6 +153,24 @@ export default function MainView() {
   const wideRange =
     filters.dateRange === 'current-year' || filters.dateRange === 'all';
 
+  // Label of the active date range shown in the Filters pill (e.g. the month
+  // and year for single-month ranges, the year for Quest'anno, 'Tutti').
+  const filterValue = (() => {
+    const now = new Date();
+    switch (filters.dateRange) {
+      case 'current-month':
+        return formatMonthYear(now);
+      case 'previous-month':
+        return formatMonthYear(
+          new Date(now.getFullYear(), now.getMonth() - 1, 1)
+        );
+      case 'current-year':
+        return String(now.getFullYear());
+      default:
+        return 'Tutti';
+    }
+  })();
+
   // Group the (already date/time-desc sorted) movements by calendar day.
   const dayGroups = useMemo(() => {
     const groups: { key: string; date: Date; movements: Movement[] }[] = [];
@@ -251,8 +269,14 @@ export default function MainView() {
         <div className="actions-bar">
           <ActionMenu
             triggerLabel="Filtri"
-            trigger={<FunnelIcon />}
+            trigger={
+              <>
+                <FunnelIcon />
+                <span className="filter-value">{filterValue}</span>
+              </>
+            }
             align="left"
+            className="filter-menu"
             items={dateRangeOptions.map((opt) => ({
               label: opt.label,
               active: filters.dateRange === opt.value,

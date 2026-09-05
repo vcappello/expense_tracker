@@ -377,7 +377,11 @@ when switching to the HTTPS server (or any other origin change).
 - Desired changes: 
   - The title bar contain the view title left aligned. Right aligned there are the two button "+ Spesa" and "+ Entrata"
   - Under the title bar we have an action bar with two button:
-    - Filters, identified by an icon of a funnel without text, the button is left aligned to the page, when pressed a dropdown menu is displayed:
+    - Filters, identified by an icon of a funnel; the button also shows the active date
+      range as a text label next to the icon (e.g. "Settembre 2026" for the single-month
+      ranges, "2026" for Quest'anno, "Tutti" for all), so the displayed period is always
+      clear even though the movement rows carry no date/time. The button is left aligned to
+      the page; when pressed a dropdown menu is displayed:
       - Mese corrente
       - Mese scorso
       - Quest'anno

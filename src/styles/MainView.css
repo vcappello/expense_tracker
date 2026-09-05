@@ -25,6 +25,20 @@
   border-bottom: 1px solid rgba(148, 163, 184, 0.15);
 }
 
+/* Filters button shows the active date range next to the funnel icon */
+.filter-menu .action-menu-trigger {
+  width: auto;
+  padding: 0 12px 0 8px;
+  gap: 6px;
+}
+
+.filter-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  white-space: nowrap;
+}
+
 .movements-list-container {
   flex: 1;
   overflow-y: auto;

@@ -105,6 +105,13 @@ export const formatDayHeader = (
 };
 
 /**
+ * "Month Year" label (Italian month name capitalized), e.g. "Settembre 2026".
+ * Used by the Main view filter button to show the currently displayed range.
+ */
+export const formatMonthYear = (date: Date): string =>
+  `${MONTH_NAMES_IT[date.getMonth()]} ${date.getFullYear()}`;
+
+/**
  * Combine a date with a time string (HH:mm:ss) into a single Date
  * for comparison/sorting purposes.
  */
