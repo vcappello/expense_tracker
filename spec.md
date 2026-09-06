@@ -18,6 +18,10 @@ The `Expense` record also carries two optional free-text fields, `notes` and `lo
 (a note and a place), both defaulting to an empty string (see "Notes and location on an
 Expense").
 
+The `Expense` record carries a `reimbursable` boolean flag and the `Cashflow` record an
+`isSalary` boolean flag (both defaulting to false), used by the "Expenses to be reimbursed
+(reimbursable) and Salary" feature.
+
 Default initial values for Account:
 - Cash
 - Bank account
@@ -205,6 +209,35 @@ Constraints and fallbacks:
 - Nominatim usage policy: low volume; a descriptive User-Agent/Referer is sent. The result
   is only stored in the local field (nothing is sent or stored server-side beyond the
   geocoding request).
+
+## Expenses to be reimbursed (reimbursable) and Salary
+Some expenses (e.g. business trips) are paid by the user and later reimbursed by the
+employer together with the salary. To know how much of the incoming salary is a
+reimbursement of already-paid expenses:
+- on the **Expense** there is a `reimbursable` boolean flag (default false), set from the
+  Create/Edit Expense form with the checkbox "Sarà rimborsata" (will be reimbursed). The
+  flag does not change how the Expense behaves in Analytics or in the account balances: a
+  reimbursable expense is still a normal expense (it was actually paid).
+- on the **Cashflow** there is an `isSalary` boolean flag (default false), set from the
+  Create/Edit Cashflow form with the checkbox "Stipendio". It marks the income that pays
+  the salary.
+- In the Cashflow form, when the "Stipendio" checkbox is checked, a small panel shows the
+  **reimbursable total since the previous salary**: the sum (and the count) of all
+  Expenses with `reimbursable = true` whose date is later than the date of the most recent
+  Cashflow marked as salary with an earlier date (the "previous salary"). If no previous
+  salary exists yet, every reimbursable Expense is considered. The value is informational
+  only (it does not affect Analytics or balances).
+
+Implementation notes:
+- new fields are normalized on read (`normalizeExpense` / `normalizeCashflow` in
+  `src/db/database.ts`) and on import (`src/utils/backup.ts`); no `DB_VERSION` bump.
+- helper in `src/utils/reimbursements.ts` computes the previous salary and the total from
+  the full Expense and Cashflow lists (loaded via the context).
+- window-only approach (no "reimbursed" state on the expenses): editing, deleting or
+  unchecking a salary only changes the reference used by the following ones; nothing else
+  needs to be reconciled.
+- for a coin-split expense the flag is stored on the main Expense record only (not on the
+  generated Cashflows).
 
 ## Edit or Create Cashflow
 When the user click the new Cashflow button a new page is displayed.

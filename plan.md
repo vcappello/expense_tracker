@@ -264,6 +264,45 @@
 > Filtri) — vedi sezione ✅ Completati e i blocchi [x] sotto. Qui sotto restano le voci
 > aperte (manutenzione/rifiniture). Gli step andranno marcati [x] man mano.
 
+### Spese da rimborsare (reimbursable) + riepilogo nello stipendio — pianificata il 06/09/2026
+
+> Richiesta utente: segnare le spese che verranno rimborsate (es. trasferte) e, quando si
+> inserisce lo stipendio, vedere il **totale delle spese da rimborsare** inserite dopo lo
+> stipendio precedente. Decisioni di design (06/09/2026, confermate dall'utente):
+> - l'app riconosce lo stipendio da un **flag sull'entrata** (checkbox "Stipendio",
+>   `isSalary` sul `Cashflow`), non da euristiche su conto/importo;
+> - approccio **"solo finestra di tempo"**: nessuno stato "rimborsata" sulle spese; il
+>   totale mostrato è quello delle spese con `reimbursable = true` con **data successiva
+>   all'ultimo stipendio precedente registrato** (nessuno stipendio → tutte le spese
+>   rimborsabili); edit/delete/rimozione di uno stipendio cambia solo il riferimento per i
+>   successivi (niente riconciliazioni);
+> - le spese rimborsabili **restano spese normali** in Analytics e nei saldi conti (il
+>   totale è informativo, mostrato solo nel form stipendio) → nessuna modifica a Main
+>   view/Analytics.
+
+- [ ] **DB + types**: campo `reimbursable: boolean` (default false) su `Expense` e
+      `isSalary: boolean` (default false) su `Cashflow`; normalizzati in lettura in
+      `src/db/database.ts` (`normalizeExpense` / `normalizeCashflow`) e in import in
+      `src/utils/backup.ts` (niente bump `DB_VERSION`)
+- [ ] **Util rimborsi**: nuovo `src/utils/reimbursements.ts` con helper per trovare lo
+      stipendio precedente (ultimo Cashflow con `isSalary` e data precedente a quella di
+      riferimento) e calcolare **totale + conteggio** delle spese `reimbursable` con data
+      successiva allo stipendio precedente (nessuno stipendio → tutte); usato dal form
+      entrata con le liste complete dal context (`loadExpenses` / `getCashflows`)
+- [ ] **Form Spesa (`CreateExpensePage`)**: checkbox "Sarà rimborsata" (crea+edit),
+      salvata sul record Expense — anche per la spesa con monete (flag sul record principale
+      del gruppo, non sui cashflow generati)
+- [ ] **Form Entrata (`CreateCashflowPage`)**: checkbox "Stipendio" (`isSalary`); quando
+      attiva mostra un pannello "Spese da rimborsare: TOTALE (n)" calcolato con la finestra
+      di tempo dello stipendio precedente; nascosto se la checkbox è spenta
+- [ ] **Main view / Analytics**: nessuna modifica (le spese rimborsabili restano spese
+      normali; nessun indicatore extra)
+- [ ] **Backup/Ripristino**: normalizzazione `reimbursable` / `isSalary` in import +
+      verifica round-trip
+- [ ] **Test E2E** nel browser (spesa rimborsabile, stipendio con totale corretto "a partire
+      dallo stipendio precedente", sequenza di più stipendi, edit/rimozione flag stipendio,
+      spesa con monete rimborsabile, build OK)
+
 ### 🧹 Manutenzione — deprecazione TS `moduleResolution=node10` — completata il 05/09/2026
 - [x] **Risolto il warning TypeScript di deprecazione** che compariva in compilazione:
       "Option 'moduleResolution=node10' is deprecated and will stop functioning in
