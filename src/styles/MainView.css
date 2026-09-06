@@ -113,12 +113,14 @@
 .movement-content {
   /* Griglia a 2 colonne: la sinistra (dettagli) si comprime sempre
      (minmax(0, 1fr)) e il testo va a capo facendo crescere l'altezza della
-     riga; la destra (importo) resta fissa e sempre visibile a destra. */
+     riga; la destra (importo) resta fissa e sempre visibile a destra.
+     align-items: baseline → l'importo è allineato alla PRIMA riga di testo
+     (la riga del tipo), non centrato rispetto a tutto il blocco. */
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
+  align-items: baseline;
   gap: 16px;
-  padding: 12px 0;
+  padding: 14px 0;
   list-style: none;
   margin: 0;
   width: 100%;
@@ -152,12 +154,18 @@
 
 .movement-place {
   /* Il luogo può essere lungo ma non deve spingere l'importo: la colonna
-     sinistra ha larghezza limitata (minmax(0,1fr)) e qui il testo va a capo
-     facendo crescere l'altezza della riga. overflow-wrap gestisce anche
-     stringhe senza spazi. */
+     sinistra ha larghezza limitata (minmax(0,1fr)) e il testo va a capo.
+     Massimo 2 righe con ellissi finale (overflow-wrap: anywhere gestisce
+     anche stringhe senza spazi); il testo completo resta nella view di
+     modifica. */
   color: #64748b;
   font-size: 0.8rem;
   overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: hidden;
 }
 
 .amount {
@@ -211,7 +219,8 @@
   }
 
   .movement-content {
-    padding: 10px 0;
+    /* Area di tocco più alta su smartphone (pad verticale maggiore). */
+    padding: 12px 0;
     gap: 12px;
   }
 

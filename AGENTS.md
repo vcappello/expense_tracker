@@ -109,12 +109,15 @@
 - **Main view — importo sempre visibile (luogo lungo)**: la riga movimento è una **griglia
   a 2 colonne** `grid-template-columns: minmax(0, 1fr) auto` (`.movement-content` in
   `src/styles/MainView.css`): la colonna sinistra (dettagli) si comprime sempre e il testo
-  va a capo in altezza (il luogo `.movement-place` usa `overflow-wrap: anywhere`, niente
-  ellipsis/nowrap); la colonna destra è l'**importo** (`.amount`: `white-space: nowrap`,
-  `min-width`, font ingrandito/bold) e resta sempre visibile. **⚠️ Collisione classi CSS
-  globali**: i CSS delle pagine sono caricati tutti insieme (import statici in `App.tsx`)
-  → NON riusare gli stessi nomi di classe tra pagine diverse. Le classi del report
-  Analytics ora hanno il prefisso `report-*` (`report-movements-list`,
+  va a capo in altezza — il luogo `.movement-place` è limitato a **max 2 righe con
+  ellissi** (`line-clamp`/`-webkit-line-clamp` + `overflow-wrap: anywhere`); la colonna
+  destra è l'**importo** (`.amount`: `white-space: nowrap`, `min-width`, font
+  ingrandito/bold) e resta sempre visibile. La riga usa `align-items: baseline` così
+  l'importo è allineato alla **prima riga** di testo (non centrato sul blocco); padding
+  verticale generoso (14px / 12px mobile) = **area di tocco ampia** per il tap. **⚠️
+  Collisione classi CSS globali**: i CSS delle pagine sono caricati tutti insieme (import
+  statici in `App.tsx`) → NON riusare gli stessi nomi di classe tra pagine diverse. Le
+  classi del report Analytics ora hanno il prefisso `report-*` (`report-movements-list`,
   `report-movement-type`): `movements-list`/`movement-type` sono SOLO della Main view (che
   dichiara `display: block` su `.movements-list` per difesa). Prima questo conflitto
   (il `display: grid` di `AnalyticsPage.css`) allargava la lista per giorno fino a

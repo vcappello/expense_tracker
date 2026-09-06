@@ -143,6 +143,15 @@
       luogo lunghissimo (anche senza spazi) va a capo in più righe, importo sempre a destra
       e visibile, nessun overflow orizzontale; report Analytics invariato. Spec in
       `spec.md` (sezione Main view/UI).
+- [x] **Main view — rifiniture riga movimento** (06/09/2026, dopo la fix importo sempre
+      visibile): (1) il **luogo è limitato a max 2 righe con ellissi** (`line-clamp` /
+      `-webkit-line-clamp` + `overflow-wrap: anywhere`); il testo completo resta nella
+      view di modifica; (2) l'importo è **allineato alla prima riga di testo** della riga
+      (`align-items: baseline` sulla griglia di `.movement-content`, non più centrato
+      rispetto all'intero blocco dettagli); (3) **area di tocco più ampia** su smartphone:
+      padding verticale della riga aumentato (14px desktop / 12px mobile). Verificato nel
+      browser a larghezza smartphone: luogo lunghissimo → 2 righe + ellissi, importo sulla
+      riga del tipo sempre visibile a destra, riga più alta e facile da toccare; build OK.
 
 ## 🔄 In corso / Prossimi
 
