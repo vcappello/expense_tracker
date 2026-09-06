@@ -49,6 +49,10 @@
   list-style: none;
   padding: 0;
   margin: 0;
+  /* display: block esplicito: nessuna regola esterna (es. .movements-list
+     grid di AnalyticsPage.css, caricata globalmente) deve trasformare questa
+     lista in griglia e causare overflow orizzontale. */
+  display: block;
 }
 
 .day-group {
@@ -107,15 +111,17 @@
 }
 
 .movement-content {
-  display: flex;
-  justify-content: space-between;
+  /* Griglia a 2 colonne: la sinistra (dettagli) si comprime sempre
+     (minmax(0, 1fr)) e il testo va a capo facendo crescere l'altezza della
+     riga; la destra (importo) resta fissa e sempre visibile a destra. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 16px;
   padding: 12px 0;
   list-style: none;
   margin: 0;
   width: 100%;
-  min-width: 0;
 }
 
 .movement-item:hover {
@@ -132,7 +138,6 @@
   justify-content: center;
   gap: 2px;
   text-align: left;
-  flex: 1;
   min-width: 0;
 }
 
@@ -146,21 +151,23 @@
 }
 
 .movement-place {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  /* Il luogo può essere lungo ma non deve spingere l'importo: la colonna
+     sinistra ha larghezza limitata (minmax(0,1fr)) e qui il testo va a capo
+     facendo crescere l'altezza della riga. overflow-wrap gestisce anche
+     stringhe senza spazi. */
   color: #64748b;
   font-size: 0.8rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .amount {
-  font-weight: 600;
-  font-size: 1.1rem;
+  /* L'importo è l'elemento chiave della riga: colonna a destra, non va mai a
+     capo e resta sempre visibile anche con luogo/dettagli lunghi. */
+  font-weight: 700;
+  font-size: 1.25rem;
   text-align: right;
-  min-width: 80px;
+  white-space: nowrap;
+  min-width: 96px;
 }
 
 .amount.expense {
@@ -205,9 +212,11 @@
 
   .movement-content {
     padding: 10px 0;
+    gap: 12px;
   }
 
   .amount {
-    font-size: 1rem;
+    font-size: 1.15rem;
+    min-width: 88px;
   }
 }

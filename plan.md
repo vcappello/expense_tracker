@@ -124,6 +124,25 @@
       `"moduleResolution": "Bundler"` in `tsconfig.app.json` e `tsconfig.node.json`
       (prima era "Node" = legacy node10). Verificato: `npm run build` e `tsc -b` senza
       warning, nessuna regressione.
+- [x] **Main view — riga movimento: importo sempre visibile (fix layout con Luogo lungo)**
+      (06/09/2026): bug segnalato dall'utente — con un luogo lungo (es. da GPS/Nominatim)
+      l'importo finiva fuori schermo a destra su smartphone. Causa: **collisione di classi
+      CSS globali** (i CSS delle pagine sono importati staticamente, quindi tutti sempre
+      attivi): `.movements-list` (`display:grid; gap:8px`) e `.movement-type` di
+      `AnalyticsPage.css` sovrascrivevano le classi omonime della Main view → la lista per
+      giorno diventava una griglia la cui colonna auto si allargava al contenuto più lungo
+      (luogo, 841px nel test) spingendo l'importo oltre il bordo (overflow orizzontale).
+      Fix: classi del report Analytics rinominate in `report-movements-list` /
+      `report-movement-type`; `.movements-list` della Main view con `display: block`
+      esplicito. Layout riga: `.movement-content` ora è una **griglia a 2 colonne
+      `minmax(0, 1fr) auto`** — sinistra (dettagli) si comprime sempre e il testo va a capo
+      facendo crescere l'altezza della riga (il luogo usa `overflow-wrap: anywhere`, niente
+      più ellipsis/nowrap); destra = **importo fisso, `white-space: nowrap`, sempre
+      visibile**, font ingrandito e più bold (`1.25rem` / `1.15rem` mobile, weight 700,
+      `min-width: 96/88px`). Verificato nel browser a larghezza smartphone (390px e meno):
+      luogo lunghissimo (anche senza spazi) va a capo in più righe, importo sempre a destra
+      e visibile, nessun overflow orizzontale; report Analytics invariato. Spec in
+      `spec.md` (sezione Main view/UI).
 
 ## 🔄 In corso / Prossimi
 

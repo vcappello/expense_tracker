@@ -302,7 +302,7 @@ export default function AnalyticsPage() {
             {/* Filtered Movements Report */}
             <div className="movements-section">
               <h2>Movimenti</h2>
-              <div className="movements-list">
+              <div className="report-movements-list">
                 {[...reportMovements]
                   .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                   .map((movement) => {
@@ -318,7 +318,7 @@ export default function AnalyticsPage() {
                         className={`movement-detail ${movement.type}`}
                       >
                         <div className="movement-detail-info">
-                          <div className="movement-type">{typeName || 'Sconosciuto'}</div>
+                          <div className="report-movement-type">{typeName || 'Sconosciuto'}</div>
                           <div className="movement-account">{accountName}</div>
                           <div className="movement-date">
                             {new Date(movement.date).toLocaleDateString()}

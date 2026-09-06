@@ -106,6 +106,19 @@
   `tsconfig.node.json`), NON `"Node"` (modalità legacy "node10" → warning TS
   "moduleResolution=node10 is deprecated ... TypeScript 7.0"). Fix già applicato il
   05/09/2026.
+- **Main view — importo sempre visibile (luogo lungo)**: la riga movimento è una **griglia
+  a 2 colonne** `grid-template-columns: minmax(0, 1fr) auto` (`.movement-content` in
+  `src/styles/MainView.css`): la colonna sinistra (dettagli) si comprime sempre e il testo
+  va a capo in altezza (il luogo `.movement-place` usa `overflow-wrap: anywhere`, niente
+  ellipsis/nowrap); la colonna destra è l'**importo** (`.amount`: `white-space: nowrap`,
+  `min-width`, font ingrandito/bold) e resta sempre visibile. **⚠️ Collisione classi CSS
+  globali**: i CSS delle pagine sono caricati tutti insieme (import statici in `App.tsx`)
+  → NON riusare gli stessi nomi di classe tra pagine diverse. Le classi del report
+  Analytics ora hanno il prefisso `report-*` (`report-movements-list`,
+  `report-movement-type`): `movements-list`/`movement-type` sono SOLO della Main view (che
+  dichiara `display: block` su `.movements-list` per difesa). Prima questo conflitto
+  (il `display: grid` di `AnalyticsPage.css`) allargava la lista per giorno fino a
+  spingere l'importo fuori schermo su smartphone.
 
 ## Limiti noti (non bloccanti)
 - **Main view al primo load freddo**: a volte il filtro "This month" appare vuoto subito dopo il caricamento della pagina (comportamento transitorio legato a IndexedDB); cliccando un qualsiasi filtro i dati compaiono. Rivedere il timing di lettura se si ripresenta.

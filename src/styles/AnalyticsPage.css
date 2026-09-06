@@ -342,7 +342,11 @@
   margin-bottom: 32px;
 }
 
-.movements-list {
+/* Classi del report con prefisso report-*: i CSS delle pagine sono globali
+   (importati staticamente da App.tsx), quindi .movements-list e .movement-type
+   qui collidevano con le omonime della Main view (es. display:grid sulla lista
+   per giorno → overflow orizzontale e importo fuori schermo). */
+.report-movements-list {
   display: grid;
   gap: 8px;
 }
@@ -379,7 +383,7 @@
   flex: 1;
 }
 
-.movement-type {
+.report-movement-type {
   color: #e5eefb;
   font-weight: 500;
   font-size: 0.95rem;

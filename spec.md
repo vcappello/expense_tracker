@@ -405,7 +405,12 @@ when switching to the HTTPS server (or any other origin change).
       - red for Expense
       - green for Cashflow (not routing)
       - yellow for routing Cashflow
-    No button is displayed to the right. When a movement is pressed the user navigate to the related edit view. The delete movement is moved inside the edit movement view.
+    The row is a two-column grid: the left column (details) is constrained to the
+    available width and its text wraps, increasing the row height when needed (e.g. a long
+    place name never overflows); the right column is the **amount**, which never wraps, is
+    fixed on the right with a slightly larger/bolder font, and **must always remain
+    visible** on any screen width (it is the most important piece of information of the
+    row). No button is displayed to the right. When a movement is pressed the user navigate to the related edit view. The delete movement is moved inside the edit movement view.
 
 - Wireframe: `docs/wireframes/main-view.png` (schermata) — righe movimento: `docs/wireframes/mainview-list.svg`
 
