@@ -136,13 +136,13 @@
       `report-movement-type`; `.movements-list` della Main view con `display: block`
       esplicito. Layout riga: `.movement-content` ora è una **griglia a 2 colonne
       `minmax(0, 1fr) auto`** — sinistra (dettagli) si comprime sempre e il testo va a capo
-      facendo crescere l'altezza della riga (il luogo usa `overflow-wrap: anywhere`, niente
-      più ellipsis/nowrap); destra = **importo fisso, `white-space: nowrap`, sempre
-      visibile**, font ingrandito e più bold (`1.25rem` / `1.15rem` mobile, weight 700,
-      `min-width: 96/88px`). Verificato nel browser a larghezza smartphone (390px e meno):
-      luogo lunghissimo (anche senza spazi) va a capo in più righe, importo sempre a destra
-      e visibile, nessun overflow orizzontale; report Analytics invariato. Spec in
-      `spec.md` (sezione Main view/UI).
+      facendo crescere l'altezza della riga (il luogo usa `overflow-wrap: anywhere`,
+      poi rifinito a max 2 righe con ellissi — vedi bullet successivo); destra =
+      **importo fisso, `white-space: nowrap`, sempre visibile**, font ingrandito e più
+      bold (`1.25rem` / `1.15rem` mobile, weight 700, `min-width: 96/88px`). Verificato
+      nel browser a larghezza smartphone (390px e meno): luogo lunghissimo (anche senza
+      spazi) va a capo in più righe, importo sempre a destra e visibile, nessun overflow
+      orizzontale; report Analytics invariato. Spec in `spec.md` (sezione Main view/UI).
 - [x] **Main view — rifiniture riga movimento** (06/09/2026, dopo la fix importo sempre
       visibile): (1) il **luogo è limitato a max 2 righe con ellissi** (`line-clamp` /
       `-webkit-line-clamp` + `overflow-wrap: anywhere`); il testo completo resta nella

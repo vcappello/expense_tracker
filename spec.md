@@ -45,6 +45,12 @@ day header; the time is used only for the ordering). For each item need to displ
 - for an Expense paid partly from a second account (coin split): two movements are
   displayed — the Expense (red) and the routing receiving movement (yellow, source →
   target); the internal income on the second account is hidden
+Row layout: each movement row is a **two-column grid** — the left column shows the
+  details and is constrained to the available width (the text wraps on more lines, the
+  place line is capped at two lines with an ellipsis); the right column is the **amount**,
+  which never wraps and is always visible on any screen width (fixed column on the right,
+  slightly larger/bolder font, aligned to the first text line of the row). It is the most
+  important piece of information of the row. (See also the UI redesign section, Main view.)
 Each row is clickable and navigates to the related edit view (no Edit/Delete buttons in the
 list; the Delete is available in the related edit view).
 Within a day the movements are sorted by date and time, most recent first.
