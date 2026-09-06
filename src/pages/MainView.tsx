@@ -344,20 +344,27 @@ export default function MainView() {
                           <div className="movement-content">
                             <div className="movement-info">
                               <div className="movement-type">
-                                {isExpense
-                                  ? `💸 ${
-                                      expenseTypes.find(
-                                        (t) => t.id === movement.expenseTypeId
-                                      )?.name || 'Spesa'
-                                    } · ${accountName}`
-                                  : isRouting
-                                  ? `🔄 ${
-                                      accounts.find(
-                                        (a) =>
-                                          a.id === movement.routingAccountId
-                                      )?.name || '?'
-                                    } → ${accountName}`
-                                  : `💰 ${accountName}`}
+                                <span className="movement-type-label">
+                                  {isExpense
+                                    ? `💸 ${
+                                        expenseTypes.find(
+                                          (t) => t.id === movement.expenseTypeId
+                                        )?.name || 'Spesa'
+                                      } · ${accountName}`
+                                    : isRouting
+                                    ? `🔄 ${
+                                        accounts.find(
+                                          (a) =>
+                                            a.id === movement.routingAccountId
+                                        )?.name || '?'
+                                      } → ${accountName}`
+                                    : `💰 ${accountName}`}
+                                </span>
+                                {isExpense && movement.reimbursable && (
+                                  <span className="reimbursable-badge">
+                                    da rimborsare
+                                  </span>
+                                )}
                               </div>
                               {isExpense && movement.location && (
                                 <div className="movement-place">

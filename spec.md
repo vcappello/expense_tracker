@@ -43,6 +43,9 @@ day header; the time is used only for the ordering). For each item need to displ
 - for Expense: the category and the account it was paid from (e.g. "Dinner · Cash"); when
   the location is set it appears on a second row (e.g. "📍 Via Roma 1, Milano"); the amount
   with negative sign and displayed in red
+- for a reimbursable Expense (checkbox "Sarà rimborsata"): the row also shows a small
+  "da rimborsare" pill next to the category/account (see "Expenses to be reimbursed
+  (reimbursable) and Salary")
 - for Cashflow: the account; the amount displayed in green (Note: if the Cashflow was
   created using a routing account only one movement must be displayed with color yellow,
   showing the source → target accounts)
@@ -217,7 +220,10 @@ reimbursement of already-paid expenses:
 - on the **Expense** there is a `reimbursable` boolean flag (default false), set from the
   Create/Edit Expense form with the checkbox "Sarà rimborsata" (will be reimbursed). The
   flag does not change how the Expense behaves in Analytics or in the account balances: a
-  reimbursable expense is still a normal expense (it was actually paid).
+  reimbursable expense is still a normal expense (it was actually paid). In the **Main
+  view** movement list the reimbursable rows show a small "da rimborsare" pill next to
+  the description (decision of 2026-09-06 — all reimbursable rows, independently of the
+  recorded salaries); amount and colors are unchanged.
 - on the **Cashflow** there is an `isSalary` boolean flag (default false), set from the
   Create/Edit Cashflow form with the checkbox "Stipendio". It marks the income that pays
   the salary.
@@ -438,6 +444,8 @@ when switching to the HTTPS server (or any other origin change).
     more than one year. Movement rows display **only the details — no date and no time**:
     - for Expense: the category and the account it was paid from (e.g. "Dinner · Cash")
       and, when the location is set, the place on a second line (e.g. "📍 Via Roma 1, Milano")
+    - for a reimbursable Expense (checkbox "Sarà rimborsata"): a small "da rimborsare"
+      pill is shown next to the description (same line), keeping amount and colors unchanged
     - for Cashflow: the account
     - for routing Cashflow: both the source and target account (e.g. "Cash → Bank account")
     - amount with colors:

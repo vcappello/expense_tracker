@@ -130,8 +130,10 @@
   delle spese rimborsabili **dopo l'ultimo stipendio precedente** (approccio "solo finestra
   di tempo", niente stato 'rimborsata'): helper in `src/utils/reimbursements.ts`
   (`findPreviousSalary`, `getReimbursableSummary`) + metodo `getReimbursableSummary` nel
-  context. Le spese rimborsabili restano spese normali in Analytics/saldi (nessun
-  indicatore extra). Quando si aggiunge un flag booleano a un record ricordarsi di
+  context. Le spese rimborsabili restano spese normali in Analytics/saldi; in **Main view
+  le righe con `reimbursable` mostrano un badge "da rimborsare"** (pill accanto alla
+  descrizione, decisione 06/09/2026: tutte le marcate, indipendenti dagli stipendi). Quando
+  si aggiunge un flag booleano a un record ricordarsi di
   aggiornare: types, normalizzazione lettura (database.ts), normalizzazione import
   (backup.ts) e TUTTI gli object literal che costruiscono il record (coins.ts,
   AppContext, form).

@@ -163,12 +163,20 @@
       entrata, con "Stipendio" attivo, un pannello mostra "💶 Spese da rimborsare
       dall'ultimo stipendio: TOTALE€ (n)" — totale delle spese `reimbursable` con data
       successiva all'ultimo stipendio precedente registrato (nessuno → tutte). Le spese
-      rimborsabili **restano spese normali** in Analytics/saldi (nessun indicatore extra in
-      Main view). Verificato E2E nel browser (finestra corretta con 2 stipendi e spese
+      rimborsabili **restano spese normali** in Analytics/saldi. In Main view le righe con
+      `reimbursable` mostrano un badge "da rimborsare" (rifinitura 06/09/2026 — vedi
+      bullet sotto). Verificato E2E nel browser (finestra corretta con 2 stipendi e spese
       prima/dopo lo stipendio: 37.50€/2 escludendo spese precedenti e non rimborsabili;
       salvataggio stipendio `isSalary` e spesa `reimbursable`; prefill in modifica;
       round-trip backup); build OK. Spec in `spec.md` (sezione "Expenses to be reimbursed
       (reimbursable) and Salary").
+- [x] **Main view — badge "da rimborsare" sulle spese rimborsabili** (06/09/2026): nelle
+      righe della lista movimenti le spese con `reimbursable` mostrano una piccola pill
+      testuale "da rimborsare" accanto alla descrizione (decisione utente: TUTTE le
+      marcate "Sarà rimborsata", indipendentemente dagli stipendi registrati; nessuna
+      modifica al modello). La riga resta invariata per le altre spese (badge assente);
+      importo e colori invariati. Verificato nel browser (badge solo sulla spesa
+      rimborsabile, importo sempre visibile, nessun overflow orizzontale); build OK.
 
 ## 🔄 In corso / Prossimi
 
