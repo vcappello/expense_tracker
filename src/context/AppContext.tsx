@@ -4,6 +4,7 @@ import * as db from '../db/database';
 import { getDateRange, toDateTime } from '../utils/formatting';
 import { initializeDefaultData } from '../utils/initialization';
 import { buildCoinSplitCashflows } from '../utils/coins';
+import { getReimbursableSummary as computeReimbursableSummary, ReimbursableSummary } from '../utils/reimbursements';
 import { BackupData } from '../utils/backup';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -33,6 +34,7 @@ export interface ExpenseWithCoinsInput {
   accountId: string;
   notes?: string;
   location?: string;
+  reimbursable?: boolean;
   coinsAccountId?: string | null;
   coinsAmount?: number | null;
 }
@@ -111,6 +113,9 @@ interface AppContextType {
   // Movements (combined Expense + Cashflow)
   movements: Movement[];
   loadMovements: (filters: MovementFilters) => Promise<void>;
+
+  // Reimbursable expenses summary (see utils/reimbursements.ts)
+  getReimbursableSummary: (referenceDate: Date) => Promise<ReimbursableSummary>;
 
   // Backup / Restore (JSON export/import, see utils/backup.ts)
   restoreBackup: (data: BackupData) => Promise<void>;
@@ -374,6 +379,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             routingPairId: pairId,
             notes: input.notes ?? '',
             location: input.location ?? '',
+            reimbursable: input.reimbursable === true,
             createdAt: current?.createdAt ?? now,
             updatedAt: now,
           };
@@ -415,6 +421,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           routingPairId: pairId,
           notes: input.notes ?? '',
           location: input.location ?? '',
+          reimbursable: input.reimbursable === true,
           createdAt: now,
           updatedAt: now,
         };
@@ -647,6 +654,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     []
   );
 
+  // ============ REIMBURSABLE SUMMARY ============
+  const getReimbursableSummary = useCallback(async (referenceDate: Date) => {
+    try {
+      clearError();
+      const [allExpenses, allCashflows] = await Promise.all([
+        db.getExpenses(),
+        db.getCashflows(),
+      ]);
+      return computeReimbursableSummary(allExpenses, allCashflows, referenceDate);
+    } catch (err) {
+      throw err;
+    }
+  }, []);
+
   // ============ BACKUP / RESTORE ============
   const restoreBackup = useCallback(
     async (data: BackupData) => {
@@ -711,6 +732,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Movements
     movements,
     loadMovements,
+
+    // Reimbursable summary
+    getReimbursableSummary,
 
     // Backup / Restore
     restoreBackup,

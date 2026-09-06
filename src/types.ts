@@ -27,6 +27,7 @@ export interface Expense {
   routingPairId: string | null;
   notes: string; // optional free-text annotation (default '')
   location: string; // optional free-text place name (default '')
+  reimbursable: boolean; // the expense will be reimbursed (e.g. with the salary, default false)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -39,6 +40,7 @@ export interface Cashflow {
   accountId: string;
   routingAccountId: string | null;
   routingPairId: string | null;
+  isSalary: boolean; // this income is the salary (default false)
   createdAt: Date;
   updatedAt: Date;
 }

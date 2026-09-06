@@ -83,23 +83,27 @@ export const closeDB = () => {
 
 /**
  * Normalize legacy Expense records that predate the `routingPairId` link
- * (missing field → null) or the `notes`/`location` free-text fields
- * (missing field → ''). Keeps existing data backward compatible.
+ * (missing field → null), the `notes`/`location` free-text fields
+ * (missing field → '') or the `reimbursable` flag (missing → false). Keeps
+ * existing data backward compatible.
  */
 const normalizeExpense = (e: Expense): Expense => ({
   ...e,
   routingPairId: e.routingPairId ?? null,
   notes: e.notes ?? '',
   location: e.location ?? '',
+  reimbursable: e.reimbursable === true,
 });
 
 /**
  * Normalize legacy Cashflow records that predate the `routingPairId` link
- * (missing field → null). Keeps existing data backward compatible.
+ * (missing field → null) or the `isSalary` flag (missing → false). Keeps
+ * existing data backward compatible.
  */
 const normalizeCashflow = (c: Cashflow): Cashflow => ({
   ...c,
   routingPairId: c.routingPairId ?? null,
+  isSalary: c.isSalary === true,
 });
 
 // ============ ACCOUNT OPERATIONS ============

@@ -37,6 +37,7 @@ export default function CreateExpensePage() {
     coinsAmount: '',
     notes: '',
     location: '',
+    reimbursable: false,
   });
 
   const [expenseTypeSearch, setExpenseTypeSearch] = useState('');
@@ -84,6 +85,7 @@ export default function CreateExpensePage() {
               coinsAmount,
               notes: expense.notes ?? '',
               location: expense.location ?? '',
+              reimbursable: expense.reimbursable === true,
             });
           }
         } catch (err) {
@@ -187,6 +189,13 @@ export default function CreateExpensePage() {
     setFormData((prev) => ({
       ...prev,
       location: e.target.value,
+    }));
+  };
+
+  const handleReimbursableChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({
+      ...prev,
+      reimbursable: e.target.checked,
     }));
   };
 
@@ -340,6 +349,7 @@ export default function CreateExpensePage() {
         accountId: formData.accountId,
         notes: formData.notes,
         location: formData.location,
+        reimbursable: formData.reimbursable,
         coinsAccountId: hasCoins ? formData.coinsAccountId : null,
         coinsAmount: hasCoins ? coinsAmount : null,
       });
@@ -506,6 +516,19 @@ export default function CreateExpensePage() {
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Reimbursable flag: the expense will be reimbursed (e.g. with the salary) */}
+          <div className="form-group checkbox-group">
+            <label className="checkbox-label" htmlFor="reimbursable">
+              <input
+                type="checkbox"
+                id="reimbursable"
+                checked={formData.reimbursable}
+                onChange={handleReimbursableChange}
+              />
+              Sarà rimborsata
+            </label>
           </div>
 
           {/* Additional info (optional): note and location */}

@@ -152,6 +152,23 @@
       padding verticale della riga aumentato (14px desktop / 12px mobile). Verificato nel
       browser a larghezza smartphone: luogo lunghissimo → 2 righe + ellissi, importo sulla
       riga del tipo sempre visibile a destra, riga più alta e facile da toccare; build OK.
+- [x] **Spese da rimborsare + riepilogo nello stipendio (`reimbursable` / `isSalary`)**
+      (06/09/2026): nuovo flag `Expense.reimbursable` (default false; checkbox "Sarà
+      rimborsata" nel form spesa, crea+edit, anche sul record principale delle spese con
+      monete) e `Cashflow.isSalary` (default false; checkbox "Stipendio" nel form entrata);
+      normalizzati in lettura in `database.ts` (`normalizeExpense` / `normalizeCashflow`) e
+      in import in `backup.ts` (niente bump `DB_VERSION`). Logica **"solo finestra di
+      tempo"** in `src/utils/reimbursements.ts` (`findPreviousSalary` /
+      `getReimbursableSummary`) + metodo `getReimbursableSummary` nel context: nel form
+      entrata, con "Stipendio" attivo, un pannello mostra "💶 Spese da rimborsare
+      dall'ultimo stipendio: TOTALE€ (n)" — totale delle spese `reimbursable` con data
+      successiva all'ultimo stipendio precedente registrato (nessuno → tutte). Le spese
+      rimborsabili **restano spese normali** in Analytics/saldi (nessun indicatore extra in
+      Main view). Verificato E2E nel browser (finestra corretta con 2 stipendi e spese
+      prima/dopo lo stipendio: 37.50€/2 escludendo spese precedenti e non rimborsabili;
+      salvataggio stipendio `isSalary` e spesa `reimbursable`; prefill in modifica;
+      round-trip backup); build OK. Spec in `spec.md` (sezione "Expenses to be reimbursed
+      (reimbursable) and Salary").
 
 ## 🔄 In corso / Prossimi
 
@@ -264,7 +281,7 @@
 > Filtri) — vedi sezione ✅ Completati e i blocchi [x] sotto. Qui sotto restano le voci
 > aperte (manutenzione/rifiniture). Gli step andranno marcati [x] man mano.
 
-### Spese da rimborsare (reimbursable) + riepilogo nello stipendio — pianificata il 06/09/2026
+### Spese da rimborsare (reimbursable) + riepilogo nello stipendio — implementata il 06/09/2026
 
 > Richiesta utente: segnare le spese che verranno rimborsate (es. trasferte) e, quando si
 > inserisce lo stipendio, vedere il **totale delle spese da rimborsare** inserite dopo lo
@@ -280,26 +297,26 @@
 >   totale è informativo, mostrato solo nel form stipendio) → nessuna modifica a Main
 >   view/Analytics.
 
-- [ ] **DB + types**: campo `reimbursable: boolean` (default false) su `Expense` e
+- [x] **DB + types**: campo `reimbursable: boolean` (default false) su `Expense` e
       `isSalary: boolean` (default false) su `Cashflow`; normalizzati in lettura in
       `src/db/database.ts` (`normalizeExpense` / `normalizeCashflow`) e in import in
       `src/utils/backup.ts` (niente bump `DB_VERSION`)
-- [ ] **Util rimborsi**: nuovo `src/utils/reimbursements.ts` con helper per trovare lo
+- [x] **Util rimborsi**: nuovo `src/utils/reimbursements.ts` con helper per trovare lo
       stipendio precedente (ultimo Cashflow con `isSalary` e data precedente a quella di
       riferimento) e calcolare **totale + conteggio** delle spese `reimbursable` con data
       successiva allo stipendio precedente (nessuno stipendio → tutte); usato dal form
       entrata con le liste complete dal context (`loadExpenses` / `getCashflows`)
-- [ ] **Form Spesa (`CreateExpensePage`)**: checkbox "Sarà rimborsata" (crea+edit),
+- [x] **Form Spesa (`CreateExpensePage`)**: checkbox "Sarà rimborsata" (crea+edit),
       salvata sul record Expense — anche per la spesa con monete (flag sul record principale
       del gruppo, non sui cashflow generati)
-- [ ] **Form Entrata (`CreateCashflowPage`)**: checkbox "Stipendio" (`isSalary`); quando
+- [x] **Form Entrata (`CreateCashflowPage`)**: checkbox "Stipendio" (`isSalary`); quando
       attiva mostra un pannello "Spese da rimborsare: TOTALE (n)" calcolato con la finestra
       di tempo dello stipendio precedente; nascosto se la checkbox è spenta
-- [ ] **Main view / Analytics**: nessuna modifica (le spese rimborsabili restano spese
+- [x] **Main view / Analytics**: nessuna modifica (le spese rimborsabili restano spese
       normali; nessun indicatore extra)
-- [ ] **Backup/Ripristino**: normalizzazione `reimbursable` / `isSalary` in import +
+- [x] **Backup/Ripristino**: normalizzazione `reimbursable` / `isSalary` in import +
       verifica round-trip
-- [ ] **Test E2E** nel browser (spesa rimborsabile, stipendio con totale corretto "a partire
+- [x] **Test E2E** nel browser (spesa rimborsabile, stipendio con totale corretto "a partire
       dallo stipendio precedente", sequenza di più stipendi, edit/rimozione flag stipendio,
       spesa con monete rimborsabile, build OK)
 

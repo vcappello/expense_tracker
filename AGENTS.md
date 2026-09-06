@@ -122,6 +122,19 @@
   dichiara `display: block` su `.movements-list` per difesa). Prima questo conflitto
   (il `display: grid` di `AnalyticsPage.css`) allargava la lista per giorno fino a
   spingere l'importo fuori schermo su smartphone.
+- **Spese da rimborsare / stipendio (`reimbursable`, `isSalary`)**: `Expense.reimbursable`
+  (checkbox "Sarà rimborsata" nel form spesa, anche sul record principale delle spese con
+  monete) e `Cashflow.isSalary` (checkbox "Stipendio" nel form entrata), default false,
+  normalizzati in lettura in `database.ts` e in import in `backup.ts` (niente bump
+  `DB_VERSION`). Nel form entrata, con "Stipendio" attivo, il pannello mostra il totale
+  delle spese rimborsabili **dopo l'ultimo stipendio precedente** (approccio "solo finestra
+  di tempo", niente stato 'rimborsata'): helper in `src/utils/reimbursements.ts`
+  (`findPreviousSalary`, `getReimbursableSummary`) + metodo `getReimbursableSummary` nel
+  context. Le spese rimborsabili restano spese normali in Analytics/saldi (nessun
+  indicatore extra). Quando si aggiunge un flag booleano a un record ricordarsi di
+  aggiornare: types, normalizzazione lettura (database.ts), normalizzazione import
+  (backup.ts) e TUTTI gli object literal che costruiscono il record (coins.ts,
+  AppContext, form).
 
 ## Limiti noti (non bloccanti)
 - **Main view al primo load freddo**: a volte il filtro "This month" appare vuoto subito dopo il caricamento della pagina (comportamento transitorio legato a IndexedDB); cliccando un qualsiasi filtro i dati compaiono. Rivedere il timing di lettura se si ripresenta.

@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Cashflow } from '../types';
 import { sortAccountsPreferred } from '../utils/accounts';
+import { abbreviateAmount } from '../utils/formatting';
 import { useNavigateBack } from '../utils/navigation';
 import TitleBar, { TitleBarAction } from '../components/TitleBar';
 import { CheckIcon, TrashIcon } from '../components/icons';
@@ -22,7 +23,7 @@ const formatTimeToHHMMSS = (date: Date): string => {
 export default function CreateCashflowPage() {
   const navigateBack = useNavigateBack('/');
   const { id: cashflowId } = useParams<{ id: string }>();
-  const { accounts, createCashflow, updateCashflow, getCashflow, getCashflows, deleteCashflow } = useApp();
+  const { accounts, createCashflow, updateCashflow, getCashflow, getCashflows, deleteCashflow, getReimbursableSummary } = useApp();
   const sortedAccounts = sortAccountsPreferred(accounts);
 
   const now = new Date();
@@ -32,7 +33,13 @@ export default function CreateCashflowPage() {
     amount: '',
     accountId: '',
     routingAccountId: '',
+    isSalary: false,
   });
+
+  const [reimbursableSummary, setReimbursableSummary] = useState<{
+    total: number;
+    count: number;
+  } | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
@@ -54,6 +61,7 @@ export default function CreateCashflowPage() {
             amount: Math.abs(cashflow.amount).toString(),
             accountId: cashflow.accountId,
             routingAccountId: cashflow.routingAccountId || '',
+            isSalary: cashflow.isSalary === true,
           });
         }
       } catch (err) {
@@ -133,6 +141,34 @@ export default function CreateCashflowPage() {
     }));
   };
 
+  const handleIsSalaryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({
+      ...prev,
+      isSalary: e.target.checked,
+    }));
+  };
+
+  // When the form is marked as salary, compute the total of the reimbursable
+  // expenses entered since the previous salary (window-only, no state on the
+  // expenses — see utils/reimbursements.ts).
+  useEffect(() => {
+    if (!formData.isSalary || !formData.date) {
+      setReimbursableSummary(null);
+      return;
+    }
+    let active = true;
+    getReimbursableSummary(new Date(formData.date))
+      .then((summary) => {
+        if (active) setReimbursableSummary(summary);
+      })
+      .catch(() => {
+        if (active) setReimbursableSummary(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [formData.isSalary, formData.date, getReimbursableSummary]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -167,6 +203,7 @@ export default function CreateCashflowPage() {
             accountId: formData.routingAccountId,
             routingAccountId: null,
             routingPairId: pairId,
+            isSalary: false,
             createdAt: new Date(),
             updatedAt: new Date(),
           };
@@ -178,6 +215,7 @@ export default function CreateCashflowPage() {
             accountId: formData.accountId,
             routingAccountId: formData.routingAccountId,
             routingPairId: pairId,
+            isSalary: formData.isSalary,
             createdAt: new Date(),
             updatedAt: new Date(),
           };
@@ -197,6 +235,7 @@ export default function CreateCashflowPage() {
             accountId: formData.routingAccountId,
             routingAccountId: null,
             routingPairId: pairId,
+            isSalary: false,
             createdAt: new Date(),
             updatedAt: new Date(),
           };
@@ -208,6 +247,7 @@ export default function CreateCashflowPage() {
             accountId: formData.accountId,
             routingAccountId: formData.routingAccountId,
             routingPairId: pairId,
+            isSalary: formData.isSalary,
             createdAt: new Date(),
             updatedAt: new Date(),
           };
@@ -225,6 +265,7 @@ export default function CreateCashflowPage() {
           accountId: formData.accountId,
           routingAccountId: null,
           routingPairId: null,
+          isSalary: formData.isSalary,
           createdAt: new Date(),
           updatedAt: new Date(),
         };
@@ -396,6 +437,36 @@ export default function CreateCashflowPage() {
               ))}
             </select>
           </div>
+
+          {/* Salary flag: shows the reimbursable expenses since the previous salary */}
+          <div className="form-group checkbox-group">
+            <label className="checkbox-label" htmlFor="isSalary">
+              <input
+                type="checkbox"
+                id="isSalary"
+                checked={formData.isSalary}
+                onChange={handleIsSalaryChange}
+              />
+              Stipendio
+            </label>
+          </div>
+
+          {formData.isSalary && (
+            <div className="form-info salary-info">
+              <p className="info-text">
+                💶{' '}
+                {reimbursableSummary === null
+                  ? 'Calcolo delle spese da rimborsare…'
+                  : reimbursableSummary.count === 0
+                    ? "Nessuna spesa da rimborsare dall'ultimo stipendio."
+                    : `Spese da rimborsare dall'ultimo stipendio: ${abbreviateAmount(
+                        reimbursableSummary.total
+                      )}€ (${reimbursableSummary.count} ${
+                        reimbursableSummary.count === 1 ? 'spesa' : 'spese'
+                      })`}
+              </p>
+            </div>
+          )}
 
           <div className="form-info">
             {formData.routingAccountId && (
