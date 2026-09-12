@@ -3,16 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Account } from '../types';
 import TitleBar from '../components/TitleBar';
-import { abbreviateAmount } from '../utils/formatting';
+import { abbreviateAmount, toDateTime } from '../utils/formatting';
 import { sortAccountsPreferred } from '../utils/accounts';
 import '../styles/ManagementPage.css';
 
 export default function AccountManagementPage() {
   const navigate = useNavigate();
-  const { accounts, loadAccounts, movements, cashflows, expenses, loadCashflows, loadExpenses, isLoading } = useApp();
+  const { accounts, loadAccounts, movements, loadMovements, cashflows, expenses, loadCashflows, loadExpenses, isLoading } = useApp();
 
   useEffect(() => {
     loadAccounts();
+    // Full range ('all') so the "last movement" per account is not scoped to
+    // the Main view filter (the page does not apply a date filter of its own).
+    loadMovements({ dateRange: 'all' });
     loadCashflows();
     loadExpenses();
   }, []);
@@ -31,7 +34,8 @@ export default function AccountManagementPage() {
     const accountMovements = movements.filter((m) => m.accountId === accountId);
     if (accountMovements.length === 0) return null;
     return accountMovements.sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      (a, b) =>
+        toDateTime(b.date, b.time).getTime() - toDateTime(a.date, a.time).getTime()
     )[0];
   };
 

@@ -12,12 +12,19 @@ import { exportMovementsToCSV } from '../utils/csv';
 import '../styles/AnalyticsPage.css';
 
 export default function AnalyticsPage() {
-  const { accounts, expenseTypes, movements, isLoading } = useApp();
+  const { accounts, expenseTypes, movements, loadMovements, isLoading } = useApp();
   const [dateRange, setDateRange] = useState<DateRange>('current-month');
   // Empty array = no filter (all)
   const [selectedTypeIds, setSelectedTypeIds] = useState<string[]>([]);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [view, setView] = useState<'report' | 'grafico'>('report');
+
+  // Load the movements here with the full range ('all'): this page applies its
+  // own date filter, so relying on the Main view load would scope the data to
+  // the Main view filter (and leave the totals empty on a direct reload).
+  useEffect(() => {
+    loadMovements({ dateRange: 'all' });
+  }, [loadMovements]);
 
   // Filter movements based on selected filters
   const filteredMovements = useMemo(() => {

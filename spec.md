@@ -32,6 +32,12 @@ Default initial values for ExpenseType:
 - Fuel
 - Tolls
 
+Each view loads its own data on mount: the Main view loads the movements of its own date
+range filter, while the Analytics, Accounts and Expense Types management views load the
+**full** movement dataset (date range `all`) and apply their own filters locally (date
+range for Analytics/Categories, balance and last movement for Accounts). This keeps the
+pages correct also on a direct reload (bookmark) of their route.
+
 ## General consideration
 The output of amount values, when indicated as *abbreviated* must display the amount in K when the amount in greather than 999 and in M when the amount is greather than 999.999, with 2 decimal places
 

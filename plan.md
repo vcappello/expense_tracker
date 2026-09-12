@@ -177,6 +177,18 @@
       modifica al modello). La riga resta invariata per le altre spese (badge assente);
       importo e colori invariati. Verificato nel browser (badge solo sulla spesa
       rimborsabile, importo sempre visibile, nessun overflow orizzontale); build OK.
+- [x] **Fix limite noto — Analytics/Conti/Categorie caricano i movimenti da sole**
+      (12/09/2026): queste pagine non dipendono più dai `movements` caricati dalla Main
+      view (limitati al filtro periodo scelto lì). Con reload diretto su `#/analytics`
+      (o aprendo Conti/Categorie per prime) i totali erano vuoti e, cambiando periodo in
+      Analytics, potevano essere calcolati su dati scoped al filtro della Main view. Ora
+      `AnalyticsPage`, `AccountManagementPage` e `ExpenseTypeManagementPage` chiamano
+      `loadMovements({ dateRange: 'all' })` nel loro mount: il dataset è completo e ogni
+      pagina applica il **proprio** filtro (Analytics e Categorie per data; Conti per
+      saldo e "ultimo movimento"). Main view invariata (ricarica col proprio filtro al
+      mount). Verificato in browser con reload diretto sulle tre pagine (dati 2025 +
+      2026) e con Back da Analytics → Main view; build OK. Bonus: "Ultimo movimento" in
+      Gestione Conti ora ordina per **data + ora** (`toDateTime`), non solo per data.
 
 ## 🔄 In corso / Prossimi
 
@@ -389,7 +401,6 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 ## 👀 Osservazioni (limiti noti, da tenere d'occhio)
 
 - **Main view al primo load freddo**: il filtro "This month" può apparire vuoto subito dopo il caricamento della pagina (transitorio, legato a IndexedDB); cliccando un filtro i dati compaiono.
-- **Pagine Analytics/Categories/Accounts**: non caricano i `movements` da sole, dipendono dalla Main view. Con navigazione diretta (reload su `/analytics`) i totali risultano vuoti → valutare un `loadMovements` nel mount di queste pagine.
 
 ## 🔮 Prossime release
 - [ ] **Create from photo**: fotocamera smartphone + lettura dello scontrino con AI per creare la spesa automaticamente

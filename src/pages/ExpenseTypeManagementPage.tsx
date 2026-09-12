@@ -8,12 +8,15 @@ import '../styles/ManagementPage.css';
 
 export default function ExpenseTypeManagementPage() {
   const navigate = useNavigate();
-  const { expenseTypes, loadExpenseTypes, movements, isLoading } = useApp();
+  const { expenseTypes, loadExpenseTypes, movements, loadMovements, isLoading } = useApp();
   const [dateRange, setDateRange] = useState<DateRange>('current-month');
   const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadExpenseTypes();
+    // Full range ('all') because the page applies its own "Periodo" filter;
+    // relying on the Main view load would scope the totals to its filter.
+    loadMovements({ dateRange: 'all' });
   }, []);
 
   const handleCreate = () => {

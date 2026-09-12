@@ -106,6 +106,13 @@
   `tsconfig.node.json`), NON `"Node"` (modalità legacy "node10" → warning TS
   "moduleResolution=node10 is deprecated ... TypeScript 7.0"). Fix già applicato il
   05/09/2026.
+- **Analytics/Categorie/Conti caricano i movimenti da soli**: `AnalyticsPage`,
+  `ExpenseTypeManagementPage` e `AccountManagementPage` chiamano
+  `loadMovements({ dateRange: 'all' })` nel loro mount (dataset completo, poi ogni pagina
+  applica il proprio filtro). I `movements` del context NON sono quindi più scoped al
+  filtro della Main view: non rimuovere quelle chiamate, altrimenti con reload diretto su
+  `#/analytics` i totali sono vuoti e i filtri periodo di Analytics/Categorie calcolano su
+  dati incompleti. In Gestione Conti "ultimo movimento" ordina per data+ora (`toDateTime`).
 - **Main view — importo sempre visibile (luogo lungo)**: la riga movimento è una **griglia
   a 2 colonne** `grid-template-columns: minmax(0, 1fr) auto` (`.movement-content` in
   `src/styles/MainView.css`): la colonna sinistra (dettagli) si comprime sempre e il testo
@@ -139,8 +146,7 @@
   AppContext, form).
 
 ## Limiti noti (non bloccanti)
-- **Main view al primo load freddo**: a volte il filtro "This month" appare vuoto subito dopo il caricamento della pagina (comportamento transitorio legato a IndexedDB); cliccando un qualsiasi filtro i dati compaiono. Rivedere il timing di lettura se si ripresenta.
-- **Pagine Analytics/Categories/Accounts**: non caricano i `movements` da sole; dipendono da quelli caricati dalla Main view. Con navigazione diretta (bookmark/reload su `/analytics`) i totali risultano vuoti. Da considerare un `loadMovements` nel mount di queste pagine.
+- **Main view al primo load freddo**: a volte il filtro "This month" appare vuoto subito dopo il caricamento della pagina (comportamento transitorio legato a IndexedDB); cliccando un qualsiasi filtro i dati compaiono. Rivedere il timing di lettura se si ripresenta. (Non riproducibile in modo stabile il 12/09/2026: 5 reload consecutivi con dati corretti.)
 
 ## Note di database (da `spec.md`)
 - Tabelle: `Expense`, `Cashflow`, `ExpenseType`, `Account` (DB locale).
