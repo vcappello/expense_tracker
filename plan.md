@@ -300,6 +300,88 @@
 > **Main view per giorno** (con righe dettaglio e indicatore dell'intervallo nel pulsante
 > Filtri) — vedi sezione ✅ Completati e i blocchi [x] sotto. Qui sotto restano le voci
 > aperte (manutenzione/rifiniture). Gli step andranno marcati [x] man mano.
+> **Aperta (12/09/2026)**: pianificazione della feature **Spese ricorrenti** — blocco qui
+> sotto, in attesa della revisione utente prima di scrivere codice.
+
+### Spese ricorrenti (recurring expenses) — pianificata il 12/09/2026 (in attesa di revisione utente)
+
+> Richiesta utente: poter registrare **spese ricorrenti** (giornaliere, settimanali, mensili,
+> annuali) che vengono **proposte come "previste"** e restano tali finché l'utente non le
+> conferma; la conferma crea una spesa reale nel giorno/ora della conferma (importo
+> modificabile). Le confermate non vengono più proposte nel periodo corrente (giorno /
+> settimana / mese / anno). Le previste non confermate si vedono nella Main view **dopo il
+> gruppo di oggi e prima dei giorni precedenti**, in una sezione dedicata "Spese previste".
+> In Analytics le previste contano in una **categoria dedicata**.
+> Decisioni utente (12/09/2026):
+> - non confermata per più periodi → **una sola prevista attiva** (quella del periodo
+>   corrente); i periodi mancati si **saltano** (nessun arretrato);
+> - **nuova pagina "Ricorrenze"** per gestire i template (modifica, pausa/riattiva, stop);
+> - in Analytics le previste **contano nei totali** (Totale Spese, Saldo, Media giornaliera)
+>   sotto la pseudo-categoria "Spese previste", ma **non toccano i saldi dei conti**;
+> - eliminare una spesa **già confermata** → la prevista del periodo **ricompare** (periodo
+>   non più consumato);
+> - modificare una spesa **già confermata** → comportamento di una spesa normale, **nessun
+>   prompt**;
+> - in conferma si possono modificare **importo e data/ora** (per retrodatare);
+> - punto di ingresso: **menu Azioni → "🔁 Spese ricorrenti"** (pagina Ricorrenze con
+>   "+ Crea ricorrenza" nella title bar).
+> Default proposti (da confermare in revisione): settimana **lun–dom**; mensile al 31 →
+> ultimo giorno del mese; annuale 29/02 → 28/02; previste visibili **solo nei filtri che
+> contengono oggi** (Mese corrente / Quest'anno / Tutti) e **fuori dalla paginazione**;
+> "Salta questa" = periodo non consumato; conferma **idempotente** (`recurringId` +
+> `recurringPeriod` sull'Expense) + "Conferma tutte" + undo con `Toast`; `reimbursable`/
+> `notes`/`location` copiati dal template; **coin-split escluso in v1**; modali a 3 pulsanti
+> per "Solo questa / Tutte le successive"; cascade su Conto/Categoria estesa alle
+> ricorrenze.
+
+- [ ] **Docs** (fatto il 12/09/2026): `spec.md` con la sezione "Recurring expenses" (modello,
+      occorrenza prevista, conferma, modifica/eliminazione, gestione, cascade, Main view,
+      Analytics, backup, UI) e impatti aggiornati (Technical info `DB_VERSION` 2 + store
+      `recurringExpenses` + campi `recurringId`/`recurringPeriod`, Main view, Analytics,
+      Grafico, Backup/Ripristino, UI redesign, flusso di navigazione, prossime release);
+      `plan.md` con questi step.
+- [ ] **DB + types**: nuovo store `recurringExpenses` con **bump `DB_VERSION` 1 → 2**
+      (upgrade che crea solo gli store mancanti; gestione `onblocked` quando un'altra tab ha
+      la versione vecchia + messaggio all'utente); CRUD (`getRecurringExpenses`,
+      `getRecurringExpense`, `createRecurringExpense`, `updateRecurringExpense`,
+      `deleteRecurringExpense`); normalizzazione in lettura; campi `recurringId`/
+      `recurringPeriod` su `Expense` (default null) normalizzati in `normalizeExpense`.
+- [ ] **Util ricorrenze** `src/utils/recurrence.ts`: chiave periodo (`2026-09-12`,
+      `2026-W37`, `2026-09`, `2026`), data di scadenza del periodo corrente (settimana lun–dom,
+      mensile 31 → ultimo giorno, annuale 29/02 → 28/02), prossima scadenza, stato
+      pending/consumato, etichette frequenza per la UI.
+- [ ] **AppContext**: `loadRecurringExpenses`, `saveRecurringExpense`,
+      `deleteRecurringExpense` (con pulizia di `recurringId` sulle spese confermate),
+      `skipRecurringOccurrence`, `confirmRecurringOccurrence` (crea l'Expense con link in una
+      transazione), occorrenze previste derivate; cascade in
+      `deleteAccountCascade`/`deleteExpenseTypeCascade` + conteggi in
+      `getAccountDeleteInfo`/`getExpenseTypeDeleteInfo`.
+- [ ] **Pagine ricorrenze**: `RecurringManagementPage` (`/recurring`), `CreateRecurringPage`
+      (`/recurring/new`, `/recurring/:id/edit`, con preview prossima scadenza e switch
+      pausa), vista di conferma/modifica prevista (`/recurring/:id/confirm`, importo +
+      data/ora, modali 3 pulsanti "Solo questa / Tutte le successive" e "Salta questa /
+      Interrompi la ricorrenza"); route in `App.tsx`; voce "🔁 Spese ricorrenti" nel menu
+      Azioni della Main view.
+- [ ] **Main view — sezione "Spese previste"**: header dedicato, posizionata dopo il gruppo
+      di oggi e prima dei giorni precedenti, solo nei filtri che contengono oggi, esclusa
+      dalla paginazione (gruppi giorno interi); righe con nome, **badge della frequenza**
+      ("🔁 Giornaliera" / "🔁 Settimanale" / "🔁 Mensile" / "🔁 Annuale", pill accanto al
+      nome), categoria · conto e importo previsto in grigio; tap → conferma; "Conferma
+      tutte" nell'header; `Toast` con Annulla dopo la conferma.
+- [ ] **Analytics**: includere le previste in Totale Spese/Saldo/Media giornaliera sotto la
+      pseudo-categoria "Spese previste" (colore grigio), nel report (riga marcata
+      "prevista"), nel CSV e nel grafico (impilate nella categoria dedicata); nessun effetto
+      su saldi conti e Total Cashflow; filtro Categoria non applicato alle previste.
+- [ ] **Backup/Ripristino v2**: export con `recurringExpenses` + `version: 2`, import
+      retrocompatibile con i file v1 (campo mancante → lista vuota), normalizzazione dei
+      nuovi campi, `importAllData` atomico esteso al nuovo store.
+- [ ] **Test E2E**: template con `startDate` nel passato per verificare il ciclo (giornaliera/
+      settimanale/mensile/annuale), conferma con importo diverso (solo questa/tutte), salta,
+      interrompi, delete della spesa confermata (prevista che ricompare), pausa, cascade
+      conto/categoria, Analytics (totali e pseudo-categoria), CSV, grafico, backup v1→v2 e
+      v2→v2; build OK.
+- [ ] **Chiusura**: aggiornare `AGENTS.md` (store nuovo, bump `DB_VERSION`, regole) e
+      `README.md`, poi `npm run build` + commit + push (deploy GitHub Pages).
 
 ### Spese da rimborsare (reimbursable) + riepilogo nello stipendio — implementata il 06/09/2026
 

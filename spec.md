@@ -22,6 +22,15 @@ The `Expense` record carries a `reimbursable` boolean flag and the `Cashflow` re
 `isSalary` boolean flag (both defaulting to false), used by the "Expenses to be reimbursed
 (reimbursable) and Salary" feature.
 
+A fifth store, `recurringExpenses`, holds the **RecurringExpense** templates (see
+"Recurring expenses"). Adding it required the first `DB_VERSION` bump (1 → 2): the upgrade
+only creates the missing stores, the existing data is left untouched.
+
+The `Expense` record carries two optional recurring link fields, `recurringId` (the
+template id) and `recurringPeriod` (the period key the confirmation consumed), both
+defaulting to null. They are used to keep the confirmation idempotent and to know that a
+period has already been consumed (see "Recurring expenses").
+
 Default initial values for Account:
 - Cash
 - Bank account
@@ -71,12 +80,26 @@ The movement list must be paginated with automatic load when the user scroll ove
 displayed line (a day group is never split across pages — see "Movement list grouped by
 day").
 
+The expected occurrences of the recurring expenses (see "Recurring expenses") are shown in
+a dedicated section titled **"Spese previste"** (instead of a day header), placed **right
+after the "today" day group** and before the older days (display order: today, expected,
+older days). The section is shown only in the ranges that contain today (Mese corrente,
+Quest'anno, Tutti) and is **never paginated**: it stays always visible at the top of the
+list, outside the day-group pagination.
+
+Every expected row shows a **frequency badge**: a small pill next to the recurrence name
+carrying the recurrence type in Italian — **"Giornaliera"**, **"Settimanale"**,
+**"Mensile"**, **"Annuale"** (with the 🔁 icon, e.g. "🔁 Mensile"), so the type is always
+recognizable at a glance without opening the row. The badge is shown on every expected row,
+whatever the active date range.
+
 List filters:
 - date range: current month, previous month, current year, all
 
 Actions:
 - New expense: navigate to Edit or Create Expense, this is the most used action and must be accessible always
 - New cashflow: navigate to Edit or Create Cashflow, this is the second most used action
+- Recurring expenses: navigate to Recurring expenses management (the "+ Crea ricorrenza" action is in the title bar of that view)
 - Analytics: navigate to Analytics
 - Export to csv: download a csv file with all movement in the filters criteria
 - Expense type: navigate to ExpenseType management, used not often
@@ -251,6 +274,113 @@ Implementation notes:
 - for a coin-split expense the flag is stored on the main Expense record only (not on the
   generated Cashflows).
 
+## Recurring expenses
+
+Allows the user to register expenses that repeat over time (rent, gym, subscriptions,
+bills) instead of inserting them by hand every period. A recurring expense is proposed as
+an **expected expense** until the user **confirms** it; the confirmation creates a normal
+Expense dated at the confirmation moment.
+
+### Recurring template (`RecurringExpense`, store `recurringExpenses`)
+- `name`: short label, used to recognize the recurrence in the lists (e.g. "Palestra")
+- `frequency`: `daily` | `weekly` | `monthly` | `yearly`
+- `amount`: default amount in EUR, editable at every confirmation
+- `expenseTypeId` (category) and `accountId`
+- `startDate`: reference day of the recurrence (for weekly the weekday, for monthly the
+  day of the month, for yearly the day of the year)
+- `active`: boolean, pauses / re-activates the proposals without deleting the template
+- `notes`, `location`, `reimbursable`: copied to the confirmed Expense (optional)
+- `createdAt`, `updatedAt`
+
+A recurring expense is **not** a movement: it never appears in the account balances nor in
+the expense/cashflow stores until it is confirmed.
+
+### Expected occurrence (spesa prevista)
+- **At most one expected occurrence per template**: the one of the **current period** (day,
+  week, month or year according to the frequency). Periods that passed without a
+  confirmation are **skipped silently** (no backlog, no "late" badge).
+- The expected occurrence appears from its **due date** (the `startDate` reference applied
+  to the current period) and remains visible until it is confirmed or the period ends.
+- Period computation uses local dates; the week starts on **Monday**; a monthly recurrence
+  set on the 31st falls back to the last day of the shorter months; a yearly recurrence set
+  on 29/02 falls back to 28/02 in non-leap years.
+- The expected occurrence has no stored record/id of its own: it is derived from the
+template plus the period, and it is identified by the template id `recurringId`.
+- A template on `active = false` produces no expected occurrence.
+
+### Confirmation
+Pressing an expected row opens the **confirmation view**, pre-filled with the default amount
+and the current date/time:
+- the user can change the **amount** and the **date/time** (so an occurrence can be
+  confirmed later, or back-dated to its due date); category, account, notes, location and
+  the reimbursable flag come from the template;
+- **Confirm** creates a normal `Expense` carrying `recurringId` (the template id) and
+  `recurringPeriod` (the period key, e.g. `2026-09-12` daily, `2026-W37` weekly, `2026-09`
+  monthly, `2026` yearly). The confirmation is therefore **idempotent** (a double tap
+  cannot create two expenses) and the period is marked as consumed;
+- if the amount differs from the template's default, on save a 3-button modal asks
+  **Annulla / Solo questa / Tutte le successive**: "Solo questa" keeps the template
+  unchanged (the different amount applies to this occurrence only), "Tutte le successive"
+  updates the template default amount too;
+- **Conferma tutte** (available when more than one expected occurrence is pending) confirms
+  all of them at once with their default amounts and current date/time;
+- after a confirmation a `Toast` with **Annulla** (undo) allows deleting the just created
+  Expense, which un-consumes the period (the occurrence is proposed again);
+- **Delete** on the confirmation view asks with a modal:
+  - **Salta questa** — the occurrence is skipped for the current period (no expense is
+    created, the template proposes it again in the next period);
+  - **Interrompi la ricorrenza** — the template is deleted and the expense is never
+    proposed again (already confirmed expenses are kept).
+
+### Edit of an expected occurrence
+The confirmation view is also the edit view of the expected occurrence: changing the amount
+and saving asks "Solo questa / Tutte le successive" as described above ("Solo questa" = the
+occurrence is confirmed with the new amount, the template default is unchanged).
+
+Editing or deleting a **confirmed** Expense (the one created by a confirmation) behaves
+exactly like a normal expense, with no recurring question:
+- editing it does not touch the template;
+- deleting it removes the `recurringId`/`recurringPeriod` link with it, so the period is not
+  consumed anymore and the expected occurrence is proposed again;
+- in the movement list it is displayed as a **normal expense** — the frequency badge is shown
+  only on the expected (not yet confirmed) rows, never on the confirmed ones (decision of
+  2026-09-12).
+
+### Recurring expenses management
+Reachable from the Main view "Azioni" menu ("🔁 Spese ricorrenti"), it lists all the
+templates: for each one the name, the frequency, the default amount, the category · account
+and the next due date. Active templates come first, paused ones after them with a
+"in pausa" badge. The rows are clickable and open the Edit view (no buttons in the list,
+like Accounts/Categories).
+
+Create / Edit view (title bar: Confirm, and Delete in edit mode only; the Back button
+cancels):
+- `name`, `frequency`, `amount`, category, account, start date;
+- optional notes, location and "Sarà rimborsata" flag;
+- a preview of the **next due date** (and, when it is already due, the expected amount is
+  immediately visible in the Main view);
+- an "attiva / in pausa" switch to pause the proposals;
+- **Delete** removes the template; the Expenses already created from it are kept (the
+  `recurringId` of those records is cleared, so they become normal expenses).
+
+Routes: `/recurring` (management), `/recurring/new`, `/recurring/:id/edit`,
+`/recurring/:id/confirm` (confirmation/edit of the pending occurrence).
+
+### Cascades
+Deleting an Account or an ExpenseType used by a recurring template also deletes the
+related templates (with the count added to the existing `ConfirmModal` of the delete
+cascade), so no template can point to a missing account/category.
+
+### Main view
+Expected rows (see "Main view") show the recurrence name, the **frequency badge**
+("🔁 Giornaliera" / "🔁 Settimanale" / "🔁 Mensile" / "🔁 Annuale"), the category ·
+account and the expected amount in grey (it is not a real movement yet); the row is
+clickable and opens the confirmation view. When several expected occurrences are pending, a
+"Conferma tutte" action is available in the section header.
+
+Coin-split expenses are not supported for recurring expenses (limitation of this version):
+a confirmed occurrence is always a plain Expense on a single account.
+
 ## Edit or Create Cashflow
 When the user click the new Cashflow button a new page is displayed.
 The user can enter:
@@ -340,6 +470,21 @@ Display a summary card with the following metrics calculated from filtered movem
 - Average Daily Expense: Total Expenses / number of days in selected period, displayed in red and *abbreviated*
 - Top 3 Categories: list of the 3 ExpenseType with highest spending in the period, for each show the category name and the total amount *abbreviated* in red
 
+**Expected expenses (recurring).** The expected occurrences of the current period (see
+"Recurring expenses") are counted as well, aggregated under a dedicated pseudo-category
+**"Spese previste"** (shown in grey, it is not a real ExpenseType):
+- they are included in **Total Expenses**, in **Net Balance** and in **Average Daily
+  Expense**, and they appear in the movement list and in the CSV export as expected rows
+  (marked "prevista");
+- they **never affect the account balances** (Gestione Conti) nor the Cashflow totals: no
+  money has moved yet;
+- they are counted in the period that contains their **due date** (not the confirmation
+  date); only the pending occurrence exists, so past periods are never changed
+  retroactively;
+- they are not affected by the "Categoria" filter (the pseudo-category is not a real
+  category) and they are affected by the "Conto" filter (they belong to the template
+  account).
+
 Display the list of movements matching filters criteria.
 
 ### Grafico
@@ -358,6 +503,8 @@ The Grafico view shows a chart of the filtered movements (ignoring Cashflow used
 - Each bar is labeled with its name and *abbreviated* amount, with a tooltip and a color legend.
 
 In both charts the movements used for routing (the receiving movement and its negative counterpart) are excluded.
+Expected expenses (recurring) are stacked/aggregated under the dedicated "Spese previste"
+pseudo-category (grey), so the chart totals match the Report totals.
 
 ## Progressive Web App (PWA)
 The app is installable on the phone home screen and usable offline:
@@ -375,15 +522,20 @@ data on the old origin: the new origin starts with an empty database (and the de
 again). To preserve the data across origins the app provides a JSON backup:
 
 - **Esporta backup**: downloads a single JSON file (`expense-tracker-backup-YYYY-MM-DD.json`) containing
-  all four stores (`accounts`, `expenseTypes`, `expenses`, `cashflows`). Dates are serialized as ISO
+  all five stores (`accounts`, `expenseTypes`, `expenses`, `cashflows`, `recurringExpenses`). Dates are serialized as ISO
   strings (JSON standard). The export is origin-independent and can be re-imported on any origin.
+  The backup file carries its own `version` (currently 2). On import a **version 1 file (without the
+  `recurringExpenses` field) is still accepted**: the missing field defaults to an empty list (no
+  recurring expenses), so old backups keep working.
 - **Ripristina backup**: the user selects a backup JSON file; a `ConfirmModal` warns that the import
   will replace all existing data. On confirm, the database is cleared and rewritten with the imported
   records in a single atomic IndexedDB transaction (all-or-nothing: a failure leaves the current data
   untouched). Afterwards the whole app state is reloaded. Invalid files show an `AlertModal` error.
   Field normalization on import: `initialBalance` defaults to 0, `isPreferred` and `isCoinAccount`
   to false on accounts; `routingPairId` defaults to null on both Expense and Cashflow records;
-  `notes` and `location` default to '' on Expense records.
+  `notes` and `location` default to '' on Expense records; `reimbursable`/`isSalary` default to
+  false; `recurringId`/`recurringPeriod` default to null on Expense records; missing
+  `recurringExpenses` → empty list.
 
 Both actions are available in the Main view "Azioni" menu. This is the recommended way to move the data
 when switching to the HTTPS server (or any other origin change).
@@ -438,9 +590,12 @@ when switching to the HTTPS server (or any other origin change).
       - Quest'anno
       - Tutti
     - Actions, identified by an icons with 3 lines, the button is right aligned to the page, when pressed a dropdown menu is displayed:
+      - Ricorrenti
       - Analytics
       - Conti
       - Categorie
+      - Esporta backup
+      - Ripristina backup
   - the remaining page contains the movement list, **grouped by calendar day for every date
     range** (see "Movement list grouped by day"). Each day has a section header: for the
     single-month ranges (Mese corrente / Mese scorso) it is compact (day-of-month number +
@@ -458,6 +613,15 @@ when switching to the HTTPS server (or any other origin change).
       - red for Expense
       - green for Cashflow (not routing)
       - yellow for routing Cashflow
+    - the expected occurrences of the recurring expenses (see "Recurring expenses") are
+      collected in a section titled **"Spese previste"** (grey title, in place of the day
+      header), displayed right after the "today" group and before the older days, outside
+      the day-group pagination. An expected row shows the recurrence name, a
+      **frequency badge** — a small pill with the recurrence type in Italian
+      ("🔁 Giornaliera", "🔁 Settimanale", "🔁 Mensile", "🔁 Annuale") — the
+      category · account and the expected amount in grey; the row is clickable and opens
+      the confirmation view. When more than one occurrence is pending, a "Conferma tutte"
+      action is shown in the section header.
     The row is a two-column grid: the left column (details) is constrained to the
     available width and its text wraps, increasing the row height when needed (e.g. a long
     place name never overflows; the place line is capped at **two lines** with an
@@ -505,6 +669,22 @@ when switching to the HTTPS server (or any other origin change).
   - Edit Account view title bar: no "Cancel" button (the Back button cancels the modifications and goes back). Right aligned: Confirm (checkmark icon) and Delete (trash icon) buttons (see Shared components).
   - Create Account view: no "Delete" button, only Confirm (checkmark icon) right aligned; Back cancels and goes back (see Shared components).
 
+### Recurring expenses management
+- New view reachable from the Main view "Azioni" menu ("🔁 Spese ricorrenti"); the title
+  bar has the "+ Crea ricorrenza" button right aligned (like Accounts/Categories).
+- List of the templates: name, frequency, default amount, category · account, next due
+  date; active first, paused after them with an "in pausa" badge; rows clickable → Edit
+  view (no Edit/Delete buttons in the list), like the other management pages.
+- Create / Edit view: name, frequency, default amount, category, account, start date,
+  optional notes/location/reimbursable flag, "in pausa" switch and a preview of the next
+  due date. Title bar: Confirm only in create mode, Confirm + Delete in edit mode (Back
+  cancels), like the other create/edit views.
+- Confirmation view (opened from an expected row in the Main view): amount and date/time,
+  with Confirm in the title bar and Delete; the Delete modal offers "Salta questa" and
+  "Interrompi la ricorrenza", the Confirm modal (only when the amount differs from the
+  template default) offers "Solo questa" and "Tutte le successive" (see the base `Modal`,
+  which already supports more than two actions).
+
 ### Navigation flow
 - (to be defined) flusso di navigazione tra le schermate, es.:
 
@@ -515,8 +695,16 @@ graph TD
     Main --> Analytics[Analytics]
     Main --> Types[ExpenseType management]
     Main --> Accounts[Account management]
+    Main --> Recurring[Recurring expenses management]
+    Recurring --> RecurringEdit[Create/Edit recurring expense]
+    Main --> Confirm[Confirm expected occurrence]
 ```
 
 ## In the next release
 This is a set of feature that can be implemented in the next version of this app:
 - multiple currency management
+- recurring Cashflows (e.g. the monthly salary), reusing the recurring expenses
+  infrastructure
+- reminders for the due recurring expenses (notification when the app is opened / PWA
+  notification, the service worker already exists)
+- "Create from photo": take a picture of a receipt and let the AI create the expense
