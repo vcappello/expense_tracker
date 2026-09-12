@@ -8,11 +8,25 @@ import MonthBreakdownChart from '../components/MonthBreakdownChart';
 import { getDateRange, abbreviateAmount, formatCurrency, formatDate } from '../utils/formatting';
 import { sortAccountsPreferred } from '../utils/accounts';
 import { isRoutingCashflow, routingCounterpartIds } from '../utils/routing';
-import { exportMovementsToCSV } from '../utils/csv';
+import {
+  ExpectedOccurrence,
+  EXPECTED_EXPENSE_TYPE_ID,
+  EXPECTED_EXPENSE_TYPE_LABEL,
+  getExpectedOccurrences,
+} from '../utils/recurrence';
+import { exportMovementsToCSV, ExpectedCsvRow } from '../utils/csv';
 import '../styles/AnalyticsPage.css';
 
 export default function AnalyticsPage() {
-  const { accounts, expenseTypes, movements, loadMovements, isLoading } = useApp();
+  const {
+    accounts,
+    expenseTypes,
+    movements,
+    loadMovements,
+    recurringExpenses,
+    loadRecurringExpenses,
+    isLoading,
+  } = useApp();
   const [dateRange, setDateRange] = useState<DateRange>('current-month');
   // Empty array = no filter (all)
   const [selectedTypeIds, setSelectedTypeIds] = useState<string[]>([]);
@@ -24,6 +38,7 @@ export default function AnalyticsPage() {
   // the Main view filter (and leave the totals empty on a direct reload).
   useEffect(() => {
     loadMovements({ dateRange: 'all' });
+    loadRecurringExpenses();
   }, [loadMovements]);
 
   // Filter movements based on selected filters
@@ -57,9 +72,50 @@ export default function AnalyticsPage() {
   const expenses = useMemo(() => filteredMovements.filter((m) => m.type === 'expense'), [filteredMovements]);
   const cashflows = useMemo(() => filteredMovements.filter((m) => m.type === 'cashflow'), [filteredMovements]);
 
+  /**
+   * Expected (recurring, not yet confirmed) occurrences counted in this view:
+   * they belong to the period that contains their DUE DATE and follow the
+   * "Conto" filter, while the "Categoria" filter does not apply (the dedicated
+   * pseudo-category is not a real ExpenseType). They never touch the account
+   * balances nor the Cashflow totals.
+   */
+  const expectedOccurrences = useMemo(() => {
+    const { start, end } = getDateRange(dateRange);
+    return getExpectedOccurrences(recurringExpenses).filter((occurrence) => {
+      const due = occurrence.dueDate;
+      const inRange = due >= start && due <= end;
+      const matchesAccount =
+        selectedAccountIds.length === 0 ||
+        selectedAccountIds.includes(occurrence.template.accountId);
+      return inRange && matchesAccount;
+    });
+  }, [recurringExpenses, dateRange, selectedAccountIds]);
+
+  const expectedTotal = useMemo(
+    () => expectedOccurrences.reduce((sum, o) => sum + o.amount, 0),
+    [expectedOccurrences]
+  );
+
+  // Synthetic ExpensesType used by the charts / CSV for the expected category
+  const expectedType = useMemo(
+    () => [
+      ...expenseTypes,
+      {
+        id: EXPECTED_EXPENSE_TYPE_ID,
+        name: EXPECTED_EXPENSE_TYPE_LABEL,
+        parentId: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ],
+    [expenseTypes]
+  );
+
   // Calculate summary statistics
   const summary = useMemo(() => {
-    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+    // Expected (recurring) expenses are counted in the totals
+    const totalExpenses =
+      expenses.reduce((sum, e) => sum + e.amount, 0) + expectedTotal;
 
     const nonRoutingCashflows = cashflows.filter((c) => !isRoutingCashflow(c, cashflows));
     const totalCashflows = nonRoutingCashflows.reduce((sum, c) => sum + c.amount, 0);
@@ -70,16 +126,22 @@ export default function AnalyticsPage() {
       Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     const avgExpense = daysInPeriod > 0 ? totalExpenses / daysInPeriod : 0;
 
-    // Top 3 categories
+    // Top 3 categories (the expected ones are aggregated in a dedicated one)
     const categoryTotals: Record<string, number> = {};
     expenses.forEach((e) => {
       categoryTotals[e.expenseTypeId] = (categoryTotals[e.expenseTypeId] || 0) + e.amount;
     });
+    if (expectedTotal > 0) {
+      categoryTotals[EXPECTED_EXPENSE_TYPE_ID] = expectedTotal;
+    }
 
     const topCategories = Object.entries(categoryTotals)
       .map(([typeId, total]) => ({
         typeId,
-        typeName: expenseTypes.find((et) => et.id === typeId)?.name || 'Sconosciuto',
+        typeName:
+          typeId === EXPECTED_EXPENSE_TYPE_ID
+            ? EXPECTED_EXPENSE_TYPE_LABEL
+            : expenseTypes.find((et) => et.id === typeId)?.name || 'Sconosciuto',
         total,
       }))
       .sort((a, b) => b.total - a.total)
@@ -90,10 +152,11 @@ export default function AnalyticsPage() {
       totalCashflows,
       avgExpense,
       expenseCount: expenses.length,
+      expectedCount: expectedOccurrences.length,
       cashflowCount: nonRoutingCashflows.length,
       topCategories,
     };
-  }, [expenses, cashflows, expenseTypes, dateRange]);
+  }, [expenses, cashflows, expenseTypes, dateRange, expectedTotal, expectedOccurrences]);
 
   // Aggregate movements by day for the chart (expenses by category + non-routing cashflows)
   const chartData = useMemo<DailyTotal[]>(() => {
@@ -117,9 +180,22 @@ export default function AnalyticsPage() {
         }
       });
 
-    return Object.values(byDay);
-  }, [filteredMovements, cashflows]);
+    // Expected (recurring) expenses: stacked under the dedicated category
+    expectedOccurrences.forEach((occurrence) => {
+      const d = occurrence.dueDate;
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+        d.getDate()
+      ).padStart(2, '0')}`;
+      if (!byDay[key]) {
+        byDay[key] = { key, label: formatDate(d), cashflow: 0, expensesByType: {} };
+      }
+      byDay[key].expensesByType[EXPECTED_EXPENSE_TYPE_ID] =
+        (byDay[key].expensesByType[EXPECTED_EXPENSE_TYPE_ID] || 0) +
+        occurrence.amount;
+    });
 
+    return Object.values(byDay);
+  }, [filteredMovements, cashflows, expectedOccurrences]);
   // Single-month breakdown: totals by expense category and cashflow account
   const monthBreakdown = useMemo(() => {
     const byType: Record<string, number> = {};
@@ -131,6 +207,9 @@ export default function AnalyticsPage() {
         byAccount[m.accountId] = (byAccount[m.accountId] || 0) + m.amount;
       }
     });
+    if (expectedTotal > 0) {
+      byType[EXPECTED_EXPENSE_TYPE_ID] = expectedTotal;
+    }
     return {
       expensesByType: Object.entries(byType).map(([typeId, total]) => ({ typeId, total })),
       cashflowsByAccount: Object.entries(byAccount).map(([accountId, total]) => ({
@@ -138,7 +217,7 @@ export default function AnalyticsPage() {
         total,
       })),
     };
-  }, [filteredMovements, cashflows]);
+  }, [filteredMovements, cashflows, expectedTotal]);
 
   // Movements shown in the report list / CSV export: same display rule as the
   // Main view (hide routing counterparts and coin-split internal incomes),
@@ -149,6 +228,39 @@ export default function AnalyticsPage() {
       (m) => m.type === 'expense' || !hiddenCashflowIds.has(m.id)
     );
   }, [filteredMovements, cashflows]);
+
+  /**
+   * Rows of the report list: the movements plus the expected (recurring)
+   * occurrences, merged and sorted by date (most recent first) so the list
+   * explains the totals.
+   */
+  const reportItems = useMemo(
+    () =>
+      [
+        ...reportMovements.map((movement) => ({
+          kind: 'movement' as const,
+          date: new Date(movement.date),
+          movement,
+        })),
+        ...expectedOccurrences.map((occurrence) => ({
+          kind: 'expected' as const,
+          date: occurrence.dueDate,
+          occurrence,
+        })),
+      ].sort((a, b) => b.date.getTime() - a.date.getTime()),
+    [reportMovements, expectedOccurrences]
+  );
+
+  // Expected rows exported in the CSV (same values used by the totals)
+  const expectedCsvRows: ExpectedCsvRow[] = expectedOccurrences.map(
+    (occurrence) => ({
+      dueDate: occurrence.dueDate,
+      amount: occurrence.amount,
+      categoryName: EXPECTED_EXPENSE_TYPE_LABEL,
+      accountName:
+        accounts.find((a) => a.id === occurrence.template.accountId)?.name || '',
+    })
+  );
 
   const isMonthView = dateRange === 'current-month' || dateRange === 'previous-month';
 
@@ -175,8 +287,14 @@ export default function AnalyticsPage() {
         menu={[
           {
             label: 'Esporta CSV',
-            onClick: () => exportMovementsToCSV(reportMovements, accounts, expenseTypes),
-            disabled: reportMovements.length === 0,
+            onClick: () =>
+              exportMovementsToCSV(
+                reportMovements,
+                accounts,
+                expenseTypes,
+                expectedCsvRows
+              ),
+            disabled: reportItems.length === 0,
           },
         ]}
       />
@@ -225,18 +343,18 @@ export default function AnalyticsPage() {
 
         {isLoading ? (
           <div className="loading-state">Caricamento analisi...</div>
-        ) : filteredMovements.length === 0 ? (
+        ) : filteredMovements.length === 0 && expectedOccurrences.length === 0 ? (
           <div className="empty-state">Nessun movimento nel periodo selezionato</div>
         ) : view === 'grafico' ? (
           isMonthView ? (
             <MonthBreakdownChart
               expensesByType={monthBreakdown.expensesByType}
               cashflowsByAccount={monthBreakdown.cashflowsByAccount}
-              expenseTypes={expenseTypes}
+              expenseTypes={expectedType}
               accounts={accounts}
             />
           ) : (
-            <MovementsChart data={chartData} expenseTypes={expenseTypes} />
+            <MovementsChart data={chartData} expenseTypes={expectedType} />
           )
         ) : (
           <>
@@ -249,7 +367,12 @@ export default function AnalyticsPage() {
                   <div className="summary-value expense-value">
                     {abbreviateAmount(-summary.totalExpenses)}€
                   </div>
-                  <div className="summary-meta">{summary.expenseCount} {summary.expenseCount === 1 ? 'transazione' : 'transazioni'}</div>
+                  <div className="summary-meta">
+                    {summary.expenseCount}{' '}
+                    {summary.expenseCount === 1 ? 'transazione' : 'transazioni'}
+                    {summary.expectedCount > 0 &&
+                      ` + ${summary.expectedCount} previste`}
+                  </div>
                 </div>
 
                 <div className="summary-card">
@@ -310,38 +433,65 @@ export default function AnalyticsPage() {
             <div className="movements-section">
               <h2>Movimenti</h2>
               <div className="report-movements-list">
-                {[...reportMovements]
-                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                  .map((movement) => {
-                    const typeName =
-                      movement.type === 'expense'
-                        ? expenseTypes.find((et) => et.id === movement.expenseTypeId)?.name
-                        : 'Entrata';
-                    const accountName = accounts.find((a) => a.id === movement.accountId)?.name;
-
+                {reportItems.map((item) => {
+                  if (item.kind === 'expected') {
+                    const occurrence: ExpectedOccurrence = item.occurrence;
+                    const accountName = accounts.find(
+                      (a) => a.id === occurrence.template.accountId
+                    )?.name;
                     return (
                       <div
-                        key={`${movement.type}-${movement.id}`}
-                        className={`movement-detail ${movement.type}`}
+                        key={`expected-${occurrence.template.id}`}
+                        className="movement-detail expected"
                       >
                         <div className="movement-detail-info">
-                          <div className="report-movement-type">{typeName || 'Sconosciuto'}</div>
-                          <div className="movement-account">{accountName}</div>
+                          <div className="report-movement-type">
+                            {EXPECTED_EXPENSE_TYPE_LABEL}
+                          </div>
+                          <div className="movement-account">
+                            {accountName} — {occurrence.template.name}
+                          </div>
                           <div className="movement-date">
-                            {new Date(movement.date).toLocaleDateString()}
+                            {formatDate(occurrence.dueDate)}
                           </div>
                         </div>
-                        <div
-                          className={`movement-amount ${
-                            movement.type === 'expense' ? 'expense' : 'cashflow'
-                          }`}
-                        >
-                          {movement.type === 'expense' ? '-' : '+'}
-                          {abbreviateAmount(Math.abs(movement.amount))}€
+                        <div className="movement-amount expected">
+                          -{abbreviateAmount(Math.abs(occurrence.amount))}€
                         </div>
                       </div>
                     );
-                  })}
+                  }
+
+                  const movement = item.movement;
+                  const typeName =
+                    movement.type === 'expense'
+                      ? expenseTypes.find((et) => et.id === movement.expenseTypeId)?.name
+                      : 'Entrata';
+                  const accountName = accounts.find((a) => a.id === movement.accountId)?.name;
+
+                  return (
+                    <div
+                      key={`${movement.type}-${movement.id}`}
+                      className={`movement-detail ${movement.type}`}
+                    >
+                      <div className="movement-detail-info">
+                        <div className="report-movement-type">{typeName || 'Sconosciuto'}</div>
+                        <div className="movement-account">{accountName}</div>
+                        <div className="movement-date">
+                          {new Date(movement.date).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <div
+                        className={`movement-amount ${
+                          movement.type === 'expense' ? 'expense' : 'cashflow'
+                        }`}
+                      >
+                        {movement.type === 'expense' ? '-' : '+'}
+                        {abbreviateAmount(Math.abs(movement.amount))}€
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </>

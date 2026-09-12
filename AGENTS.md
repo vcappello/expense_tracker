@@ -37,7 +37,7 @@
 - **Total Cashflow Analytics** deve escludere i cashflow di routing: il movimento ricevente (`routingAccountId` valorizzato) E la sua controparte negativa (rilevata come cashflow negativo con stessa data+ora+importo assoluto di un routing). Il `Net` usa `totalCashflows - totalExpenses` (gli importi spesa sono memorizzati positivi).
 - **Totale ExpenseType** deve includere le spese dei figli nella gerarchia (usare la raccolta ricorsiva dei descendant ids).
 - **Export CSV** (`src/utils/csv.ts`): usare `;` come delimitatore, `,` come decimale e BOM UTF-8 (convenzione Excel italiana); le spese escono con segno negativo (memorizzate positive). Il pulsante è in Analytics e rispetta i filtri attivi.
-- **Backup/Ripristino DB (Export/Import JSON)**: IndexedDB è legato all'origine → al cambio di origine (es. passaggio a HTTPS) i dati non vengono ereditati. L'app offre "Esporta backup" / "Ripristina backup" nel menu Azioni della Main view: export = file JSON (`expense-tracker-backup-YYYY-MM-DD.json`) con tutti gli store (date ISO); import = sostituzione **atomica** (clear + insert nella stessa transazione, `db.importAllData` in `src/db/database.ts`) con `ConfirmModal` di avviso (conteggi) e reload dello stato via `restoreBackup` (AppContext); file non validi → `AlertModal`. Logica in `src/utils/backup.ts` (`exportDatabase`, `readBackupFile` con normalizzazione `initialBalance`/`isPreferred`/`parentId`/`routingAccountId` e riconversione ISO → Date). NON separare clear e insert (non atomico). L'import valido sovrascrive tutto: testare su un'origine di prova, mai su quella con i dati reali.
+- **Backup/Ripristino DB (Export/Import JSON)**: IndexedDB è legato all'origine → al cambio di origine (es. passaggio a HTTPS) i dati non vengono ereditati. L'app offre "Esporta backup" / "Ripristina backup" nel menu Azioni della Main view: export = file JSON (`expense-tracker-backup-YYYY-MM-DD.json`) con tutti gli store (date ISO; **versione file attuale = 2**, include `recurringExpenses`); import = sostituzione **atomica** (clear + insert nella stessa transazione, `db.importAllData` in `src/db/database.ts`) con `ConfirmModal` di avviso (conteggi) e reload dello stato via `restoreBackup` (AppContext); file non validi → `AlertModal`. Logica in `src/utils/backup.ts` (`exportDatabase`, `readBackupFile` con normalizzazione `initialBalance`/`isPreferred`/`parentId`/`routingAccountId` e riconversione ISO → Date). **I file v1 (senza `recurringExpenses`) restano accettati**: il campo mancante diventa una lista vuota. NON separare clear e insert (non atomico). L'import valido sovrascrive tutto: testare su un'origine di prova, mai su quella con i dati reali.
 - **Create/Edit in nuova view**: Account ed ExpenseType usano pagine dedicate (`CreateAccountPage.tsx`, `CreateExpenseTypePage.tsx`, stile condiviso `EntityForm.css`) con route in `App.tsx` (`/account/new|:id/edit`, `/expense-type/new|:id/edit`). Le pagine di gestione navigano a queste route invece di usare form inline. Non reintrodurre `form-panel` inline in quelle pagine.
 - **Average Daily Expense** = totale spese / giorni del periodo (`getDateRange`). Conteggio giorni con `Math.floor((end-start)/gg)+1` (NON `Math.round`, altrimenti off-by-one perché l'end è a 23:59:59.999).
 - **Race condition all'avvio**: `AppContext` deve attendere `initializeDefaultData()` (promise condivisa, idempotente) prima di leggere account/categorie, altrimenti su DB vuoto i dropdown restano senza conti. NON rimuovere quell'attesa.
@@ -144,12 +144,40 @@
   aggiornare: types, normalizzazione lettura (database.ts), normalizzazione import
   (backup.ts) e TUTTI gli object literal che costruiscono il record (coins.ts,
   AppContext, form).
+- **Spese ricorrenti (`RecurringExpense`, store `recurringExpenses`)**: **primo bump del
+  progetto `DB_VERSION` 1 → 2** (`database.ts`): in `onupgradeneeded` creare SOLO gli store
+  mancanti (i dati esistenti non vanno toccati) e gestire `request.onblocked` con un errore
+  chiaro (un'altra tab con la versione vecchia blocca l'upgrade). La **prevista NON è un
+  record**: è derivata dal template con `src/utils/recurrence.ts`
+  (`getExpectedOccurrence(s)`), usando i campi di stato sul template
+  `lastConfirmedPeriod` / `lastConfirmedExpenseId` / `skippedPeriod` (chiave periodo:
+  `2026-09-12` giornaliera, `2026-W37` settimanale ISO lun–dom, `2026-09` mensile, `2026`
+  annuale). Regole: **una sola prevista per periodo** (le mancate si saltano), la prevista
+  compare dalla **data di scadenza** del periodo corrente e resta finché non è confermata o
+  il periodo finisce; mensile 31 → ultimo giorno del mese, annuale 29/02 → 28/02; template
+  `active: false` o periodo in `skippedPeriod`/`lastConfirmedPeriod` → nessuna prevista. La
+  **conferma** crea un `Expense` normale con `recurringId` + `recurringPeriod` (link
+  idempotente) e aggiorna lo stato del template; "Conferma tutte" usa
+  `confirmRecurringOccurrences` (in blocco, undo unico). **Eliminare un Expense confermato
+  ripropone la prevista** (in `deleteExpense` lo stato del template viene azzerato se
+  corrisponde al periodo): non rimuovere quel blocco. Il template eliminato **scollega**
+  (`recurringId=null`) le spese già create. Cascade: `deleteAccountCascade` /
+  `deleteExpenseTypeCascade` devono chiamare `deleteRecurringExpensesByAccount/ByType` e i
+  popup mostrano "N spese ricorrenti" (`countRecurringByIndex`). La conferma modifica
+  importo/data/ora → modale a **3 pulsanti** ("Solo questa" / "Tutte le successive");
+  Elimina → "Salta questa" / "Interrompi la ricorrenza"; il `Toast` ha ora una **azione
+  opzionale** (`actionLabel`/`onAction`) usata per l'undo (5s invece di 2.5s). Analytics: le
+  previste contano nei totali sotto la pseudo-categoria `EXPECTED_EXPENSE_TYPE_ID`
+  (`__expected__`, "Spese previste", colore grigio `#94a3b8` forzato in
+  `MovementsChart`/`MonthBreakdownChart`), con data = **scadenza**, filtro Conto applicato e
+  filtro Categoria non applicato; **mai** nei saldi conto. Le pagine che le mostrano devono
+  chiamare `loadRecurringExpenses()` nel mount (Main view, Analytics, pagina Ricorrenze).
 
 ## Limiti noti (non bloccanti)
 - **Main view al primo load freddo**: a volte il filtro "This month" appare vuoto subito dopo il caricamento della pagina (comportamento transitorio legato a IndexedDB); cliccando un qualsiasi filtro i dati compaiono. Rivedere il timing di lettura se si ripresenta. (Non riproducibile in modo stabile il 12/09/2026: 5 reload consecutivi con dati corretti.)
 
 ## Note di database (da `spec.md`)
-- Tabelle: `Expense`, `Cashflow`, `ExpenseType`, `Account` (DB locale).
+- Tabelle: `Expense`, `Cashflow`, `ExpenseType`, `Account` (DB locale); dallo 12/09/2026 anche `RecurringExpense` (store `recurringExpenses`, `DB_VERSION` 2).
 - Valori iniziali Account: Cash, Bank account.
 - Valori iniziali ExpenseType: Dinner, Shopping, Fuel, Tolls.
 - Importi *abbreviate*: in K oltre 999, in M oltre 999.999, con 2 decimali.

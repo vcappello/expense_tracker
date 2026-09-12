@@ -54,6 +54,7 @@ online fai **Ripristina backup**. Da quel momento i dati restano nel browser usa
 - Interfaccia in **italiano** ottimizzata per smartphone
 - **Installabile** e **offline** (PWA: manifest, icone, service worker)
 - Registrazione di **Spese** ed **Entrate** con data e ora (hh:mm:ss)
+- **Spese ricorrenti** (giornaliere, settimanali, mensili, annuali): vengono proposte come **"Spese previste"** nella Main view finché non confermate (all'occorrenza con importo e data/ora modificati); nella pagina **Ricorrenti** (menu Azioni) si creano, modificano, mettono in pausa o si interrompono
 - Gestione **Conti** e **Categorie** (anche gerarchiche) con eliminazione in cascata; creazione/modifica in **pagine dedicate**
 - **Analisi** con riepilogo (totale spese/entrate, saldo, media, top categorie) e **esportazione CSV** (formato Excel italiano)
 - Filtri per periodo (mese, anno, tutto), importi abbreviati (K/M)

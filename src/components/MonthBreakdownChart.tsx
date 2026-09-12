@@ -1,5 +1,6 @@
 import { Account, ExpenseType } from '../types';
 import { abbreviateAmount } from '../utils/formatting';
+import { EXPECTED_EXPENSE_TYPE_ID } from '../utils/recurrence';
 
 interface MonthBreakdownChartProps {
   expensesByType: { typeId: string; total: number }[];
@@ -25,11 +26,15 @@ const PALETTE = [
   '#d946ef',
 ];
 
+// Expected (recurring, not yet confirmed) expenses: dedicated grey category
+const EXPECTED_COLOR = '#94a3b8';
+
 interface Bar {
   key: string;
   label: string;
   value: number; // positive internally
   kind: 'expense' | 'cashflow';
+  color?: string; // explicit color (used by the "Spese previste" category)
 }
 
 /**
@@ -49,7 +54,13 @@ export default function MonthBreakdownChart({
 
   const expenseBars: Bar[] = expensesByType
     .filter((e) => e.total !== 0)
-    .map((e) => ({ key: `ex-${e.typeId}`, label: typeName(e.typeId), value: e.total, kind: 'expense' as const }))
+    .map((e) => ({
+      key: `ex-${e.typeId}`,
+      label: typeName(e.typeId),
+      value: e.total,
+      kind: 'expense' as const,
+      color: e.typeId === EXPECTED_EXPENSE_TYPE_ID ? EXPECTED_COLOR : undefined,
+    }))
     .sort((a, b) => a.label.localeCompare(b.label));
 
   const cashflowBars: Bar[] = cashflowsByAccount
@@ -62,7 +73,10 @@ export default function MonthBreakdownChart({
     }));
 
   const expenseKeys = expenseBars.map((b) => b.key);
-  const colorFor = (key: string) => PALETTE[expenseKeys.indexOf(key) % PALETTE.length];
+  const colorFor = (key: string) => {
+    const bar = expenseBars.find((b) => b.key === key);
+    return bar?.color ?? PALETTE[expenseKeys.indexOf(key) % PALETTE.length];
+  };
 
   // Cashflow bars first (up/green), then expense bars (down/colored)
   const bars: Bar[] = [...cashflowBars, ...expenseBars];

@@ -179,6 +179,26 @@ h1 {
   max-width: 90%;
   text-align: center;
   animation: toast-in 0.25s ease;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Optional action inside the toast (e.g. "Annulla" to undo) */
+.toast-action {
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: white;
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.toast-action:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 @keyframes toast-in {

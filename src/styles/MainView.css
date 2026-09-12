@@ -213,6 +213,46 @@
   color: #eab308;
 }
 
+/* ===== Expected (recurring) expenses section =====
+   Rendered right after the "today" group and before the older days; grey/blue
+   to distinguish it from the real movements (see spec.md → "Recurring
+   expenses"). */
+.expected-header {
+  justify-content: space-between;
+  gap: 12px;
+  color: #7dd3fc;
+  text-transform: none;
+}
+
+.expected-confirm-all {
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  color: #7dd3fc;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.expected-confirm-all:hover {
+  background: rgba(56, 189, 248, 0.28);
+}
+
+.expected-item {
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.expected-type {
+  color: #bae6fd;
+}
+
+/* The expected amount is not a real movement yet: shown in grey */
+.amount.expected {
+  color: #94a3b8;
+}
+
 .loading-state,
 .empty-state {
   display: flex;

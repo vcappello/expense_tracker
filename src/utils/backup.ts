@@ -1,8 +1,17 @@
 import * as db from '../db/database';
-import { Account, Cashflow, Expense, ExpenseType } from '../types';
+import {
+  Account,
+  Cashflow,
+  Expense,
+  ExpenseType,
+  RecurrenceFrequency,
+  RecurringExpense,
+} from '../types';
 
 const BACKUP_APP = 'expense-tracker-ai';
-const BACKUP_VERSION = 1;
+// v2: added `recurringExpenses` (recurring expense templates). A v1 file is
+// still accepted on import: the missing field defaults to an empty list.
+const BACKUP_VERSION = 2;
 
 /**
  * Content of a backup file. Dates are serialized as ISO strings by
@@ -16,6 +25,7 @@ export interface BackupData {
   expenseTypes: ExpenseType[];
   expenses: Expense[];
   cashflows: Cashflow[];
+  recurringExpenses: RecurringExpense[];
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -30,12 +40,14 @@ const toDate = (value: unknown): Date =>
  * switching the server to HTTPS). See `spec.md` → Backup / Ripristino.
  */
 export const exportDatabase = async (): Promise<void> => {
-  const [accounts, expenseTypes, expenses, cashflows] = await Promise.all([
-    db.getAccounts(),
-    db.getExpenseTypes(),
-    db.getExpenses(),
-    db.getCashflows(),
-  ]);
+  const [accounts, expenseTypes, expenses, cashflows, recurringExpenses] =
+    await Promise.all([
+      db.getAccounts(),
+      db.getExpenseTypes(),
+      db.getExpenses(),
+      db.getCashflows(),
+      db.getRecurringExpenses(),
+    ]);
 
   const data: BackupData = {
     app: BACKUP_APP,
@@ -45,6 +57,7 @@ export const exportDatabase = async (): Promise<void> => {
     expenseTypes,
     expenses,
     cashflows,
+    recurringExpenses,
   };
 
   const blob = new Blob([JSON.stringify(data, null, 2)], {
@@ -89,6 +102,8 @@ const normalizeExpense = (raw: Record<string, unknown>): Expense => ({
   notes: typeof raw.notes === 'string' ? raw.notes : '',
   location: typeof raw.location === 'string' ? raw.location : '',
   reimbursable: raw.reimbursable === true,
+  recurringId: typeof raw.recurringId === 'string' ? raw.recurringId : null,
+  recurringPeriod: typeof raw.recurringPeriod === 'string' ? raw.recurringPeriod : null,
   createdAt: toDate(raw.createdAt),
   updatedAt: toDate(raw.updatedAt),
 });
@@ -106,11 +121,47 @@ const normalizeCashflow = (raw: Record<string, unknown>): Cashflow => ({
   updatedAt: toDate(raw.updatedAt),
 });
 
+const RECURRENCE_FREQUENCIES: RecurrenceFrequency[] = [
+  'daily',
+  'weekly',
+  'monthly',
+  'yearly',
+];
+
+const normalizeRecurringExpense = (
+  raw: Record<string, unknown>
+): RecurringExpense => ({
+  id: String(raw.id),
+  name: String(raw.name ?? ''),
+  frequency: RECURRENCE_FREQUENCIES.includes(raw.frequency as RecurrenceFrequency)
+    ? (raw.frequency as RecurrenceFrequency)
+    : 'monthly',
+  amount: Number(raw.amount ?? 0),
+  expenseTypeId: String(raw.expenseTypeId),
+  accountId: String(raw.accountId),
+  startDate: toDate(raw.startDate),
+  active: raw.active !== false,
+  notes: typeof raw.notes === 'string' ? raw.notes : '',
+  location: typeof raw.location === 'string' ? raw.location : '',
+  reimbursable: raw.reimbursable === true,
+  lastConfirmedPeriod:
+    typeof raw.lastConfirmedPeriod === 'string' ? raw.lastConfirmedPeriod : null,
+  lastConfirmedExpenseId:
+    typeof raw.lastConfirmedExpenseId === 'string'
+      ? raw.lastConfirmedExpenseId
+      : null,
+  skippedPeriod:
+    typeof raw.skippedPeriod === 'string' ? raw.skippedPeriod : null,
+  createdAt: toDate(raw.createdAt),
+  updatedAt: toDate(raw.updatedAt),
+});
+
 /**
  * Read and validate a backup file selected by the user. Converts date strings
- * back to `Date` objects and normalizes optional fields (`initialBalance`,
- * `isPreferred`, `parentId`, `routingAccountId`). Throws an Error with an
- * Italian message when the file is not a valid backup.
+ * back to `Date` objects and normalizes optional fields. Accepts both version 1
+ * files (without `recurringExpenses`, treated as an empty list) and version 2
+ * files. Throws an Error with an Italian message when the file is not a valid
+ * backup.
  */
 export const readBackupFile = async (file: File): Promise<BackupData> => {
   let parsed: unknown;
@@ -139,5 +190,11 @@ export const readBackupFile = async (file: File): Promise<BackupData> => {
     expenseTypes: parsed.expenseTypes.filter(isRecord).map(normalizeExpenseType),
     expenses: parsed.expenses.filter(isRecord).map(normalizeExpense),
     cashflows: parsed.cashflows.filter(isRecord).map(normalizeCashflow),
+    recurringExpenses: (Array.isArray(parsed.recurringExpenses)
+      ? parsed.recurringExpenses
+      : []
+    )
+      .filter(isRecord)
+      .map(normalizeRecurringExpense),
   };
 };

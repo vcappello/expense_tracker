@@ -3,16 +3,20 @@ import {
   Expense,
   ExpenseType,
   Cashflow,
+  RecurringExpense,
 } from '../types';
 
 const DB_NAME = 'expense-tracker-db';
-const DB_VERSION = 1;
+// v2: added the `recurringExpenses` store (recurring expense templates).
+// The upgrade only creates the missing stores: existing data is preserved.
+const DB_VERSION = 2;
 
 const STORES = {
   ACCOUNTS: 'accounts',
   EXPENSE_TYPES: 'expenseTypes',
   EXPENSES: 'expenses',
   CASHFLOWS: 'cashflows',
+  RECURRING_EXPENSES: 'recurringExpenses',
 };
 
 let db: IDBDatabase | null = null;
@@ -30,6 +34,16 @@ export const initDB = (): Promise<IDBDatabase> => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
     request.onerror = () => reject(request.error);
+
+    // Another tab still holds the previous version: the upgrade is blocked.
+    // Fail with a clear message instead of hanging (the user has to close the
+    // other tabs and reload).
+    request.onblocked = () =>
+      reject(
+        new Error(
+          "Aggiornamento del database bloccato: chiudi le altre schede dell'app aperte e ricarica la pagina."
+        )
+      );
 
     request.onsuccess = () => {
       db = request.result;
@@ -67,6 +81,17 @@ export const initDB = (): Promise<IDBDatabase> => {
         cashflowStore.createIndex('date', 'date', { unique: false });
         cashflowStore.createIndex('accountId', 'accountId', { unique: false });
       }
+
+      if (!database.objectStoreNames.contains(STORES.RECURRING_EXPENSES)) {
+        const recurringStore = database.createObjectStore(
+          STORES.RECURRING_EXPENSES,
+          { keyPath: 'id' }
+        );
+        recurringStore.createIndex('accountId', 'accountId', { unique: false });
+        recurringStore.createIndex('expenseTypeId', 'expenseTypeId', {
+          unique: false,
+        });
+      }
     };
   });
 };
@@ -93,6 +118,25 @@ const normalizeExpense = (e: Expense): Expense => ({
   notes: e.notes ?? '',
   location: e.location ?? '',
   reimbursable: e.reimbursable === true,
+  recurringId: e.recurringId ?? null,
+  recurringPeriod: e.recurringPeriod ?? null,
+});
+
+/**
+ * Normalize legacy RecurringExpense records (fields added after the first
+ * release of the feature): missing text fields default to '', missing booleans
+ * to false, missing state fields to null.
+ */
+const normalizeRecurringExpense = (r: RecurringExpense): RecurringExpense => ({
+  ...r,
+  amount: typeof r.amount === 'number' ? r.amount : 0,
+  active: r.active !== false,
+  notes: r.notes ?? '',
+  location: r.location ?? '',
+  reimbursable: r.reimbursable === true,
+  lastConfirmedPeriod: r.lastConfirmedPeriod ?? null,
+  lastConfirmedExpenseId: r.lastConfirmedExpenseId ?? null,
+  skippedPeriod: r.skippedPeriod ?? null,
 });
 
 /**
@@ -504,6 +548,192 @@ export const deleteCashflowsByAccount = (accountId: string): Promise<void> => {
   return deleteAllByIndex(STORES.CASHFLOWS, 'accountId', accountId);
 };
 
+// ============ RECURRING EXPENSE OPERATIONS ============
+
+export const createRecurringExpense = async (
+  recurring: RecurringExpense
+): Promise<RecurringExpense> => {
+  const database = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(
+      [STORES.RECURRING_EXPENSES],
+      'readwrite'
+    );
+    const store = transaction.objectStore(STORES.RECURRING_EXPENSES);
+    const request = store.add(recurring);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(recurring);
+  });
+};
+
+export const getRecurringExpenses = async (): Promise<RecurringExpense[]> => {
+  const database = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(
+      [STORES.RECURRING_EXPENSES],
+      'readonly'
+    );
+    const store = transaction.objectStore(STORES.RECURRING_EXPENSES);
+    const request = store.getAll();
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () =>
+      resolve(request.result.map(normalizeRecurringExpense));
+  });
+};
+
+export const getRecurringExpense = async (
+  id: string
+): Promise<RecurringExpense | undefined> => {
+  const database = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(
+      [STORES.RECURRING_EXPENSES],
+      'readonly'
+    );
+    const store = transaction.objectStore(STORES.RECURRING_EXPENSES);
+    const request = store.get(id);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () =>
+      resolve(
+        request.result ? normalizeRecurringExpense(request.result) : undefined
+      );
+  });
+};
+
+export const updateRecurringExpense = async (
+  recurring: RecurringExpense
+): Promise<RecurringExpense> => {
+  const database = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(
+      [STORES.RECURRING_EXPENSES],
+      'readwrite'
+    );
+    const store = transaction.objectStore(STORES.RECURRING_EXPENSES);
+    const request = store.put(recurring);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(recurring);
+  });
+};
+
+/**
+ * Remove the recurring link (`recurringId`/`recurringPeriod`) from every
+ * Expense that points to the given template. Used when the template is
+ * deleted: the Expenses already created are kept and become normal expenses.
+ * Runs in the same transaction of the delete when possible.
+ */
+const clearRecurringLinksInStore = (
+  store: IDBObjectStore,
+  templateId: string
+): void => {
+  const request = store.openCursor();
+  request.onsuccess = () => {
+    const cursor = request.result;
+    if (!cursor) return;
+    const expense = cursor.value as Expense;
+    if (expense.recurringId === templateId) {
+      cursor.update({ ...expense, recurringId: null, recurringPeriod: null });
+    }
+    cursor.continue();
+  };
+};
+
+/**
+ * Delete a recurring template. The Expenses already created from it are kept
+ * but their recurring link is cleared (they become normal expenses).
+ */
+export const deleteRecurringExpense = async (id: string): Promise<void> => {
+  const database = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(
+      [STORES.RECURRING_EXPENSES, STORES.EXPENSES],
+      'readwrite'
+    );
+
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error);
+
+    clearRecurringLinksInStore(
+      transaction.objectStore(STORES.EXPENSES),
+      id
+    );
+    transaction.objectStore(STORES.RECURRING_EXPENSES).delete(id);
+  });
+};
+
+/**
+ * Delete all the recurring templates of a given Account / ExpenseType, clearing
+ * the recurring link of the Expenses already created from them. Used by the
+ * delete cascades (Account / ExpenseType management).
+ */
+const deleteRecurringByIndex = async (
+  indexName: string,
+  key: string
+): Promise<void> => {
+  const database = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(
+      [STORES.RECURRING_EXPENSES, STORES.EXPENSES],
+      'readwrite'
+    );
+
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error);
+
+    const expenseStore = transaction.objectStore(STORES.EXPENSES);
+    const index = transaction
+      .objectStore(STORES.RECURRING_EXPENSES)
+      .index(indexName);
+    const request = index.openCursor(IDBKeyRange.only(key));
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) return;
+      const recurringId = cursor.value.id as string;
+      clearRecurringLinksInStore(expenseStore, recurringId);
+      cursor.delete();
+      cursor.continue();
+    };
+  });
+};
+
+export const deleteRecurringExpensesByAccount = (accountId: string) =>
+  deleteRecurringByIndex('accountId', accountId);
+
+export const deleteRecurringExpensesByType = (expenseTypeId: string) =>
+  deleteRecurringByIndex('expenseTypeId', expenseTypeId);
+
+/**
+ * Count the recurring templates of an Account / ExpenseType (delete cascade
+ * confirmation popup).
+ */
+export const countRecurringByIndex = async (
+  indexName: string,
+  key: string
+): Promise<number> => {
+  const database = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(
+      [STORES.RECURRING_EXPENSES],
+      'readonly'
+    );
+    const index = transaction
+      .objectStore(STORES.RECURRING_EXPENSES)
+      .index(indexName);
+    const request = index.count(IDBKeyRange.only(key));
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+  });
+};
+
 // ============ COIN-SPLIT EXPENSE GROUP (atomic) ============
 
 /**
@@ -599,6 +829,7 @@ export const importAllData = async (data: {
   expenseTypes: ExpenseType[];
   expenses: Expense[];
   cashflows: Cashflow[];
+  recurringExpenses: RecurringExpense[];
 }): Promise<void> => {
   const database = await initDB();
   return new Promise((resolve, reject) => {
@@ -608,6 +839,7 @@ export const importAllData = async (data: {
         STORES.EXPENSE_TYPES,
         STORES.EXPENSES,
         STORES.CASHFLOWS,
+        STORES.RECURRING_EXPENSES,
       ],
       'readwrite'
     );
@@ -620,15 +852,18 @@ export const importAllData = async (data: {
     const expenseTypes = transaction.objectStore(STORES.EXPENSE_TYPES);
     const expenses = transaction.objectStore(STORES.EXPENSES);
     const cashflows = transaction.objectStore(STORES.CASHFLOWS);
+    const recurring = transaction.objectStore(STORES.RECURRING_EXPENSES);
 
     accounts.clear();
     expenseTypes.clear();
     expenses.clear();
     cashflows.clear();
+    recurring.clear();
 
     data.accounts.forEach((a) => accounts.put(a));
     data.expenseTypes.forEach((et) => expenseTypes.put(et));
     data.expenses.forEach((e) => expenses.put(e));
     data.cashflows.forEach((c) => cashflows.put(c));
+    data.recurringExpenses.forEach((r) => recurring.put(r));
   });
 };

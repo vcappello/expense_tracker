@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Movement, MovementFilters, DateRange } from '../types';
-import { formatDayHeader, formatMonthYear, abbreviateAmount, isToday } from '../utils/formatting';
+import { formatDayHeader, formatMonthYear, abbreviateAmount, isToday, formatDate } from '../utils/formatting';
 import { routingCounterpartIds } from '../utils/routing';
+import { ExpectedOccurrence, getExpectedOccurrences, getFrequencyLabel } from '../utils/recurrence';
 import { exportDatabase, readBackupFile, BackupData } from '../utils/backup';
 import TitleBar from '../components/TitleBar';
 import ActionMenu from '../components/ActionMenu';
@@ -12,10 +13,13 @@ import AlertModal from '../components/AlertModal';
 import Toast from '../components/Toast';
 import { FunnelIcon, PlusIcon } from '../components/icons';
 import '../styles/MainView.css';
+// Frequency badge of the expected (recurring) rows: defined once in
+// RecurringPage.css and imported here explicitly (CSS is global).
+import '../styles/RecurringPage.css';
 
 export default function MainView() {
   const navigate = useNavigate();
-  const { movements, loadMovements, isLoading, accounts, expenseTypes, loadAccounts, loadExpenseTypes, restoreBackup } = useApp();
+  const { movements, loadMovements, isLoading, accounts, expenseTypes, loadAccounts, loadExpenseTypes, restoreBackup, recurringExpenses, loadRecurringExpenses, confirmRecurringOccurrences, lastRecurringConfirmation, undoLastRecurringConfirmation, clearLastRecurringConfirmation } = useApp();
   const [filters, setFilters] = useState<MovementFilters>({
     dateRange: 'current-month',
   });
@@ -25,12 +29,18 @@ export default function MainView() {
   // Backup / Restore state
   const [pendingImport, setPendingImport] = useState<BackupData | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    icon?: string;
+    actionLabel?: string;
+    onAction?: () => void;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadAccounts();
     loadExpenseTypes();
+    loadRecurringExpenses();
   }, []);
 
   useEffect(() => {
@@ -40,7 +50,10 @@ export default function MainView() {
   // Auto-hide the confirmation toast after ~2.5s
   useEffect(() => {
     if (!toast) return;
-    const timer = setTimeout(() => setToast(null), 2500);
+    const timer = setTimeout(() => {
+      setToast(null);
+      clearLastRecurringConfirmation();
+    }, toast.actionLabel ? 5000 : 2500);
     return () => clearTimeout(timer);
   }, [toast]);
 
@@ -69,10 +82,14 @@ export default function MainView() {
     navigate('/accounts');
   };
 
+  const handleRecurring = () => {
+    navigate('/recurring');
+  };
+
   const handleExportBackup = async () => {
     try {
       await exportDatabase();
-      setToast('Backup esportato');
+      setToast({ message: 'Backup esportato' });
     } catch (err) {
       setImportError(
         err instanceof Error ? err.message : "Errore durante l'esportazione del backup"
@@ -102,7 +119,7 @@ export default function MainView() {
       // Reload the movement list with the restored data
       await loadMovements(filters);
       setPendingImport(null);
-      setToast('Backup ripristinato con successo');
+      setToast({ message: 'Backup ripristinato con successo' });
     } catch (err) {
       setImportError(
         err instanceof Error ? err.message : 'Errore durante il ripristino del backup'
@@ -171,6 +188,19 @@ export default function MainView() {
     }
   })();
 
+  // Expected (not yet confirmed) occurrences of the recurring expenses. They
+  // are shown only in the ranges that contain today, right after the "today"
+  // group and before the older days; the section is never paginated.
+  const rangeIncludesToday =
+    filters.dateRange === 'current-month' ||
+    filters.dateRange === 'current-year' ||
+    filters.dateRange === 'all';
+
+  const expectedOccurrences = useMemo(
+    () => (rangeIncludesToday ? getExpectedOccurrences(recurringExpenses) : []),
+    [recurringExpenses, rangeIncludesToday]
+  );
+
   // Group the (already date/time-desc sorted) movements by calendar day.
   const dayGroups = useMemo(() => {
     const groups: { key: string; date: Date; movements: Movement[] }[] = [];
@@ -236,6 +266,205 @@ export default function MainView() {
     }
   };
 
+  /** Confirm every expected occurrence at once (default amount, now). */
+  const handleConfirmAll = async () => {
+    if (expectedOccurrences.length === 0) return;
+    try {
+      const now = new Date();
+      const time = `${String(now.getHours()).padStart(2, '0')}:${String(
+        now.getMinutes()
+      ).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+      await confirmRecurringOccurrences(
+        expectedOccurrences.map((occurrence) => ({
+          recurringId: occurrence.template.id,
+          amount: occurrence.amount,
+          date: now,
+          time,
+        }))
+      );
+      // The created Expenses are dated today: refresh the list
+      await loadMovements(filters);
+    } catch (err) {
+      console.error('Failed to confirm the expected occurrences:', err);
+      setImportError('Errore durante la conferma delle spese previste');
+    }
+  };
+
+  // Undo of a recurring confirmation: deleting the created Expense un-consumes
+  // the period, so the expected occurrence is proposed again.
+  const handleUndoRecurring = async () => {
+    try {
+      await undoLastRecurringConfirmation();
+      await loadMovements(filters);
+      setToast(null);
+    } catch (err) {
+      console.error('Failed to undo the recurring confirmation:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (!lastRecurringConfirmation) return;
+    const count = lastRecurringConfirmation.expenseIds.length;
+    setToast({
+      message: lastRecurringConfirmation.name
+        ? `Spesa confermata: ${lastRecurringConfirmation.name}`
+        : `${count} spese confermate`,
+      actionLabel: 'Annulla',
+      onAction: handleUndoRecurring,
+    });
+    // Only when a new confirmation happens (handleUndoRecurring uses the
+    // current filter, which is fine: it must refresh the visible list).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastRecurringConfirmation]);
+
+  // The expected section goes right after the "today" day group (the groups are
+  // ordered most recent first, so today is the first one when it exists).
+  const firstGroupIsToday =
+    visibleGroups.length > 0 && isToday(visibleGroups[0].date);
+  const headGroups = firstGroupIsToday ? visibleGroups.slice(0, 1) : [];
+  const restGroups = firstGroupIsToday ? visibleGroups.slice(1) : visibleGroups;
+
+  const renderMovementRow = (movement: Movement) => {
+    const isExpense = movement.type === 'expense';
+    const isRouting =
+      movement.type === 'cashflow' && movement.routingAccountId != null;
+    const accountName =
+      accounts.find((a) => a.id === movement.accountId)?.name || '?';
+    return (
+      <li
+        key={movement.id}
+        className="movement-item"
+        role="button"
+        tabIndex={0}
+        onClick={() => handleMovementClick(movement)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            handleMovementClick(movement);
+          }
+        }}
+      >
+        <div className="movement-content">
+          <div className="movement-info">
+            <div className="movement-type">
+              <span className="movement-type-label">
+                {isExpense
+                  ? `💸 ${
+                      expenseTypes.find((t) => t.id === movement.expenseTypeId)
+                        ?.name || 'Spesa'
+                    } · ${accountName}`
+                  : isRouting
+                  ? `🔄 ${
+                      accounts.find(
+                        (a) => a.id === movement.routingAccountId
+                      )?.name || '?'
+                    } → ${accountName}`
+                  : `💰 ${accountName}`}
+              </span>
+              {isExpense && movement.reimbursable && (
+                <span className="reimbursable-badge">da rimborsare</span>
+              )}
+            </div>
+            {isExpense && movement.location && (
+              <div className="movement-place">📍 {movement.location}</div>
+            )}
+          </div>
+          <div
+            className={`amount ${
+              isExpense ? 'expense' : isRouting ? 'routing' : 'cashflow'
+            }`}
+          >
+            {isExpense && '-'}
+            {abbreviateAmount(movement.amount)}
+          </div>
+        </div>
+      </li>
+    );
+  };
+
+  const renderDayGroup = (group: {
+    key: string;
+    date: Date;
+    movements: Movement[];
+  }) => (
+    <li key={group.key} className="day-group">
+      <div className="day-header">
+        {formatDayHeader(
+          group.date,
+          wideRange,
+          group.date.getFullYear() !== new Date().getFullYear()
+        )}
+        {isToday(group.date) && <span className="day-today">· Oggi</span>}
+      </div>
+      <ul className="day-movements">
+        {group.movements.map(renderMovementRow)}
+      </ul>
+    </li>
+  );
+
+  const expectedSection =
+    expectedOccurrences.length > 0 ? (
+      <li className="day-group expected-group">
+        <div className="day-header expected-header">
+          <span>Spese previste</span>
+          {expectedOccurrences.length > 1 && (
+            <button
+              type="button"
+              className="expected-confirm-all"
+              onClick={handleConfirmAll}
+              disabled={isLoading}
+            >
+              Conferma tutte
+            </button>
+          )}
+        </div>
+        <ul className="day-movements">
+          {expectedOccurrences.map((occurrence: ExpectedOccurrence) => {
+            const accountName =
+              accounts.find((a) => a.id === occurrence.template.accountId)
+                ?.name || '?';
+            const typeName =
+              expenseTypes.find(
+                (t) => t.id === occurrence.template.expenseTypeId
+              )?.name || 'Spesa';
+            return (
+              <li
+                key={occurrence.template.id}
+                className="movement-item expected-item"
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate(`/recurring/${occurrence.template.id}/confirm`)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    navigate(`/recurring/${occurrence.template.id}/confirm`);
+                  }
+                }}
+              >
+                <div className="movement-content">
+                  <div className="movement-info">
+                    <div className="movement-type expected-type">
+                      <span className="movement-type-label">
+                        🔁 {occurrence.template.name}
+                      </span>
+                      <span className="frequency-badge">
+                        {getFrequencyLabel(occurrence.template.frequency)}
+                      </span>
+                    </div>
+                    <div className="movement-place">
+                      💸 {typeName} · {accountName} — prevista{' '}
+                      {formatDate(occurrence.dueDate)}
+                    </div>
+                  </div>
+                  <div className="amount expected">
+                    {abbreviateAmount(occurrence.amount)}€
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </li>
+    ) : null;
+
   return (
     <div className="main-view">
       <TitleBar
@@ -289,6 +518,7 @@ export default function MainView() {
               { label: '📊 Analisi', onClick: handleAnalytics },
               { label: '🏦 Conti', onClick: handleAccounts },
               { label: '🏷️ Categorie', onClick: handleExpenseTypes },
+              { label: '🔁 Ricorrenti', onClick: handleRecurring },
               { label: '💾 Esporta backup', onClick: handleExportBackup },
               { label: '📥 Ripristina backup', onClick: () => fileInputRef.current?.click() },
             ]}
@@ -299,7 +529,7 @@ export default function MainView() {
           <div className="loading-state">
             <p>Caricamento movimenti...</p>
           </div>
-        ) : displayMovements.length === 0 ? (
+        ) : displayMovements.length === 0 && expectedOccurrences.length === 0 ? (
           <div className="empty-state">
             <p>Nessun movimento</p>
             <p className="subtitle">Clicca "Nuova spesa" per iniziare</p>
@@ -307,90 +537,9 @@ export default function MainView() {
         ) : (
           <div ref={listRef} className="movements-list-container" onScroll={handleScroll}>
             <ul className="movements-list">
-              {visibleGroups.map((group) => (
-                <li key={group.key} className="day-group">
-                  <div className="day-header">
-                    {formatDayHeader(
-                      group.date,
-                      wideRange,
-                      group.date.getFullYear() !== new Date().getFullYear()
-                    )}
-                    {isToday(group.date) && (
-                      <span className="day-today">· Oggi</span>
-                    )}
-                  </div>
-                  <ul className="day-movements">
-                    {group.movements.map((movement) => {
-                      const isExpense = movement.type === 'expense';
-                      const isRouting =
-                        movement.type === 'cashflow' &&
-                        movement.routingAccountId != null;
-                      const accountName =
-                        accounts.find((a) => a.id === movement.accountId)?.name ||
-                        '?';
-                      return (
-                        <li
-                          key={movement.id}
-                          className="movement-item"
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => handleMovementClick(movement)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              handleMovementClick(movement);
-                            }
-                          }}
-                        >
-                          <div className="movement-content">
-                            <div className="movement-info">
-                              <div className="movement-type">
-                                <span className="movement-type-label">
-                                  {isExpense
-                                    ? `💸 ${
-                                        expenseTypes.find(
-                                          (t) => t.id === movement.expenseTypeId
-                                        )?.name || 'Spesa'
-                                      } · ${accountName}`
-                                    : isRouting
-                                    ? `🔄 ${
-                                        accounts.find(
-                                          (a) =>
-                                            a.id === movement.routingAccountId
-                                        )?.name || '?'
-                                      } → ${accountName}`
-                                    : `💰 ${accountName}`}
-                                </span>
-                                {isExpense && movement.reimbursable && (
-                                  <span className="reimbursable-badge">
-                                    da rimborsare
-                                  </span>
-                                )}
-                              </div>
-                              {isExpense && movement.location && (
-                                <div className="movement-place">
-                                  📍 {movement.location}
-                                </div>
-                              )}
-                            </div>
-                            <div
-                              className={`amount ${
-                                isExpense
-                                  ? 'expense'
-                                  : isRouting
-                                  ? 'routing'
-                                  : 'cashflow'
-                              }`}
-                            >
-                              {isExpense && '-'}
-                              {abbreviateAmount(movement.amount)}
-                            </div>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </li>
-              ))}
+              {headGroups.map(renderDayGroup)}
+              {expectedSection}
+              {restGroups.map(renderDayGroup)}
             </ul>
 
             {hasMore && (
@@ -427,6 +576,9 @@ export default function MainView() {
                 <li>{pendingImport.expenseTypes.length} categorie</li>
                 <li>{pendingImport.expenses.length} spese</li>
                 <li>{pendingImport.cashflows.length} entrate</li>
+                <li>
+                  {pendingImport.recurringExpenses.length} spese ricorrenti
+                </li>
               </ul>
             </div>
           ) : null
@@ -441,7 +593,12 @@ export default function MainView() {
         onClose={() => setImportError(null)}
       />
 
-      <Toast message={toast} />
+      <Toast
+        message={toast?.message ?? null}
+        icon={toast?.icon}
+        actionLabel={toast?.actionLabel}
+        onAction={toast?.onAction}
+      />
     </div>
   );
 }

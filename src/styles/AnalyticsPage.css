@@ -415,6 +415,18 @@
   color: #22c55e;
 }
 
+/* Expected (recurring, not yet confirmed) expense rows: dedicated grey
+   pseudo-category "Spese previste" (see spec.md → "Recurring expenses") */
+.movement-detail.expected {
+  border-left: 3px solid #94a3b8;
+  border-style: dashed;
+  border-left-style: solid;
+}
+
+.movement-amount.expected {
+  color: #94a3b8;
+}
+
 /* States */
 .loading-state,
 .empty-state {

@@ -177,6 +177,36 @@
       modifica al modello). La riga resta invariata per le altre spese (badge assente);
       importo e colori invariati. Verificato nel browser (badge solo sulla spesa
       rimborsabile, importo sempre visibile, nessun overflow orizzontale); build OK.
+- [x] **Spese ricorrenti (recurring expenses)** (12/09/2026): nuovo store
+      `recurringExpenses` (**primo bump `DB_VERSION` 1 → 2**, upgrade che crea solo lo
+      store mancante con gestione `onblocked`) e modello `RecurringExpense`
+      (nome, frequenza giornaliera/settimanale/mensile/annuale, importo di default,
+      categoria, conto, `startDate`, `active`, note/luogo/rimborsabile, stato periodo).
+      L'occorrenza **prevista** non è un record: è derivata dal template
+      (`src/utils/recurrence.ts`: chiave periodo `2026-09-12`/`2026-W37`/`2026-09`/`2026`,
+      scadenza del periodo con settimana lun–dom, mensile 31 → ultimo giorno, annuale
+      29/02 → 28/02, prossima scadenza) più `lastConfirmedPeriod`/`skippedPeriod`;
+      **una sola prevista per periodo**, le mancate si saltano. Conferma → **Expense
+      normale** con `recurringId`/`recurringPeriod` (idempotente) + toast **Annulla**
+      (anche per "Conferma tutte": il context salva gli id creati in blocco); importo
+      modificato → modale a 3 pulsanti "Solo questa / Tutte le successive"; Elimina →
+      modale "Salta questa / Interrompi la ricorrenza"; cancellare una spesa confermata
+      **ripropone** la prevista. Nuove pagine `/recurring` (gestione con badge frequenza,
+      pausa, prossima scadenza), `/recurring/new|:id/edit` e `/recurring/:id/confirm`;
+      voce **"🔁 Ricorrenti"** nel menu Azioni. Main view: sezione **"Spese previste"**
+      (header dedicato) subito dopo il gruppo di oggi e fuori dalla paginazione, solo nei
+      filtri che contengono oggi, con **badge frequenza** (🔁 Giornaliera/Settimanale/
+      Mensile/Annuale) e importo previsto in grigio; le spese già confermate restano righe
+      normali (nessun badge). Analytics: previste **nei totali** sotto la pseudo-categoria
+      **"Spese previste"** (griglia grigia, top categorie, report, CSV "Spesa prevista",
+      grafici) ma **nessun effetto sui saldi conti**; contano sul mese della **scadenza**,
+      seguono il filtro Conto e ignorano il filtro Categoria. Cascade Conto/Categoria
+      estese ai template (conteggio "N spese ricorrenti" nei popup). **Backup v2**
+      (`recurringExpenses`, import retrocompatibile con i file v1). Verificato E2E in
+      browser: creazione/conferma (solo questa, tutte le successive), undo singolo e
+      multiplo, salta/interrompi, delete spesa confermata, cascade, periodi (settimanale
+      lun–dom, mensile 31, annuale 29/02, non ancora scadute, in pausa, saltate),
+      Analytics + saldi conti invariati, CSV, grafici e round-trip backup v2/v1; build OK.
 - [x] **Fix limite noto — Analytics/Conti/Categorie caricano i movimenti da sole**
       (12/09/2026): queste pagine non dipendono più dai `movements` caricati dalla Main
       view (limitati al filtro periodo scelto lì). Con reload diretto su `#/analytics`
@@ -300,10 +330,10 @@
 > **Main view per giorno** (con righe dettaglio e indicatore dell'intervallo nel pulsante
 > Filtri) — vedi sezione ✅ Completati e i blocchi [x] sotto. Qui sotto restano le voci
 > aperte (manutenzione/rifiniture). Gli step andranno marcati [x] man mano.
-> **Aperta (12/09/2026)**: pianificazione della feature **Spese ricorrenti** — blocco qui
-> sotto, in attesa della revisione utente prima di scrivere codice.
-
-### Spese ricorrenti (recurring expenses) — pianificata il 12/09/2026 (in attesa di revisione utente)
+> **Chiusa (12/09/2026)**: la feature **Spese ricorrenti** è stata pianificata e
+> implementata nella stessa sessione — vedi il blocco qui sotto (step tutti [x]) e la voce
+> in ✅ Completati.
+### Spese ricorrenti (recurring expenses) — implementata il 12/09/2026
 
 > Richiesta utente: poter registrare **spese ricorrenti** (giornaliere, settimanali, mensili,
 > annuali) che vengono **proposte come "previste"** e restano tali finché l'utente non le
@@ -334,53 +364,53 @@
 > per "Solo questa / Tutte le successive"; cascade su Conto/Categoria estesa alle
 > ricorrenze.
 
-- [ ] **Docs** (fatto il 12/09/2026): `spec.md` con la sezione "Recurring expenses" (modello,
+- [x] **Docs** (fatto il 12/09/2026): `spec.md` con la sezione "Recurring expenses" (modello,
       occorrenza prevista, conferma, modifica/eliminazione, gestione, cascade, Main view,
       Analytics, backup, UI) e impatti aggiornati (Technical info `DB_VERSION` 2 + store
       `recurringExpenses` + campi `recurringId`/`recurringPeriod`, Main view, Analytics,
       Grafico, Backup/Ripristino, UI redesign, flusso di navigazione, prossime release);
       `plan.md` con questi step.
-- [ ] **DB + types**: nuovo store `recurringExpenses` con **bump `DB_VERSION` 1 → 2**
+- [x] **DB + types**: nuovo store `recurringExpenses` con **bump `DB_VERSION` 1 → 2**
       (upgrade che crea solo gli store mancanti; gestione `onblocked` quando un'altra tab ha
       la versione vecchia + messaggio all'utente); CRUD (`getRecurringExpenses`,
       `getRecurringExpense`, `createRecurringExpense`, `updateRecurringExpense`,
       `deleteRecurringExpense`); normalizzazione in lettura; campi `recurringId`/
       `recurringPeriod` su `Expense` (default null) normalizzati in `normalizeExpense`.
-- [ ] **Util ricorrenze** `src/utils/recurrence.ts`: chiave periodo (`2026-09-12`,
+- [x] **Util ricorrenze** `src/utils/recurrence.ts` (fatto): chiave periodo (`2026-09-12`,
       `2026-W37`, `2026-09`, `2026`), data di scadenza del periodo corrente (settimana lun–dom,
       mensile 31 → ultimo giorno, annuale 29/02 → 28/02), prossima scadenza, stato
       pending/consumato, etichette frequenza per la UI.
-- [ ] **AppContext**: `loadRecurringExpenses`, `saveRecurringExpense`,
+- [x] **AppContext** (fatto): `loadRecurringExpenses`, `saveRecurringExpense`,
       `deleteRecurringExpense` (con pulizia di `recurringId` sulle spese confermate),
       `skipRecurringOccurrence`, `confirmRecurringOccurrence` (crea l'Expense con link in una
       transazione), occorrenze previste derivate; cascade in
       `deleteAccountCascade`/`deleteExpenseTypeCascade` + conteggi in
       `getAccountDeleteInfo`/`getExpenseTypeDeleteInfo`.
-- [ ] **Pagine ricorrenze**: `RecurringManagementPage` (`/recurring`), `CreateRecurringPage`
+- [x] **Pagine ricorrenze** (fatto): `RecurringManagementPage` (`/recurring`), `CreateRecurringPage`
       (`/recurring/new`, `/recurring/:id/edit`, con preview prossima scadenza e switch
       pausa), vista di conferma/modifica prevista (`/recurring/:id/confirm`, importo +
       data/ora, modali 3 pulsanti "Solo questa / Tutte le successive" e "Salta questa /
       Interrompi la ricorrenza"); route in `App.tsx`; voce "🔁 Spese ricorrenti" nel menu
       Azioni della Main view.
-- [ ] **Main view — sezione "Spese previste"**: header dedicato, posizionata dopo il gruppo
+- [x] **Main view — sezione "Spese previste"** (fatto): header dedicato, posizionata dopo il gruppo
       di oggi e prima dei giorni precedenti, solo nei filtri che contengono oggi, esclusa
       dalla paginazione (gruppi giorno interi); righe con nome, **badge della frequenza**
       ("🔁 Giornaliera" / "🔁 Settimanale" / "🔁 Mensile" / "🔁 Annuale", pill accanto al
       nome), categoria · conto e importo previsto in grigio; tap → conferma; "Conferma
       tutte" nell'header; `Toast` con Annulla dopo la conferma.
-- [ ] **Analytics**: includere le previste in Totale Spese/Saldo/Media giornaliera sotto la
+- [x] **Analytics** (fatto): includere le previste in Totale Spese/Saldo/Media giornaliera sotto la
       pseudo-categoria "Spese previste" (colore grigio), nel report (riga marcata
       "prevista"), nel CSV e nel grafico (impilate nella categoria dedicata); nessun effetto
       su saldi conti e Total Cashflow; filtro Categoria non applicato alle previste.
-- [ ] **Backup/Ripristino v2**: export con `recurringExpenses` + `version: 2`, import
+- [x] **Backup/Ripristino v2** (fatto): export con `recurringExpenses` + `version: 2`, import
       retrocompatibile con i file v1 (campo mancante → lista vuota), normalizzazione dei
       nuovi campi, `importAllData` atomico esteso al nuovo store.
-- [ ] **Test E2E**: template con `startDate` nel passato per verificare il ciclo (giornaliera/
+- [x] **Test E2E** (fatto, in browser su :5173): template con `startDate` nel passato per verificare il ciclo (giornaliera/
       settimanale/mensile/annuale), conferma con importo diverso (solo questa/tutte), salta,
       interrompi, delete della spesa confermata (prevista che ricompare), pausa, cascade
       conto/categoria, Analytics (totali e pseudo-categoria), CSV, grafico, backup v1→v2 e
       v2→v2; build OK.
-- [ ] **Chiusura**: aggiornare `AGENTS.md` (store nuovo, bump `DB_VERSION`, regole) e
+- [x] **Chiusura** (fatto): aggiornare `AGENTS.md` (store nuovo, bump `DB_VERSION`, regole) e
       `README.md`, poi `npm run build` + commit + push (deploy GitHub Pages).
 
 ### Spese da rimborsare (reimbursable) + riepilogo nello stipendio — implementata il 06/09/2026

@@ -210,15 +210,26 @@ export default function CreateExpenseTypePage() {
         title="Elimina Categoria"
         lines={
           deleteInfo &&
-          (deleteInfo.expensesCount > 0 || deleteInfo.childCount > 0) ? (
+          (deleteInfo.expensesCount > 0 ||
+            deleteInfo.childCount > 0 ||
+            deleteInfo.recurringCount > 0) ? (
             <>
               Questa categoria ha:
               <br />• {deleteInfo.expensesCount} {deleteInfo.expensesCount === 1 ? 'spesa' : 'spese'} per{' '}
               {Math.abs(deleteInfo.expensesTotal).toFixed(2)}€
               <br />• {deleteInfo.childCount} {deleteInfo.childCount === 1 ? 'sottocategoria' : 'sottocategorie'}
+              {deleteInfo.recurringCount > 0 && (
+                <>
+                  <br />• {deleteInfo.recurringCount}{' '}
+                  {deleteInfo.recurringCount === 1
+                    ? 'spesa ricorrente'
+                    : 'spese ricorrenti'}
+                </>
+              )}
               <br />
               <br />
-              Tutte le spese e le sottocategorie collegate verranno eliminate.
+              Tutte le spese, le sottocategorie e le ricorrenze collegate verranno
+              eliminate.
             </>
           ) : (
             <>Eliminare questa categoria?</>

@@ -247,16 +247,26 @@ export default function CreateAccountPage() {
         title="Elimina Conto"
         lines={
           deleteInfo &&
-          (deleteInfo.expensesCount > 0 || deleteInfo.cashflowsCount > 0) ? (
+          (deleteInfo.expensesCount > 0 ||
+            deleteInfo.cashflowsCount > 0 ||
+            deleteInfo.recurringCount > 0) ? (
             <>
               Questo conto ha:
               <br />• {deleteInfo.cashflowsCount} {deleteInfo.cashflowsCount === 1 ? 'entrata' : 'entrate'} per{' '}
               {Math.abs(deleteInfo.cashflowsTotal).toFixed(2)}€
               <br />• {deleteInfo.expensesCount} {deleteInfo.expensesCount === 1 ? 'spesa' : 'spese'} per{' '}
               {Math.abs(deleteInfo.expensesTotal).toFixed(2)}€
+              {deleteInfo.recurringCount > 0 && (
+                <>
+                  <br />• {deleteInfo.recurringCount}{' '}
+                  {deleteInfo.recurringCount === 1
+                    ? 'spesa ricorrente'
+                    : 'spese ricorrenti'}
+                </>
+              )}
               <br />
               <br />
-              Tutti i movimenti collegati verranno eliminati.
+              Tutti i movimenti e le ricorrenze collegate verranno eliminati.
             </>
           ) : (
             <>Eliminare questo conto?</>

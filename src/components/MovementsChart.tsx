@@ -1,5 +1,6 @@
 import { ExpenseType } from '../types';
 import { abbreviateAmount } from '../utils/formatting';
+import { EXPECTED_EXPENSE_TYPE_ID } from '../utils/recurrence';
 
 export interface DailyTotal {
   key: string; // YYYY-MM-DD (sortable)
@@ -31,6 +32,9 @@ const PALETTE = [
   '#d946ef',
 ];
 
+// Expected (recurring, not yet confirmed) expenses: dedicated grey category
+const EXPECTED_COLOR = '#94a3b8';
+
 /**
  * Diverging bar chart of daily movements:
  * cashflows (green) above the baseline, expenses (stacked by category) below it.
@@ -48,7 +52,10 @@ export default function MovementsChart({ data, expenseTypes }: MovementsChartPro
   const typeIds = [...new Set(data.flatMap((d) => Object.keys(d.expensesByType)))].sort(
     (a, b) => (typeNames[a] || a).localeCompare(typeNames[b] || b)
   );
-  const colorFor = (id: string) => PALETTE[typeIds.indexOf(id) % PALETTE.length];
+  const colorFor = (id: string) =>
+    id === EXPECTED_EXPENSE_TYPE_ID
+      ? EXPECTED_COLOR
+      : PALETTE[typeIds.indexOf(id) % PALETTE.length];
 
   const maxExpense = Math.max(
     1,

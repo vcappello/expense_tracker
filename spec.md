@@ -323,9 +323,10 @@ and the current date/time:
   unchanged (the different amount applies to this occurrence only), "Tutte le successive"
   updates the template default amount too;
 - **Conferma tutte** (available when more than one expected occurrence is pending) confirms
-  all of them at once with their default amounts and current date/time;
+  all of them at once with their default amounts and current date/time; the undo Toast
+  removes all the Expenses created by the bulk confirmation;
 - after a confirmation a `Toast` with **Annulla** (undo) allows deleting the just created
-  Expense, which un-consumes the period (the occurrence is proposed again);
+  Expense(s), which un-consumes the period(s) (the occurrence is proposed again);
 - **Delete** on the confirmation view asks with a modal:
   - **Salta questa** — the occurrence is skipped for the current period (no expense is
     created, the template proposes it again in the next period);
@@ -369,7 +370,9 @@ Routes: `/recurring` (management), `/recurring/new`, `/recurring/:id/edit`,
 ### Cascades
 Deleting an Account or an ExpenseType used by a recurring template also deletes the
 related templates (with the count added to the existing `ConfirmModal` of the delete
-cascade), so no template can point to a missing account/category.
+cascade, "N spese ricorrenti"), so no template can point to a missing account/category.
+The Expenses already created from those templates are unlinked and kept (they become
+normal expenses).
 
 ### Main view
 Expected rows (see "Main view") show the recurrence name, the **frequency badge**
@@ -590,10 +593,10 @@ when switching to the HTTPS server (or any other origin change).
       - Quest'anno
       - Tutti
     - Actions, identified by an icons with 3 lines, the button is right aligned to the page, when pressed a dropdown menu is displayed:
-      - Ricorrenti
       - Analytics
       - Conti
       - Categorie
+      - Ricorrenti
       - Esporta backup
       - Ripristina backup
   - the remaining page contains the movement list, **grouped by calendar day for every date
