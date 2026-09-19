@@ -622,6 +622,62 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 > ⚠️ **Prima del `git push` chiedere sempre conferma all'utente**: il push fa partire il
 > deploy automatico su GitHub Pages e pubblica subito la nuova versione.
 
+### Entrate programmate / ricorrenti (stipendio, una tantum) — pianificata il 19/09/2026
+
+> Richiesta utente (19/09/2026): estendere le **Ricorrenze** alle **entrate**, così lo
+> stipendio (o un affitto incassato, un rimborso periodico) diventa una **prevista** da
+> confermare; con la frequenza **"Una sola volta"** si copre anche l'**entrata programmata
+> una tantum** (es. rimborso che arriverà il 30/09).
+> Perché serve: inserire un'entrata con data futura è già possibile, ma è un record **reale**
+> che altera subito saldi conto, totali Analytics e grafico Andamento; la prevista invece non
+> muove denaro finché non viene confermata.
+> Decisioni utente (19/09/2026):
+> - varianti **A + B insieme** (entrata ricorrente + una tantum con frequenza `once`);
+> - **un'unica entità** `RecurringExpense` con campo `kind: 'expense' | 'income'` (riuso
+>   totale del motore: nessun secondo store, nessuna seconda pagina);
+> - **Main view: sezione unica "Movimenti previsti"** (spese previste rosse + entrate
+>   previste verdi, ordinate per scadenza);
+> - **Analytics: le entrate previste contano nei totali** (Totale Entrate e Saldo, con bucket
+>   "Entrate previste"; mai nei saldi conto né nel grafico Andamento);
+> - **naming invariato**: pagina/menu "Ricorrenti", con **switch Tipo Spesa/Entrata** nel form.
+
+- [x] **Spec** (fatto il 19/09/2026): `spec.md` con la nuova sezione "Recurring / scheduled
+      income" (template con `kind`, frequenza `once`, conferma in `Cashflow`, riepilogo
+      rimborsi, gestione, Analytics, cascade, backup) + aggiornamenti: Technical info (link
+      `recurringId`/`recurringPeriod` anche su `Cashflow`), Main view ("Movimenti previsti" +
+      badge "Una sola volta"), Analytics Report/Grafico/Andamento, Backup (`kind`).
+- [ ] **Types + normalizzazione**: `RecurringExpense.kind` (default `'expense'`),
+      `RecurringExpense.isSalary` (default false), `Cashflow.recurringId`/`recurringPeriod`
+      (default null); normalizzazione in lettura (`normalizeRecurringExpense`,
+      `normalizeCashflow` in `database.ts`) e in import (`backup.ts`). Niente bump
+      `DB_VERSION` (campi opzionali e retrocompatibili).
+- [ ] **Motore ricorrenze**: nuova frequenza `once` in `recurrence.ts` (period key = la data
+      stessa, scadenza = `startDate`, una sola occorrenza possibile, mai "Tutte le
+      successive") + etichette UI ("Una sola volta"); `getExpectedOccurrence(s)` invariati
+      nella logica.
+- [ ] **AppContext**: la conferma crea un `Cashflow` (con `isSalary` copiato dal template)
+      quando `kind === 'income'`; `deleteCashflow` azzera lo stato del periodo del template
+      (ripropone la prevista, come già fa `deleteExpense`); l'undo in blocco ricorda il
+      **tipo** dei record creati; cascade conto invariata (copre già entrambi i tipi).
+- [ ] **Pagine Ricorrenze**: `CreateRecurringPage` con switch **Tipo Spesa/Entrata** (campi
+      condizionali: categoria/rimborsabile/luogo solo per le spese, "Stipendio" solo per le
+      entrate); `RecurringManagementPage` con indicazione del tipo e data pianificata per i
+      template `once`; `ConfirmRecurringPage` con pannello "💶 Spese da rimborsare
+      dall'ultimo stipendio" per gli stipendi e modale senza "Tutte le successive" per
+      `once`.
+- [ ] **Main view**: sezione unica **"Movimenti previsti"** con righe spesa (rosse) ed
+      entrata (verdi, `+`), badge frequenza incluso "Una sola volta", "Conferma tutte" misto,
+      tap sulla riga → conferma.
+- [ ] **Analytics**: entrate previste incluse in Totale Entrate e Saldo; bucket dedicato
+      "Entrate previste" in report, lista movimenti, CSV e grafici (sopra la linea);
+      escluse da Top 3 categorie, saldi conto e grafico Andamento.
+- [ ] **Test E2E + docs/commit**: creazione template entrata (mensile, annuale, `once`),
+      conferma singola e "Conferma tutte" mista, modifica importo/data, salta/interrompi,
+      delete del cashflow confermato → prevista che ritorna, undo; Analytics coerente
+      (Totale Entrate/Saldo con le previste, saldi conto e Andamento invariati); backup
+      round-trip (inclusi `kind` e i link sui cashflow); `npm run build`; poi commit locale e
+      **push solo dopo la conferma dell'utente**.
+
 ## 🐛 Bug da correggere
 
 *(Tutti i bug elencati sono stati corretti il 16/08/2026 — vedi sezione ✅ Completati.)*

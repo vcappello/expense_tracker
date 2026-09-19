@@ -23,13 +23,16 @@ The `Expense` record carries a `reimbursable` boolean flag and the `Cashflow` re
 (reimbursable) and Salary" feature.
 
 A fifth store, `recurringExpenses`, holds the **RecurringExpense** templates (see
-"Recurring expenses"). Adding it required the first `DB_VERSION` bump (1 → 2): the upgrade
-only creates the missing stores, the existing data is left untouched.
+"Recurring expenses" and "Recurring / scheduled income"). Adding it required the first
+`DB_VERSION` bump (1 → 2): the upgrade only creates the missing stores, the existing data is
+left untouched. A template is either an **expense** or an **income** (`kind` field, default
+`expense`): one store and one occurrences engine serve both.
 
-The `Expense` record carries two optional recurring link fields, `recurringId` (the
-template id) and `recurringPeriod` (the period key the confirmation consumed), both
-defaulting to null. They are used to keep the confirmation idempotent and to know that a
-period has already been consumed (see "Recurring expenses").
+The `Expense` and the `Cashflow` records carry two optional recurring link fields,
+`recurringId` (the template id) and `recurringPeriod` (the period key the confirmation
+consumed), both defaulting to null. They are used to keep the confirmation idempotent and to
+know that a period has already been consumed (see "Recurring expenses"). The confirmation
+creates an `Expense` for an expense template and a `Cashflow` for an income template.
 
 Default initial values for Account:
 - Cash
@@ -86,18 +89,20 @@ The movement list must be paginated with automatic load when the user scroll ove
 displayed line (a day group is never split across pages — see "Movement list grouped by
 day").
 
-The expected occurrences of the recurring expenses (see "Recurring expenses") are shown in
-a dedicated section titled **"Spese previste"** (instead of a day header), placed **right
-after the "today" day group** and before the older days (display order: today, expected,
-older days). The section is shown only in the ranges that contain today (Mese corrente,
-Quest'anno, Tutti) and is **never paginated**: it stays always visible at the top of the
-list, outside the day-group pagination.
+The expected occurrences of the recurring templates (see "Recurring expenses" and
+"Recurring / scheduled income") are shown in a single dedicated section titled **"Movimenti
+previsti"** (instead of a day header), placed **right after the "today" day group** and
+before the older days (display order: today, expected, older days): expected expenses
+(red, negative amount) and expected incomes (green, `+` amount) are listed together,
+ordered by due date. The section is shown only in the ranges that contain today (Mese
+corrente, Quest'anno, Tutti) and is **never paginated**: it stays always visible at the top
+of the list, outside the day-group pagination.
 
 Every expected row shows a **frequency badge**: a small pill next to the recurrence name
 carrying the recurrence type in Italian — **"Giornaliera"**, **"Settimanale"**,
-**"Mensile"**, **"Annuale"** (with the 🔁 icon, e.g. "🔁 Mensile"), so the type is always
-recognizable at a glance without opening the row. The badge is shown on every expected row,
-whatever the active date range.
+**"Mensile"**, **"Annuale"**, **"Una sola volta"** (with the 🔁 icon, e.g. "🔁 Mensile"),
+so the type is always recognizable at a glance without opening the row. The badge is shown
+on every expected row, whatever the active date range.
 
 List filters:
 - date range: current month, previous month, current year, all
@@ -381,14 +386,99 @@ The Expenses already created from those templates are unlinked and kept (they be
 normal expenses).
 
 ### Main view
-Expected rows (see "Main view") show the recurrence name, the **frequency badge**
-("🔁 Giornaliera" / "🔁 Settimanale" / "🔁 Mensile" / "🔁 Annuale"), the category ·
-account and the expected amount in grey (it is not a real movement yet); the row is
-clickable and opens the confirmation view. When several expected occurrences are pending, a
-"Conferma tutte" action is available in the section header.
+Expected rows (see "Main view") are collected in the single **"Movimenti previsti"**
+section and show the recurrence name, the **frequency badge** ("🔁 Giornaliera" / "🔁
+Settimanale" / "🔁 Mensile" / "🔁 Annuale" / "🔁 Una sola volta"), the category · account
+(expenses) or the account (incomes) and the expected amount in grey (it is not a real
+movement yet); the row is clickable and opens the confirmation view. When several expected
+occurrences are pending, a "Conferma tutte" action is available in the section header.
 
-Coin-split expenses are not supported for recurring expenses (limitation of this version):
-a confirmed occurrence is always a plain Expense on a single account.
+Coin-split expenses are not supported for recurring templates (limitation of this version):
+a confirmed occurrence is always a plain Expense (or a plain Cashflow for the incomes) on a
+single account.
+
+## Recurring / scheduled income
+
+The income side of the same mechanism (see "Recurring expenses"): the same templates and the
+same expected occurrences, but the confirmed movement is a **`Cashflow`** instead of an
+`Expense`. Typical uses: the monthly **salary**, a rent you receive, a periodic
+reimbursement; with the `once` frequency it also covers a **one-off scheduled income** (e.g.
+a reimbursement that will arrive on 30/09).
+
+Why it matters: inserting a Cashflow dated in the future is already possible, but it is a
+**real record** — it changes the account balances, the Analytics totals and the balance trend
+chart immediately. An expected occurrence does not move any money until it is confirmed.
+
+### Template (`RecurringExpense` with `kind`)
+A single entity serves both kinds through the `kind` field (`expense` | `income`, default
+`expense`, normalized on read and on backup import → **no `DB_VERSION` bump**: existing data
+and old backups stay valid).
+
+| Field | Expense template | Income template |
+|---|---|---|
+| `kind` | `expense` | `income` |
+| `name`, `amount`, `accountId`, `startDate`, `active` | used | used |
+| `frequency` | daily / weekly / monthly / yearly | daily / weekly / monthly / yearly / **once** |
+| `expenseTypeId` | category | not used (an income has no category) |
+| `isSalary` | — | `true` marks the salary (used by the reimbursable summary) |
+| `notes` | used | used (optional) |
+| `location`, `reimbursable` | used | not used |
+
+### Frequency `once` (una tantum)
+- `startDate` is the **planned date** and the period key is the date itself (`2026-09-30`):
+  the occurrence can be confirmed (or skipped) only once and never repeats (after the
+  confirmation `lastConfirmedPeriod` equals that key, so no occurrence is proposed anymore).
+- The occurrence does not appear before its due date (the planned day).
+- The period math of the other frequencies is unchanged; the UI label is **"Una sola
+  volta"** and the badge carries the same 🔁 icon ("🔁 Una sola volta").
+- "Tutte le successive" is meaningless for `once`: the confirmation modal offers "Solo
+  questa" only.
+- The template stays in the list after the confirmation (it does not repeat); the user can
+  delete it.
+- Deleting the confirmed income proposes the occurrence again (period not consumed), like
+  for the expenses.
+
+### Expected occurrence, confirmation, edit, skip
+Same rules as the recurring expenses (at most one occurrence per period, derived from the
+template, no record until confirmed, idempotent confirmation, "Conferma tutte", undo from
+the toast, "Salta questa" / "Interrompi la ricorrenza", amount and date/time editable at
+confirmation time), with these differences:
+- the confirmation creates a **`Cashflow`** carrying `recurringId` + `recurringPeriod` (the
+  two link fields now exist on Cashflow too), `isSalary` copied from the template, no
+  routing;
+- deleting the confirmed Cashflow **clears the recurring state of the period**
+  (`lastConfirmedPeriod`), so the occurrence is proposed again: the delete-Cashflow flow must
+  do what `deleteExpense` already does for the expenses;
+- the undo of a batch confirmation must delete the records of the right kind (the context
+  remembers the kind together with the created ids);
+- **Conferma tutte** confirms both kinds at once (each template produces its own record
+  type);
+- coin-split, routing and `reimbursable` do not apply to income templates.
+
+### Reimbursable summary
+When the template is an income with `isSalary` enabled, the create/edit form and the
+confirmation view show the existing "💶 Spese da rimborsare dall'ultimo stipendio: TOTALE€
+(n)" panel (see "Expenses to be reimbursed (reimbursable) and Salary"), computed with the
+same time-window rule: it tells how much reimbursable spending accumulated since the
+previous salary, and the confirmed salary becomes the reference for the next period.
+
+### Management
+- The **Ricorrenti** page stays a single page: the create/edit form has a **"Tipo: Spesa /
+  Entrata"** switch at the top which shows the fields of the selected kind (category,
+  reimbursable and location only for expenses; "Stipendio" only for the incomes).
+- The list shows both kinds; each row keeps the frequency badge and shows the kind (income
+  rows marked as income), plus the planned date for the `once` templates.
+- The "+ Crea ricorrenza" action in the title bar is unchanged; on the create form the kind
+  defaults to expense.
+
+### Analytics, cascades, backup
+- Analytics: the expected incomes are counted in the **Total Cashflow** (and therefore in the
+  Net) under the dedicated pseudo bucket **"Entrate previste"**; they never touch the
+  account balances nor the balance trend chart (see "Analytics").
+- Cascades: deleting an Account deletes its templates of both kinds (existing cascade);
+  deleting an ExpenseType only affects the expense templates.
+- Backup/restore: `kind` is normalized (`income` only when explicitly set, otherwise
+  `expense`); the file version stays 2 and the old files without `kind` remain valid.
 
 ## Edit or Create Cashflow
 When the user click the new Cashflow button a new page is displayed.
@@ -498,6 +588,18 @@ Display a summary card with the following metrics calculated from filtered movem
   category) and they are affected by the "Conto" filter (they belong to the template
   account).
 
+**Expected incomes (recurring / scheduled).** The expected occurrences of the income
+templates (see "Recurring / scheduled income") are the symmetric case: they are aggregated
+under a dedicated pseudo bucket **"Entrate previste"** (grey, not a real Account) and:
+- they are included in **Total Cashflow** and therefore in the **Net Balance**, and they
+  appear in the movement list (green, `+` amount, marked "prevista") and in the CSV export
+  (positive sign);
+- they **never affect the account balances** (Gestione Conti) nor the balance trend chart:
+  the money has not arrived yet;
+- same due-date rule and same "Conto" / "Categoria" filter behaviour as the expected
+  expenses;
+- they do **not** appear in the Top 3 Categories list, which is about spending.
+
 Display the list of movements matching filters criteria.
 
 ### Grafico
@@ -517,7 +619,8 @@ The Grafico view shows a chart of the filtered movements (ignoring Cashflow used
 
 In both charts the movements used for routing (the receiving movement and its negative counterpart) are excluded.
 Expected expenses (recurring) are stacked/aggregated under the dedicated "Spese previste"
-pseudo-category (grey), so the chart totals match the Report totals.
+pseudo-category (grey) and the expected incomes under a dedicated "Entrate previste" bucket
+(above the baseline, grey), so the chart totals match the Report totals.
 
 ### Andamento (balance trend)
 Line chart showing how the **account balance** evolves day by day over the selected period:
@@ -551,8 +654,9 @@ including the days without movements (flat segment).
   because cashflows have no category. The line is therefore a "hypothetical" balance that
   shows the impact of those categories.
 
-**Not included.** Expected (recurring, not yet confirmed) expenses are **not** counted:
-no money has moved yet, coherently with the account balances.
+**Not included.** Expected (recurring / scheduled, not yet confirmed) movements — both
+expenses and incomes — are **not** counted: no money has moved yet, coherently with the
+account balances.
 
 **Rendering** (SVG, no external libraries, same style as the other charts):
 - a single continuous line (blue `#3b82f6`), with a visible dot on every day when the
@@ -596,7 +700,8 @@ again). To preserve the data across origins the app provides a JSON backup:
   Field normalization on import: `initialBalance` defaults to 0, `isPreferred` and `isCoinAccount`
   to false on accounts; `routingPairId` defaults to null on both Expense and Cashflow records;
   `notes` and `location` default to '' on Expense records; `reimbursable`/`isSalary` default to
-  false; `recurringId`/`recurringPeriod` default to null on Expense records; missing
+  false; `recurringId`/`recurringPeriod` default to null on Expense **and Cashflow** records;
+  `kind` defaults to `expense` on the recurring templates; missing
   `recurringExpenses` → empty list.
 
 Both actions are available in the Main view "Azioni" menu. This is the recommended way to move the data
@@ -675,15 +780,16 @@ when switching to the HTTPS server (or any other origin change).
       - red for Expense
       - green for Cashflow (not routing)
       - yellow for routing Cashflow
-    - the expected occurrences of the recurring expenses (see "Recurring expenses") are
-      collected in a section titled **"Spese previste"** (grey title, in place of the day
-      header), displayed right after the "today" group and before the older days, outside
-      the day-group pagination. An expected row shows the recurrence name, a
+    - the expected occurrences of the recurring templates (see "Recurring expenses" and
+      "Recurring / scheduled income") are collected in a single section titled **"Movimenti
+      previsti"** (grey title, in place of the day header), displayed right after the
+      "today" group and before the older days, outside the day-group pagination (expected
+      expenses red, expected incomes green). An expected row shows the recurrence name, a
       **frequency badge** — a small pill with the recurrence type in Italian
-      ("🔁 Giornaliera", "🔁 Settimanale", "🔁 Mensile", "🔁 Annuale") — the
-      category · account and the expected amount in grey; the row is clickable and opens
-      the confirmation view. When more than one occurrence is pending, a "Conferma tutte"
-      action is shown in the section header.
+      ("🔁 Giornaliera", "🔁 Settimanale", "🔁 Mensile", "🔁 Annuale", "🔁 Una sola
+      volta") — the category · account (or the account for the incomes) and the expected
+      amount in grey; the row is clickable and opens the confirmation view. When more than
+      one occurrence is pending, a "Conferma tutte" action is shown in the section header.
     The row is a two-column grid: the left column (details) is constrained to the
     available width and its text wraps, increasing the row height when needed (e.g. a long
     place name never overflows; the place line is capped at **two lines** with an
