@@ -35,6 +35,7 @@ export default function AnalyticsPage() {
     recurringExpenses,
     loadRecurringExpenses,
     isLoading,
+    movementsLoaded,
   } = useApp();
   const [dateRange, setDateRange] = useState<DateRange>('current-month');
   // Empty array = no filter (all)
@@ -448,7 +449,7 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        {isLoading ? (
+        {!movementsLoaded || isLoading ? (
           <div className="loading-state">Caricamento analisi...</div>
         ) : view === 'andamento' ? (
           balanceTrend.points.length > 0 ? (

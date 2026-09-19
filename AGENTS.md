@@ -196,9 +196,26 @@
   `.filter-menu`/`.filter-value`, come il pulsante Filtri della Main view) passato a
   `TitleBar` tramite lo slot **`extraActions`** (aggiunto il 19/09/2026). Il kind `toggle` di
   `TitleBarAction` è stato rimosso perché non più usato.
+- **Falso "Nessun movimento" all'avvio (fix 19/09/2026)**: la Main view mostrava l'empty state
+  subito dopo il load (per un attimo, o per qualche secondo su smartphone) e i dati
+  comparivano solo toccando un filtro. Due cause concorrenti:
+  (1) `isLoading` era un **unico booleano** condiviso da
+  `loadAccounts`/`loadExpenseTypes`/`loadExpenses`/`loadCashflows`/`loadRecurringExpenses`/
+  `loadMovements`: il primo che terminava lo riportava a false mentre i movimenti erano
+  ancora in caricamento;
+  (2) al **primo paint** `isLoading` è false e `movements` è vuoto → l'empty state compariva
+  prima ancora che partisse il caricamento.
+  Fix in `AppContext`: `isLoading` ora deriva da un **contatore** `pendingLoads`
+  (`beginLoad`/`endLoad`, resta true finché tutti i caricamenti non sono conclusi) e c'è il
+  flag **`movementsLoaded`** (false finché il primo `loadMovements` non è concluso);
+  `MainView` e `AnalyticsPage` mostrano lo spinner se `!movementsLoaded`. ⚠️ Non tornare a
+  un booleano condiviso: è la causa del falso empty state. Riprodotto in modo deterministico
+  con CPU throttling 20x + `MutationObserver` sulle classi `.empty-state`/`.loading-state`:
+  prima `EMPTY → LOADING → EMPTY → GROUPS`, dopo il fix solo `LOADING → GROUPS`.
 
 ## Limiti noti (non bloccanti)
-- **Main view al primo load freddo**: a volte il filtro "This month" appare vuoto subito dopo il caricamento della pagina (comportamento transitorio legato a IndexedDB); cliccando un qualsiasi filtro i dati compaiono. Rivedere il timing di lettura se si ripresenta. (Non riproducibile in modo stabile il 12/09/2026: 5 reload consecutivi con dati corretti.)
+*(Nessun limite noto aperto al 19/09/2026: quello della Main view al primo load freddo è
+stato risolto — vedi "Problemi risolti".)*
 
 ## Note di database (da `spec.md`)
 - Tabelle: `Expense`, `Cashflow`, `ExpenseType`, `Account` (DB locale); dallo 12/09/2026 anche `RecurringExpense` (store `recurringExpenses`, `DB_VERSION` 2).

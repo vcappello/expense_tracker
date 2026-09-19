@@ -3,8 +3,12 @@
 > Piano di attività per lo sviluppo della webapp.
 > Regole: gli step completati vengono **marcati come completati ma mai cancellati**.
 > Ogni nuova feature o correzione di bug va aggiunta qui.
+> Sezioni: **✅ Completati** (riepilogo + 🗂️ dettaglio degli step) · **⏳ Da fare** ·
+> **🐛 Bug da correggere** · **👀 Osservazioni** (limiti noti) · **🔮 Prossime release**.
 
 ## ✅ Completati
+
+### Riepilogo funzionalità e correzioni
 
 - [x] **Setup progetto**: React + TypeScript + Vite, struttura a componenti e routing
 - [x] **Database locale (IndexedDB)**: store per `Account`, `ExpenseType`, `Expense`, `Cashflow`
@@ -219,6 +223,23 @@
       mount). Verificato in browser con reload diretto sulle tre pagine (dati 2025 +
       2026) e con Back da Analytics → Main view; build OK. Bonus: "Ultimo movimento" in
       Gestione Conti ora ordina per **data + ora** (`toDateTime`), non solo per data.
+- [x] **Fix "Main view al primo load freddo"** (19/09/2026): risolto il limite noto per cui
+      la lista poteva apparire vuota ("Nessun movimento") subito dopo il caricamento della
+      pagina, con i dati che comparivano solo toccando un filtro. Cause individuate
+      riproducendo il bug in modo deterministico (CPU throttling 20x + `MutationObserver`
+      sulle classi `.empty-state`/`.loading-state`: sequenza `EMPTY → LOADING → EMPTY →
+      GROUPS`): (1) `isLoading` era un **unico booleano** condiviso da tutti i `load*` del
+      context → il primo caricamento che finiva (conti, categorie, ricorrenze) lo riportava
+      a false mentre i movimenti erano ancora in lettura; (2) al **primo paint** `isLoading`
+      è false e `movements` vuoto → l'empty state compariva prima che il caricamento
+      partisse. Fix in `AppContext`: `isLoading` ora deriva da un **contatore**
+      `pendingLoads` (`beginLoad`/`endLoad`: resta true finché tutti i caricamenti non sono
+      conclusi) e nuovo flag **`movementsLoaded`** (false finché il primo `loadMovements`
+      non è concluso), usato da `MainView` e `AnalyticsPage` per mostrare lo spinner invece
+      del falso empty state. Dopo il fix la sequenza è solo `LOADING → GROUPS`. Verificato
+      cold load ripetuti (con e senza CPU throttling), tutte le view (main, analytics,
+      conti, categorie, ricorrenze), cambio filtro verso un periodo senza movimenti
+      (empty state regolare) e nessun errore in console; build OK.
 - [x] **Grafico "Andamento del saldo" a linee in Analytics** (19/09/2026): terza vista dello
       switch di Analisi (`📋 Report` / `📊 Grafico` / `📈 Andamento`) con un grafico a linee
       (nuovo `src/components/BalanceTrendChart.tsx`, SVG senza dipendenze) che mostra
@@ -245,11 +266,17 @@
       ormai inutilizzato. Verificato a 390px e 320px (titolo e Back sempre visibili, menu
       dentro il viewport) e a 1200px.
 
-## 🔄 In corso / Prossimi
+## �️ Dettaglio dei lavori a più step (tutti completati)
 
-> Entrambe le attività di questa sezione sono **completate** (vedi sezione ✅ Completati).
+> Cronologia degli **step di lavoro** delle attività più complesse, conservata come
+> riferimento (gli step completati non si cancellano mai).
+> Ordine dei blocchi: prima le due attività di **agosto 2026** (conto monete, spesa pagata
+> in parte con monete), poi quelle di **settembre 2026** dalla più recente (grafico
+> "Andamento del saldo") alla più vecchia (Note/Luogo, Main view per giorno).
+> (La precedente sezione "🔄 In corso / Prossimi" è **chiusa**: le sue due attività sono
+> completate e i relativi step sono qui sotto.)
 
-### Conto monete (flag isCoinAccount) — completata
+### Conto monete (flag isCoinAccount) — completata il 24/08/2026
 
 > Rifinitura UX della feature "spesa con monete": nel dropdown "Conto monete" del form spesa
 > mostrare solo i conti marcati come conto moneta nell'anagrafica (flag `isCoinAccount`),
@@ -269,7 +296,7 @@
       flag → badge 🪙 in Conti e dropdown monete con solo "Monete"; spesa con monete creata
       (Main view 2 righe); build OK
 
-### Spesa pagata in parte con monete (secondo conto) — completata
+### Spesa pagata in parte con monete (secondo conto) — completata il 24/08/2026
 
 > Spec: sezione "Expense paid partly from a second account (coin split)" in `spec.md`.
 > Obiettivo: registrare la spesa TOTALE vera in Analytics, facendo scalare al conto
@@ -348,16 +375,6 @@
       errori, edit/rimuovi/aggiungi monete, delete spesa (gruppo via), delete cascata conto
       monete (cashflow via + spesa scollegata); backup round-trip (gruppo preservato);
       build finale OK
-
-## ⏳ Da fare
-
-> Le **funzionalità richieste il 04/09/2026** sono completate: **Note/Luogo + GPS** e
-> **Main view per giorno** (con righe dettaglio e indicatore dell'intervallo nel pulsante
-> Filtri) — vedi sezione ✅ Completati e i blocchi [x] sotto. Qui sotto restano le voci
-> aperte (manutenzione/rifiniture). Gli step andranno marcati [x] man mano.
-> **Chiusa (12/09/2026)**: la feature **Spese ricorrenti** è stata pianificata e
-> implementata nella stessa sessione — vedi il blocco qui sotto (step tutti [x]) e la voce
-> in ✅ Completati.
 
 ### Grafico "Andamento del saldo" (a linee) — implementata il 19/09/2026
 
@@ -593,13 +610,22 @@
 *(Nota storica: il task Backup/Ripristino (Export/Import JSON) è stato implementato e
 verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 
+## ⏳ Da fare
+
+> **Nessuna voce aperta al 19/09/2026**: tutte le attività pianificate sono state
+> implementate (riepilogo in ✅ Completati, step di lavoro in 🗂️ Dettaglio).
+> I prossimi lavori candidati sono in **🔮 Prossime release**.
+> Le nuove richieste vanno pianificate qui come blocchi di step `[ ]` prima di essere
+> implementate, poi marcate `[x]` e riepilogate in ✅ Completati.
+
 ## 🐛 Bug da correggere
 
 *(Tutti i bug elencati sono stati corretti il 16/08/2026 — vedi sezione ✅ Completati.)*
 
 ## 👀 Osservazioni (limiti noti, da tenere d'occhio)
 
-- **Main view al primo load freddo**: il filtro "This month" può apparire vuoto subito dopo il caricamento della pagina (transitorio, legato a IndexedDB); cliccando un filtro i dati compaiono.
+*(Nessun limite noto aperto al 19/09/2026: il limite "Main view al primo load freddo" è
+stato risolto — vedi il bullet in ✅ Completati.)*
 
 ## 🔮 Prossime release
 - [ ] **Create from photo**: fotocamera smartphone + lettura dello scontrino con AI per creare la spesa automaticamente

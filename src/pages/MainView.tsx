@@ -19,7 +19,7 @@ import '../styles/RecurringPage.css';
 
 export default function MainView() {
   const navigate = useNavigate();
-  const { movements, loadMovements, isLoading, accounts, expenseTypes, loadAccounts, loadExpenseTypes, restoreBackup, recurringExpenses, loadRecurringExpenses, confirmRecurringOccurrences, lastRecurringConfirmation, undoLastRecurringConfirmation, clearLastRecurringConfirmation } = useApp();
+  const { movements, loadMovements, isLoading, movementsLoaded, accounts, expenseTypes, loadAccounts, loadExpenseTypes, restoreBackup, recurringExpenses, loadRecurringExpenses, confirmRecurringOccurrences, lastRecurringConfirmation, undoLastRecurringConfirmation, clearLastRecurringConfirmation } = useApp();
   const [filters, setFilters] = useState<MovementFilters>({
     dateRange: 'current-month',
   });
@@ -525,7 +525,7 @@ export default function MainView() {
           />
         </div>
 
-        {isLoading && !movements.length ? (
+        {!movementsLoaded || (isLoading && !movements.length) ? (
           <div className="loading-state">
             <p>Caricamento movimenti...</p>
           </div>

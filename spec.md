@@ -47,6 +47,12 @@ range filter, while the Analytics, Accounts and Expense Types management views l
 range for Analytics/Categories, balance and last movement for Accounts). This keeps the
 pages correct also on a direct reload (bookmark) of their route.
 
+**Loading state.** `isLoading` counts the async loads in flight, so it stays true until they
+all complete (a fast load must not hide a slower one, e.g. the movements). A separate
+`movementsLoaded` flag tells "movements not loaded yet" apart from "loaded and empty": the
+Main view and Analytics show the loading message until the first movements load has
+completed, and only then they can show the "no movements" empty state.
+
 ## General consideration
 The output of amount values, when indicated as *abbreviated* must display the amount in K when the amount in greather than 999 and in M when the amount is greather than 999.999, with 2 decimal places
 

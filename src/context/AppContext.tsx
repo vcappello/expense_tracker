@@ -158,6 +158,8 @@ interface AppContextType {
 
   // Loading state
   isLoading: boolean;
+  /** False until the first movements load has completed (see loadMovements). */
+  movementsLoaded: boolean;
   error: string | null;
 }
 
@@ -174,7 +176,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     expenseIds: string[];
     name: string;
   } | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  // Number of async loads in flight. `isLoading` must stay true until they ALL
+  // finish: with a single boolean the first load that ended (e.g. accounts)
+  // cleared the flag while the movements were still loading, so the views
+  // showed a false "no movements" empty state for the whole duration of the
+  // movements query (slow on a cold start).
+  const [pendingLoads, setPendingLoads] = useState(0);
+  const beginLoad = useCallback(() => setPendingLoads((n) => n + 1), []);
+  const endLoad = useCallback(() => setPendingLoads((n) => Math.max(n - 1, 0)), []);
+  const isLoading = pendingLoads > 0;
+  // False until the first movements load completes: lets the views tell
+  // "not loaded yet" (show the spinner) from "loaded and empty" (empty state)
+  // even before any load starts (the very first paint).
+  const [movementsLoaded, setMovementsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const clearError = () => setError(null);
@@ -203,14 +217,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // ============ ACCOUNTS ============
   const loadAccounts = useCallback(async () => {
     try {
-      setIsLoading(true);
+      beginLoad();
       clearError();
       const data = await db.getAccounts();
       setAccounts(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load accounts');
     } finally {
-      setIsLoading(false);
+      endLoad();
     }
   }, []);
 
@@ -260,14 +274,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // ============ EXPENSE TYPES ============
   const loadExpenseTypes = useCallback(async () => {
     try {
-      setIsLoading(true);
+      beginLoad();
       clearError();
       const data = await db.getExpenseTypes();
       setExpenseTypes(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load expense types');
     } finally {
-      setIsLoading(false);
+      endLoad();
     }
   }, []);
 
@@ -317,14 +331,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // ============ EXPENSES ============
   const loadExpenses = useCallback(async () => {
     try {
-      setIsLoading(true);
+      beginLoad();
       clearError();
       const data = await db.getExpenses();
       setExpenses(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load expenses');
     } finally {
-      setIsLoading(false);
+      endLoad();
     }
   }, []);
 
@@ -514,14 +528,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // ============ CASHFLOWS ============
   const loadCashflows = useCallback(async () => {
     try {
-      setIsLoading(true);
+      beginLoad();
       clearError();
       const data = await db.getCashflows();
       setCashflows(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load cashflows');
     } finally {
-      setIsLoading(false);
+      endLoad();
     }
   }, []);
 
@@ -700,7 +714,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // ============ RECURRING EXPENSES ============
   const loadRecurringExpenses = useCallback(async () => {
     try {
-      setIsLoading(true);
+      beginLoad();
       clearError();
       const data = await db.getRecurringExpenses();
       setRecurringExpenses(data);
@@ -709,7 +723,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         err instanceof Error ? err.message : 'Failed to load recurring expenses'
       );
     } finally {
-      setIsLoading(false);
+      endLoad();
     }
   }, []);
 
@@ -885,7 +899,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const loadMovements = useCallback(
     async (filters: MovementFilters) => {
       try {
-        setIsLoading(true);
+        beginLoad();
         clearError();
 
         const { start, end } = getDateRange(filters.dateRange);
@@ -911,7 +925,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load movements');
       } finally {
-        setIsLoading(false);
+        setMovementsLoaded(true);
+        endLoad();
       }
     },
     []
@@ -1019,6 +1034,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // State
     isLoading,
+    movementsLoaded,
     error,
   };
 
