@@ -9,8 +9,7 @@ export interface TitleBarAction {
   label: string;
   onClick: () => void;
   disabled?: boolean;
-  active?: boolean;
-  kind?: 'primary' | 'danger' | 'ghost' | 'toggle';
+  kind?: 'primary' | 'danger' | 'ghost';
   iconOnly?: boolean;
 }
 
@@ -19,6 +18,8 @@ interface TitleBarProps {
   showBack?: boolean;
   onBack?: () => void;
   actions?: TitleBarAction[];
+  /** Extra controls (e.g. a pill menu) rendered before the actions. */
+  extraActions?: ReactNode;
   menu?: ActionMenuItem[];
 }
 
@@ -32,6 +33,7 @@ export default function TitleBar({
   showBack = true,
   onBack,
   actions = [],
+  extraActions,
   menu = [],
 }: TitleBarProps) {
   const navigate = useNavigate();
@@ -57,13 +59,14 @@ export default function TitleBar({
         <h1 className="title-bar-title">{title}</h1>
       </div>
       <div className="title-bar-right">
+        {extraActions}
         {actions.map((action, idx) => (
           <button
             key={idx}
             type="button"
             className={`title-bar-action ${action.kind || 'ghost'} ${
-              action.active ? 'active' : ''
-            } ${action.iconOnly ? 'icon' : ''}`}
+              action.iconOnly ? 'icon' : ''
+            }`}
             onClick={action.onClick}
             disabled={action.disabled}
             title={action.label}

@@ -115,25 +115,6 @@
   color: #fca5a5;
 }
 
-/* Toggle buttons (e.g. Report / Grafico) */
-.title-bar-action.toggle {
-  background: rgba(148, 163, 184, 0.1);
-  border-color: rgba(148, 163, 184, 0.3);
-  color: #cbd5e1;
-}
-
-.title-bar-action.toggle:hover:not(:disabled) {
-  background: rgba(148, 163, 184, 0.2);
-  border-color: rgba(148, 163, 184, 0.5);
-  color: #e5eefb;
-}
-
-.title-bar-action.toggle.active {
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.3), rgba(20, 184, 166, 0.3));
-  border-color: #14b8a6;
-  color: #e5eefb;
-}
-
 /* Icon-only actions (Confirm, Delete) */
 .title-bar-action.icon {
   width: 40px;

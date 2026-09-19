@@ -189,6 +189,13 @@
   conto/categoria); gli altri periodi → `MovementsChart` (giornaliero impilato); la vista
   `Andamento` è indipendente dal periodo (`BalanceTrendChart`). I tre stati sono in
   `AnalyticsPage` (`view: 'report' | 'grafico' | 'andamento'`).
+- **Title bar affollata su smartphone (Analytics)**: i tre pulsanti toggle
+  Report/Grafico/Andamento occupavano tutta la barra (a 390px il titolo si comprimeva a 1px e
+  il Back sembrava sparire). Regola: nella title bar tenere pochi controlli a destra; per gli
+  switch multipli usare un **menu a pill** (`ActionMenu` con `trigger` custom + classi
+  `.filter-menu`/`.filter-value`, come il pulsante Filtri della Main view) passato a
+  `TitleBar` tramite lo slot **`extraActions`** (aggiunto il 19/09/2026). Il kind `toggle` di
+  `TitleBarAction` è stato rimosso perché non più usato.
 
 ## Limiti noti (non bloccanti)
 - **Main view al primo load freddo**: a volte il filtro "This month" appare vuoto subito dopo il caricamento della pagina (comportamento transitorio legato a IndexedDB); cliccando un qualsiasi filtro i dati compaiono. Rivedere il timing di lettura se si ripresenta. (Non riproducibile in modo stabile il 12/09/2026: 5 reload consecutivi con dati corretti.)

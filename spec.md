@@ -461,7 +461,10 @@ Filters:
 - ExpenseType: allow to filter by ExpenseType, multiple values can be selected
 - Account: allow to filter by Account, multiple values can be selected
 
-The Analytics view has three toggle buttons that switch between three visualizations of the filtered movements:
+The Analytics view switches between three visualizations of the filtered movements, chosen
+from a **pill menu in the title bar** (it shows the active view and opens the list with a
+checkmark on the selected one; keeping the Back button and the title always visible on
+smartphones):
 - **Report**: shows the numerical summary and the list of filtered movements
 - **Grafico**: shows a graphic of movements by date
 - **Andamento**: shows the balance trend (line chart of the daily balance, see "Andamento (balance trend)")
@@ -701,7 +704,7 @@ when switching to the HTTPS server (or any other origin change).
 
 ### Analytics
 - Desired changes:
-  - The "Report", "Grafico" and "Andamento" toggle buttons are placed in the title bar.
+  - The three visualizations (Report / Grafico / Andamento) are switched from a **pill menu** in the title bar (same look as the Main view "Filtri" pill): it shows the active view and opens the list with a checkmark. The three separate toggle buttons were removed because on smartphones they filled the whole title bar, squeezing the title and covering the Back button.
   - The "Export CSV" action is moved into a menu button (three lines icon) in the title bar, like the Main view action menu; this menu can host more options in the future.
   - Filters remain as they are.
 

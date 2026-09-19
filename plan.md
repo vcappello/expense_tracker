@@ -237,6 +237,13 @@
       singolo con saldi esatti −45.50€/1.64K€ coerenti con Gestione Conti, filtro categoria,
       empty state, nessun overflow a 390px, report e grafici esistenti invariati); build OK.
       `spec.md` aggiornata (sezione "Andamento (balance trend)").
+      **Rifinitura (19/09/2026)**: i tre pulsanti toggle nella title bar (su smartphone
+      occupavano tutta la barra, comprimendo il titolo a 1px e coprendo il Back) sono stati
+      sostituiti da un **menu a pill "Vista"** che mostra la vista attiva e apre la lista con
+      il ✓ (stesse classi `.filter-menu`/`.filter-value` del pulsante Filtri della Main view),
+      passato alla `TitleBar` tramite il nuovo slot `extraActions`; rimosso il kind `toggle`
+      ormai inutilizzato. Verificato a 390px e 320px (titolo e Back sempre visibili, menu
+      dentro il viewport) e a 1200px.
 
 ## 🔄 In corso / Prossimi
 

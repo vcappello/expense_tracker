@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { DateRange, Movement } from '../types';
 import TitleBar from '../components/TitleBar';
+import ActionMenu from '../components/ActionMenu';
 import MultiSelectFilter from '../components/MultiSelectFilter';
 import MovementsChart, { DailyTotal } from '../components/MovementsChart';
 import MonthBreakdownChart from '../components/MonthBreakdownChart';
@@ -17,6 +18,13 @@ import {
 } from '../utils/recurrence';
 import { exportMovementsToCSV, ExpectedCsvRow } from '../utils/csv';
 import '../styles/AnalyticsPage.css';
+
+// Visualizations available in the Analytics view (switched from the title bar pill)
+const VIEW_OPTIONS: { value: 'report' | 'grafico' | 'andamento'; label: string }[] = [
+  { value: 'report', label: '📋 Report' },
+  { value: 'grafico', label: '📊 Grafico' },
+  { value: 'andamento', label: '📈 Andamento' },
+];
 
 export default function AnalyticsPage() {
   const {
@@ -365,34 +373,24 @@ export default function AnalyticsPage() {
   );
 
   const isMonthView = dateRange === 'current-month' || dateRange === 'previous-month';
+  const viewLabel = VIEW_OPTIONS.find((option) => option.value === view)?.label || '';
 
   return (
     <div className="analytics-page">
       <TitleBar
         title="Analisi"
-        actions={[
-          {
-            content: '📋 Report',
-            label: 'Report',
-            kind: 'toggle',
-            active: view === 'report',
-            onClick: () => setView('report'),
-          },
-          {
-            content: '📊 Grafico',
-            label: 'Grafico',
-            kind: 'toggle',
-            active: view === 'grafico',
-            onClick: () => setView('grafico'),
-          },
-          {
-            content: '📈 Andamento',
-            label: 'Andamento',
-            kind: 'toggle',
-            active: view === 'andamento',
-            onClick: () => setView('andamento'),
-          },
-        ]}
+        extraActions={
+          <ActionMenu
+            triggerLabel="Vista"
+            trigger={<span className="filter-value">{viewLabel}</span>}
+            className="filter-menu"
+            items={VIEW_OPTIONS.map((option) => ({
+              label: option.label,
+              active: view === option.value,
+              onClick: () => setView(option.value),
+            }))}
+          />
+        }
         menu={[
           {
             label: 'Esporta CSV',
