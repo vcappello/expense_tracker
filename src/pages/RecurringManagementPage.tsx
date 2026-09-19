@@ -9,9 +9,9 @@ import '../styles/ManagementPage.css';
 import '../styles/RecurringPage.css';
 
 /**
- * Management of the recurring expense templates (spec.md → "Recurring
- * expenses"). Rows are clickable and open the Edit view; Delete lives in the
- * edit view (like Accounts/Categories).
+ * Management of the recurring templates - expenses and incomes (spec.md →
+ * "Recurring expenses" and "Recurring / scheduled income"). Rows are clickable
+ * and open the Edit view; Delete lives in the edit view (like Accounts/Categories).
  */
 export default function RecurringManagementPage() {
   const navigate = useNavigate();
@@ -49,7 +49,7 @@ export default function RecurringManagementPage() {
   return (
     <div className="management-page">
       <TitleBar
-        title="Spese ricorrenti"
+        title="Ricorrenti"
         actions={[
           {
             content: '+ Crea ricorrenza',
@@ -74,46 +74,59 @@ export default function RecurringManagementPage() {
           </div>
         ) : (
           <div className="items-list">
-            {sorted.map((recurring) => (
-              <div
-                key={recurring.id}
-                className="list-item"
-                role="button"
-                tabIndex={0}
-                onClick={() => handleEdit(recurring)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') handleEdit(recurring);
-                }}
-                style={{ cursor: 'pointer' }}
-              >
-                <div className="item-main">
-                  <div className="item-name">
-                    {recurring.name}
-                    <span className="frequency-badge">
-                      🔁 {getFrequencyLabel(recurring.frequency)}
-                    </span>
-                    {!recurring.active && (
-                      <span className="paused-badge">in pausa</span>
-                    )}
-                  </div>
-                  <div className="item-meta recurring-meta">
-                    <span className="meta-date">
-                      Prossima:{' '}
-                      {formatDate(
-                        getNextDueDate(recurring.frequency, recurring.startDate)
+            {sorted.map((recurring) => {
+              const isIncome = recurring.kind === 'income';
+              const isOnce = recurring.frequency === 'once';
+              return (
+                <div
+                  key={recurring.id}
+                  className="list-item"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleEdit(recurring)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') handleEdit(recurring);
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div className="item-main">
+                    <div className="item-name">
+                      {recurring.name}
+                      <span className="frequency-badge">
+                        🔁 {getFrequencyLabel(recurring.frequency)}
+                      </span>
+                      {isIncome && (
+                        <span className="recurring-kind-badge">entrata</span>
                       )}
-                    </span>
-                    <span>
-                      {typeName(recurring.expenseTypeId)} ·{' '}
-                      {accountName(recurring.accountId)}
-                    </span>
-                    <span className="meta-amount expense">
-                      {abbreviateAmount(recurring.amount)}€
-                    </span>
+                      {!recurring.active && (
+                        <span className="paused-badge">in pausa</span>
+                      )}
+                    </div>
+                    <div className="item-meta recurring-meta">
+                      <span className="meta-date">
+                        {isOnce ? 'Data pianificata: ' : 'Prossima: '}
+                        {formatDate(
+                          getNextDueDate(recurring.frequency, recurring.startDate)
+                        )}
+                      </span>
+                      <span>
+                        {isIncome
+                          ? accountName(recurring.accountId)
+                          : `${typeName(recurring.expenseTypeId)} · ${accountName(
+                              recurring.accountId
+                            )}`}
+                      </span>
+                      <span
+                        className={`meta-amount ${isIncome ? 'cashflow' : 'expense'}`}
+                      >
+                        {isIncome ? '+' : '-'}
+                        {abbreviateAmount(recurring.amount)}€
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>

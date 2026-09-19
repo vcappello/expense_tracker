@@ -6,6 +6,7 @@ export interface DailyTotal {
   key: string; // YYYY-MM-DD (sortable)
   label: string; // DD/MM/YYYY (display)
   cashflow: number; // signed
+  expectedIncome: number; // positive: expected (recurring/scheduled) income of the day
   expensesByType: Record<string, number>; // expenseTypeId -> positive amount
 }
 
@@ -32,7 +33,8 @@ const PALETTE = [
   '#d946ef',
 ];
 
-// Expected (recurring, not yet confirmed) expenses: dedicated grey category
+// Expected (recurring, not yet confirmed) movements: dedicated grey buckets
+// ("Spese previste" expenses, "Entrate previste" incomes)
 const EXPECTED_COLOR = '#94a3b8';
 
 /**
@@ -61,8 +63,13 @@ export default function MovementsChart({ data, expenseTypes }: MovementsChartPro
     1,
     ...data.map((d) => Object.values(d.expensesByType).reduce((s, v) => s + v, 0))
   );
-  const maxCashflow = Math.max(1, ...data.map((d) => Math.abs(d.cashflow)));
+  // Above the baseline the real cashflow and the expected income are stacked
+  const maxCashflow = Math.max(
+    1,
+    ...data.map((d) => (d.cashflow >= 0 ? d.cashflow : 0) + d.expectedIncome)
+  );
   const maxAbs = Math.max(maxExpense, maxCashflow);
+  const hasExpectedIncome = data.some((d) => d.expectedIncome > 0);
   const slot = W / data.length;
   const barW = Math.min(slot * 0.5, 22);
   const scale = (BASELINE - 10) / maxAbs;
@@ -73,6 +80,12 @@ export default function MovementsChart({ data, expenseTypes }: MovementsChartPro
         <span className="legend-item">
           <span className="legend-dot cashflow" /> Entrate
         </span>
+        {hasExpectedIncome && (
+          <span className="legend-item">
+            <span className="legend-dot" style={{ background: EXPECTED_COLOR }} />{' '}
+            Entrate previste
+          </span>
+        )}
         {typeIds.map((id) => (
           <span key={id} className="legend-item">
             <span className="legend-dot" style={{ background: colorFor(id) }} />{' '}
@@ -95,6 +108,13 @@ export default function MovementsChart({ data, expenseTypes }: MovementsChartPro
           const x = cx - barW / 2;
           const ch =
             d.cashflow !== 0 ? Math.max(Math.abs(d.cashflow) * scale, MIN_BAR) : 0;
+          // Expected income: stacked above the baseline, over the cashflow bar
+          const expectedCh =
+            d.expectedIncome > 0
+              ? Math.max(d.expectedIncome * scale, MIN_BAR)
+              : 0;
+          const expectedY =
+            d.cashflow >= 0 ? BASELINE - ch - expectedCh : BASELINE - expectedCh;
           const totalExpense = Object.values(d.expensesByType).reduce((s, v) => s + v, 0);
           const totalExpensePx = totalExpense * scale;
           let offsetY = BASELINE;
@@ -110,6 +130,19 @@ export default function MovementsChart({ data, expenseTypes }: MovementsChartPro
                   height={ch}
                 >
                   <title>{`${d.label}\nEntrate: ${d.cashflow >= 0 ? '+' : ''}${d.cashflow.toFixed(2)}€`}</title>
+                </rect>
+              )}
+
+              {d.expectedIncome > 0 && (
+                <rect
+                  className="chart-bar expected-income"
+                  x={x}
+                  y={expectedY}
+                  width={barW}
+                  height={expectedCh}
+                  style={{ fill: EXPECTED_COLOR }}
+                >
+                  <title>{`${d.label}\nEntrate previste: +${d.expectedIncome.toFixed(2)}€`}</title>
                 </rect>
               )}
 

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import { useApp } from '../context/AppContext';
-import { RecurrenceFrequency, RecurringExpense } from '../types';
+import { RecurrenceFrequency, RecurringExpense, RecurringKind } from '../types';
 import TitleBar, { TitleBarAction } from '../components/TitleBar';
 import { CheckIcon, TrashIcon } from '../components/icons';
 import ConfirmModal from '../components/ConfirmModal';
@@ -43,6 +43,7 @@ export default function CreateRecurringPage() {
   } = useApp();
 
   const [formData, setFormData] = useState({
+    kind: 'expense' as RecurringKind,
     name: '',
     frequency: 'monthly' as RecurrenceFrequency,
     amount: '',
@@ -52,6 +53,7 @@ export default function CreateRecurringPage() {
     notes: '',
     location: '',
     reimbursable: false,
+    isSalary: false,
     paused: false,
   });
   const [loaded, setLoaded] = useState(false);
@@ -100,6 +102,7 @@ export default function CreateRecurringPage() {
         const recurring = await getRecurringExpense(recurringId);
         if (recurring) {
           setFormData({
+            kind: recurring.kind,
             name: recurring.name,
             frequency: recurring.frequency,
             amount: String(recurring.amount),
@@ -109,6 +112,7 @@ export default function CreateRecurringPage() {
             notes: recurring.notes,
             location: recurring.location,
             reimbursable: recurring.reimbursable,
+            isSalary: recurring.isSalary,
             paused: !recurring.active,
           });
         }
@@ -132,6 +136,9 @@ export default function CreateRecurringPage() {
     ? getNextDueDate(formData.frequency, fromInputDate(formData.startDate))
     : null;
 
+  const isIncome = formData.kind === 'income';
+  const isOnce = formData.frequency === 'once';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -144,7 +151,7 @@ export default function CreateRecurringPage() {
       showToast('Inserisci un importo valido', '⚠️');
       return;
     }
-    if (!formData.expenseTypeId) {
+    if (!isIncome && !formData.expenseTypeId) {
       showToast('Seleziona una categoria', '⚠️');
       return;
     }
@@ -161,37 +168,49 @@ export default function CreateRecurringPage() {
       setIsLoading(true);
       const now = new Date();
       const startDate = fromInputDate(formData.startDate);
+      // Fields that only belong to one kind are cleared for the other one.
+      const kindFields = isIncome
+        ? {
+            kind: 'income' as RecurringKind,
+            expenseTypeId: '',
+            location: '',
+            reimbursable: false,
+            isSalary: formData.isSalary,
+          }
+        : {
+            kind: 'expense' as RecurringKind,
+            expenseTypeId: formData.expenseTypeId,
+            location: formData.location,
+            reimbursable: formData.reimbursable,
+            isSalary: false,
+          };
 
       if (recurringId) {
         const existing = await getRecurringExpense(recurringId);
         if (!existing) throw new Error('Ricorrenza non trovata');
         await updateRecurringExpense({
           ...existing,
+          ...kindFields,
           name: formData.name.trim(),
           frequency: formData.frequency,
           amount,
-          expenseTypeId: formData.expenseTypeId,
           accountId: formData.accountId,
           startDate,
           notes: formData.notes,
-          location: formData.location,
-          reimbursable: formData.reimbursable,
           active: !formData.paused,
           updatedAt: now,
         });
       } else {
         const recurring: RecurringExpense = {
           id: uuidv4(),
+          ...kindFields,
           name: formData.name.trim(),
           frequency: formData.frequency,
           amount,
-          expenseTypeId: formData.expenseTypeId,
           accountId: formData.accountId,
           startDate,
           active: !formData.paused,
           notes: formData.notes,
-          location: formData.location,
-          reimbursable: formData.reimbursable,
           lastConfirmedPeriod: null,
           lastConfirmedExpenseId: null,
           skippedPeriod: null,
@@ -252,11 +271,35 @@ export default function CreateRecurringPage() {
       <main className="entity-content">
         <form ref={formRef} className="entity-form" onSubmit={handleSubmit}>
           <div className="form-group">
+            <label>Tipo *</label>
+            <div className="kind-switch">
+              {(['expense', 'income'] as RecurringKind[]).map((kind) => (
+                <button
+                  key={kind}
+                  type="button"
+                  className={`kind-option ${
+                    formData.kind === kind ? 'active' : ''
+                  }`}
+                  onClick={() =>
+                    setFormData((prev) => ({ ...prev, kind }))
+                  }
+                >
+                  {kind === 'expense' ? '💸 Spesa' : '💰 Entrata'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="form-group">
             <label htmlFor="name">Nome *</label>
             <input
               type="text"
               id="name"
-              placeholder="es. Affitto, Palestra, Bolletta luce"
+              placeholder={
+                isIncome
+                  ? 'es. Stipendio, Affitto incassato'
+                  : 'es. Affitto, Palestra, Bolletta luce'
+              }
               value={formData.name}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, name: e.target.value }))
@@ -303,25 +346,27 @@ export default function CreateRecurringPage() {
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="expenseTypeId">Categoria *</label>
-            <select
-              id="expenseTypeId"
-              value={formData.expenseTypeId}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, expenseTypeId: e.target.value }))
-              }
-              className="form-input"
-              required
-            >
-              <option value="">Seleziona categoria</option>
-              {expenseTypes.map((type) => (
-                <option key={type.id} value={type.id}>
-                  {type.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {!isIncome && (
+            <div className="form-group">
+              <label htmlFor="expenseTypeId">Categoria *</label>
+              <select
+                id="expenseTypeId"
+                value={formData.expenseTypeId}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, expenseTypeId: e.target.value }))
+                }
+                className="form-input"
+                required
+              >
+                <option value="">Seleziona categoria</option>
+                {expenseTypes.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="form-group">
             <label htmlFor="accountId">Conto *</label>
@@ -344,7 +389,9 @@ export default function CreateRecurringPage() {
           </div>
 
           <div className="form-group">
-            <label htmlFor="startDate">Data di inizio *</label>
+            <label htmlFor="startDate">
+              {isOnce ? 'Data pianificata *' : 'Data di inizio *'}
+            </label>
             <input
               type="date"
               id="startDate"
@@ -357,7 +404,9 @@ export default function CreateRecurringPage() {
             />
             {nextDueDate && (
               <p className="recurring-due-preview">
-                Prossima scadenza: {formatDate(nextDueDate)}
+                {isOnce
+                  ? `Movimento previsto: ${formatDate(nextDueDate)}`
+                  : `Prossima scadenza: ${formatDate(nextDueDate)}`}
               </p>
             )}
           </div>
@@ -378,37 +427,60 @@ export default function CreateRecurringPage() {
               />
             </div>
 
-            <div className="form-group">
-              <label htmlFor="location">Luogo</label>
-              <input
-                type="text"
-                id="location"
-                placeholder="es. Via Roma 1, Milano"
-                value={formData.location}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, location: e.target.value }))
-                }
-                className="form-input"
-              />
-            </div>
+            {!isIncome && (
+              <div className="form-group">
+                <label htmlFor="location">Luogo</label>
+                <input
+                  type="text"
+                  id="location"
+                  placeholder="es. Via Roma 1, Milano"
+                  value={formData.location}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, location: e.target.value }))
+                  }
+                  className="form-input"
+                />
+              </div>
+            )}
           </div>
 
-          <div className="form-group checkbox-group">
-            <label className="checkbox-label" htmlFor="reimbursable">
-              <input
-                type="checkbox"
-                id="reimbursable"
-                checked={formData.reimbursable}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    reimbursable: e.target.checked,
-                  }))
-                }
-              />
-              Sarà rimborsata
-            </label>
-          </div>
+          {!isIncome && (
+            <div className="form-group checkbox-group">
+              <label className="checkbox-label" htmlFor="reimbursable">
+                <input
+                  type="checkbox"
+                  id="reimbursable"
+                  checked={formData.reimbursable}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      reimbursable: e.target.checked,
+                    }))
+                  }
+                />
+                Sarà rimborsata
+              </label>
+            </div>
+          )}
+
+          {isIncome && (
+            <div className="form-group checkbox-group">
+              <label className="checkbox-label" htmlFor="isSalary">
+                <input
+                  type="checkbox"
+                  id="isSalary"
+                  checked={formData.isSalary}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      isSalary: e.target.checked,
+                    }))
+                  }
+                />
+                Stipendio (mostra le spese da rimborsare)
+              </label>
+            </div>
+          )}
 
           <div className="form-group checkbox-group">
             <label className="checkbox-label" htmlFor="paused">
@@ -420,7 +492,7 @@ export default function CreateRecurringPage() {
                   setFormData((prev) => ({ ...prev, paused: e.target.checked }))
                 }
               />
-              In pausa (non propone la spesa)
+              In pausa (non propone il movimento)
             </label>
           </div>
 
@@ -432,11 +504,19 @@ export default function CreateRecurringPage() {
         open={confirmDelete}
         title="Elimina Ricorrenza"
         lines={
-          <>
-            La spesa non verrà più proposta.
-            <br />
-            Le spese già confermate restano invariate.
-          </>
+          isIncome ? (
+            <>
+              L'entrata non verrà più proposta.
+              <br />
+              Le entrate già confermate restano invariate.
+            </>
+          ) : (
+            <>
+              La spesa non verrà più proposta.
+              <br />
+              Le spese già confermate restano invariate.
+            </>
+          )
         }
         confirmLabel="Elimina"
         onConfirm={handleDeleteConfirmed}

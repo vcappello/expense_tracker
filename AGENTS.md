@@ -178,6 +178,28 @@
   `MovementsChart`/`MonthBreakdownChart`), con data = **scadenza**, filtro Conto applicato e
   filtro Categoria non applicato; **mai** nei saldi conto. Le pagine che le mostrano devono
   chiamare `loadRecurringExpenses()` nel mount (Main view, Analytics, pagina Ricorrenze).
+- **Entrate ricorrenti / programmate (`RecurringExpense.kind`, frequenza `once`)** (19/09/2026):
+  le Ricorrenze coprono anche le **entrate** con **un'unica entità**: `kind: 'expense' |
+  'income'` (default `expense`, normalizzato in lettura in `normalizeRecurringExpense` e in
+  import in `backup.ts` → **niente bump `DB_VERSION`**), più `isSalary` (solo entrate) e i
+  campi link **`recurringId`/`recurringPeriod` anche su `Cashflow`** (normalizzati in
+  `normalizeCashflow`/backup). Regole da non violare:
+  - la conferma crea un **`Cashflow`** se `kind === 'income'`, un `Expense` altrimenti
+    (`confirmMany` in AppContext); **`deleteCashflow` deve azzerare `lastConfirmedPeriod`**
+    del template (come fa `deleteExpense`), altrimenti la prevista non ritorna;
+  - l'undo in blocco ricorda il **tipo** dei record creati (`ConfirmedRecurringMovement` in
+    `lastRecurringConfirmation.records`): non tornare a una lista di soli expenseIds;
+  - `deleteRecurringExpense` e `deleteRecurringByIndex` (cascade conto) devono scollegare
+    anche i **Cashflow** (transazioni estese alla store `cashflows`);
+  - **period key dalla SCADENZA, non da oggi**: usare `getOccurrencePeriodKey(template, ref)`
+    (in `utils/recurrence.ts`) in conferma/skip/guardia. Con `once` la chiave è la **data
+    pianificata**: usando la data odierna la prevista si ripresenterebbe ogni giorno;
+  - frequenza **`once`** = period key = la data pianificata, `getNextDueDate` = la data stessa,
+    nessuna domanda "Tutte le successive" quando cambia l'importo a conferma;
+  - Analytics: pseudo-bucket **`EXPECTED_INCOME_ACCOUNT_ID` / "Entrate previste"** (grigio nei
+    grafici, verde in lista) contato in **Totale Entrate** e Saldo, mai nei saldi conto né in
+    `BalanceTrendChart` (che legge solo `movements`); il conto sintetico va passato ai grafici
+    via `expectedAccounts` (come `expectedType` per le categorie).
 - **Grafico "Andamento del saldo" (Analytics, switch a 3 viste)**: vista `Andamento` con
   `src/components/BalanceTrendChart.tsx` (SVG a linee, classi CSS `trend-*`). Il **saldo di
   apertura** = `initialBalance` dei conti in scope + TUTTI i movimenti precedenti al periodo

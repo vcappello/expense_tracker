@@ -43,6 +43,8 @@ export interface Cashflow {
   routingAccountId: string | null;
   routingPairId: string | null;
   isSalary: boolean; // this income is the salary (default false)
+  recurringId: string | null; // RecurringExpense that generated this cashflow (null for normal cashflows)
+  recurringPeriod: string | null; // period key consumed by the confirmation (see utils/recurrence.ts)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -53,25 +55,33 @@ export type Movement =
   | (Cashflow & { type: 'cashflow' });
 
 // Recurring expenses (see spec.md → "Recurring expenses")
-export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
+// `once` = one-off scheduled movement (a single planned date, no repetition).
+export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'once';
+
+/** What a recurring template produces when confirmed. */
+export type RecurringKind = 'expense' | 'income';
 
 /**
- * A recurring expense template. It is not a movement: it only describes the
- * expense to propose, period by period, as an "expected" (not yet confirmed)
- * expense. The confirmation creates a normal Expense (see AppContext).
+ * A recurring template. It is not a movement: it only describes the movement to
+ * propose, period by period, as an "expected" (not yet confirmed) movement. The
+ * confirmation creates a normal Expense (kind = 'expense') or a normal Cashflow
+ * (kind = 'income') (see AppContext).
+ * See spec.md → "Recurring expenses" and "Recurring / scheduled income".
  */
 export interface RecurringExpense {
   id: string;
   name: string;
+  kind: RecurringKind; // 'expense' (default) or 'income'
   frequency: RecurrenceFrequency;
   amount: number; // default amount, editable at every confirmation
-  expenseTypeId: string;
-  accountId: string;
-  startDate: Date; // reference day (weekday for weekly, day of month for monthly, ...)
+  expenseTypeId: string; // category (expense templates only)
+  accountId: string; // expense: paying account; income: credit account
+  startDate: Date; // reference day (weekday for weekly, day of month for monthly, planned date for once)
   active: boolean; // false = paused, no occurrence is proposed
   notes: string;
   location: string;
-  reimbursable: boolean;
+  reimbursable: boolean; // expense templates only
+  isSalary: boolean; // income templates only: the income is the salary (default false)
   // State of the last handled period (only the current period is ever proposed)
   lastConfirmedPeriod: string | null; // period key of the last confirmation
   lastConfirmedExpenseId: string | null; // Expense created by that confirmation

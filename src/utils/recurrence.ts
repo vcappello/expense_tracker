@@ -17,6 +17,7 @@ export const FREQUENCY_LABELS: Record<RecurrenceFrequency, string> = {
   weekly: 'Settimanale',
   monthly: 'Mensile',
   yearly: 'Annuale',
+  once: 'Una sola volta',
 };
 
 export const FREQUENCY_OPTIONS: { value: RecurrenceFrequency; label: string }[] = [
@@ -24,17 +25,27 @@ export const FREQUENCY_OPTIONS: { value: RecurrenceFrequency; label: string }[] 
   { value: 'weekly', label: 'Ogni settimana' },
   { value: 'monthly', label: 'Ogni mese' },
   { value: 'yearly', label: 'Ogni anno' },
+  { value: 'once', label: 'Una sola volta (data)' },
 ];
 
 export const getFrequencyLabel = (frequency: RecurrenceFrequency): string =>
   FREQUENCY_LABELS[frequency] ?? '';
 
 /**
- * Pseudo ExpensesType id/label used by Analytics to aggregate the expected
- * occurrences under a dedicated category (they are not a real ExpenseType).
+ * Pseudo ExpensesType / Account ids+labels used by Analytics to aggregate the
+ * expected occurrences under dedicated buckets (they are not real records):
+ * "Spese previste" for the expected expenses, "Entrate previste" for the
+ * expected incomes (see spec.md → "Recurring / scheduled income").
  */
 export const EXPECTED_EXPENSE_TYPE_ID = '__expected__';
 export const EXPECTED_EXPENSE_TYPE_LABEL = 'Spese previste';
+
+/**
+ * Pseudo Account id/label used by Analytics to aggregate the expected incomes
+ * (not a real Account): symmetric to `EXPECTED_EXPENSE_TYPE_*`.
+ */
+export const EXPECTED_INCOME_ACCOUNT_ID = '__expected_income__';
+export const EXPECTED_INCOME_ACCOUNT_LABEL = 'Entrate previste';
 
 /** A date at midnight (local time): period math only cares about the day. */
 export const startOfDay = (date: Date): Date =>
@@ -79,6 +90,7 @@ export const getPeriodKey = (frequency: RecurrenceFrequency, date: Date): string
   const d = startOfDay(date);
   switch (frequency) {
     case 'daily':
+    case 'once': // the planned date is the whole period
       return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
     case 'weekly': {
       const { year, week } = getIsoWeek(d);
@@ -99,6 +111,7 @@ export const getPeriodStart = (frequency: RecurrenceFrequency, date: Date): Date
   const d = startOfDay(date);
   switch (frequency) {
     case 'daily':
+    case 'once':
       return d;
     case 'weekly':
       return startOfIsoWeek(d);
@@ -135,6 +148,8 @@ export const getDueDateInPeriod = (
   switch (frequency) {
     case 'daily':
       return ref;
+    case 'once': // a one-off occurrence is due on its planned date
+      return start;
     case 'weekly': {
       const periodStart = startOfIsoWeek(ref);
       const weekday = start.getDay() === 0 ? 7 : start.getDay(); // 1..7
@@ -155,6 +170,11 @@ const addPeriod = (frequency: RecurrenceFrequency, date: Date): Date => {
   switch (frequency) {
     case 'daily':
       d.setDate(d.getDate() + 1);
+      return d;
+    case 'once':
+      // A one-off template has a single occurrence: there is no next period
+      // (getNextDueDate returns before advancing).
+      d.setFullYear(d.getFullYear() + 1);
       return d;
     case 'weekly':
       d.setDate(d.getDate() + 7);
@@ -177,6 +197,8 @@ export const getNextDueDate = (
   from: Date = new Date()
 ): Date => {
   const start = startOfDay(startDate);
+  // One-off template: the only occurrence is the planned date itself.
+  if (frequency === 'once') return start;
   let reference = startOfDay(from);
   if (reference < start) reference = start;
 
@@ -197,6 +219,20 @@ export interface ExpectedOccurrence {
 }
 
 /**
+ * Period key of the occurrence due in the period that contains `reference`:
+ * it is derived from the **due date**, so for `once` it is the planned date
+ * itself and not the day the confirmation happens on.
+ */
+export const getOccurrencePeriodKey = (
+  template: RecurringExpense,
+  reference: Date = new Date()
+): string =>
+  getPeriodKey(
+    template.frequency,
+    getDueDateInPeriod(template.frequency, template.startDate, reference)
+  );
+
+/**
  * Expected occurrence of a template for "today", or null when there is none:
  * the template is paused, already confirmed for the current period, skipped for
  * the current period, not started yet, or not due yet in the current period.
@@ -208,14 +244,19 @@ export const getExpectedOccurrence = (
   if (!template.active) return null;
 
   const reference = startOfDay(today);
-  const periodKey = getPeriodKey(template.frequency, reference);
-  if (template.lastConfirmedPeriod === periodKey) return null;
-  if (template.skippedPeriod === periodKey) return null;
 
   const startDate = startOfDay(template.startDate);
   const dueDate = getDueDateInPeriod(template.frequency, startDate, reference);
   if (dueDate < startDate) return null; // the recurrence has not started yet
   if (dueDate > reference) return null; // not due yet in the current period
+
+  // The period key is derived from the DUE DATE: for every frequency it is the
+  // period that contains the occurrence, and for `once` it is the planned date
+  // itself (so the confirmation consumes that date and never the day it was
+  // confirmed on).
+  const periodKey = getPeriodKey(template.frequency, dueDate);
+  if (template.lastConfirmedPeriod === periodKey) return null;
+  if (template.skippedPeriod === periodKey) return null;
 
   return { template, dueDate, periodKey, amount: template.amount };
 };

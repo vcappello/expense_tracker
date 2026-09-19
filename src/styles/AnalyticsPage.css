@@ -500,6 +500,11 @@
   color: #94a3b8;
 }
 
+/* Expected income rows (pseudo bucket "Entrate previste"): green amount */
+.movement-amount.expected.income {
+  color: #4ade80;
+}
+
 /* States */
 .loading-state,
 .empty-state {

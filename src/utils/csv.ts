@@ -2,10 +2,11 @@ import { Movement, Account, ExpenseType } from '../types';
 import { formatDate } from './formatting';
 
 /**
- * Expected (recurring, not yet confirmed) expense to include in the CSV, so the
- * exported rows stay consistent with the Analytics totals.
+ * Expected (recurring / scheduled, not yet confirmed) movement to include in the
+ * CSV, so the exported rows stay consistent with the Analytics totals.
  */
 export interface ExpectedCsvRow {
+  kind: 'expense' | 'income';
   dueDate: Date;
   amount: number;
   categoryName: string;
@@ -15,8 +16,9 @@ export interface ExpectedCsvRow {
 /**
  * Build a CSV string from the given movements and trigger a download.
  * Uses `;` as delimiter and `,` as decimal separator (Italian Excel convention),
- * with a UTF-8 BOM so special characters display correctly. The expected rows
- * of the recurring expenses are appended (marked "Spesa prevista").
+ * with a UTF-8 BOM so special characters display correctly. The expected rows of
+ * the recurring templates are appended (marked "Spesa prevista" / "Entrata
+ * prevista").
  */
 export const exportMovementsToCSV = (
   movements: Movement[],
@@ -43,17 +45,22 @@ export const exportMovementsToCSV = (
     return { date: new Date(m.date), cells: [date, time, type, category, account, amount] };
   });
 
-  const expected = expectedRows.map((row) => ({
-    date: row.dueDate,
-    cells: [
-      formatDate(row.dueDate),
-      '',
-      'Spesa prevista',
-      row.categoryName,
-      row.accountName,
-      (-Math.abs(row.amount)).toFixed(2).replace('.', ','),
-    ],
-  }));
+  const expected = expectedRows.map((row) => {
+    const isIncome = row.kind === 'income';
+    return {
+      date: row.dueDate,
+      cells: [
+        formatDate(row.dueDate),
+        '',
+        isIncome ? 'Entrata prevista' : 'Spesa prevista',
+        isIncome ? '' : row.categoryName,
+        row.accountName,
+        (isIncome ? Math.abs(row.amount) : -Math.abs(row.amount))
+          .toFixed(2)
+          .replace('.', ','),
+      ],
+    };
+  });
 
   // Most recent first (the movements arrive already sorted; the expected rows
   // have only a due date, so they are merged by day).

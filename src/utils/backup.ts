@@ -117,6 +117,9 @@ const normalizeCashflow = (raw: Record<string, unknown>): Cashflow => ({
   routingAccountId: typeof raw.routingAccountId === 'string' ? raw.routingAccountId : null,
   routingPairId: typeof raw.routingPairId === 'string' ? raw.routingPairId : null,
   isSalary: raw.isSalary === true,
+  recurringId: typeof raw.recurringId === 'string' ? raw.recurringId : null,
+  recurringPeriod:
+    typeof raw.recurringPeriod === 'string' ? raw.recurringPeriod : null,
   createdAt: toDate(raw.createdAt),
   updatedAt: toDate(raw.updatedAt),
 });
@@ -126,6 +129,7 @@ const RECURRENCE_FREQUENCIES: RecurrenceFrequency[] = [
   'weekly',
   'monthly',
   'yearly',
+  'once',
 ];
 
 const normalizeRecurringExpense = (
@@ -133,17 +137,19 @@ const normalizeRecurringExpense = (
 ): RecurringExpense => ({
   id: String(raw.id),
   name: String(raw.name ?? ''),
+  kind: raw.kind === 'income' ? 'income' : 'expense',
   frequency: RECURRENCE_FREQUENCIES.includes(raw.frequency as RecurrenceFrequency)
     ? (raw.frequency as RecurrenceFrequency)
     : 'monthly',
   amount: Number(raw.amount ?? 0),
-  expenseTypeId: String(raw.expenseTypeId),
+  expenseTypeId: String(raw.expenseTypeId ?? ''),
   accountId: String(raw.accountId),
   startDate: toDate(raw.startDate),
   active: raw.active !== false,
   notes: typeof raw.notes === 'string' ? raw.notes : '',
   location: typeof raw.location === 'string' ? raw.location : '',
   reimbursable: raw.reimbursable === true,
+  isSalary: raw.isSalary === true,
   lastConfirmedPeriod:
     typeof raw.lastConfirmedPeriod === 'string' ? raw.lastConfirmedPeriod : null,
   lastConfirmedExpenseId:

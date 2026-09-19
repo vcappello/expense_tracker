@@ -1,6 +1,6 @@
 import { Account, ExpenseType } from '../types';
 import { abbreviateAmount } from '../utils/formatting';
-import { EXPECTED_EXPENSE_TYPE_ID } from '../utils/recurrence';
+import { EXPECTED_EXPENSE_TYPE_ID, EXPECTED_INCOME_ACCOUNT_ID } from '../utils/recurrence';
 
 interface MonthBreakdownChartProps {
   expensesByType: { typeId: string; total: number }[];
@@ -26,7 +26,8 @@ const PALETTE = [
   '#d946ef',
 ];
 
-// Expected (recurring, not yet confirmed) expenses: dedicated grey category
+// Expected (recurring, not yet confirmed) movements: dedicated grey buckets
+// ("Spese previste" expenses, "Entrate previste" incomes)
 const EXPECTED_COLOR = '#94a3b8';
 
 interface Bar {
@@ -70,17 +71,20 @@ export default function MonthBreakdownChart({
       label: accountName(c.accountId),
       value: c.total,
       kind: 'cashflow' as const,
+      color: c.accountId === EXPECTED_INCOME_ACCOUNT_ID ? EXPECTED_COLOR : undefined,
     }));
 
   const expenseKeys = expenseBars.map((b) => b.key);
-  const colorFor = (key: string) => {
-    const bar = expenseBars.find((b) => b.key === key);
-    return bar?.color ?? PALETTE[expenseKeys.indexOf(key) % PALETTE.length];
-  };
-
   // Cashflow bars first (up/green), then expense bars (down/colored)
   const bars: Bar[] = [...cashflowBars, ...expenseBars];
   if (bars.length === 0) return null;
+
+  const colorFor = (key: string) => {
+    const bar = bars.find((b) => b.key === key);
+    if (bar?.color) return bar.color;
+    const index = expenseKeys.indexOf(key);
+    return index >= 0 ? PALETTE[index % PALETTE.length] : undefined;
+  };
 
   const maxAbs = Math.max(1, ...bars.map((b) => Math.abs(b.value)));
   const slot = W / bars.length;
@@ -128,7 +132,9 @@ export default function MonthBreakdownChart({
                 y={y}
                 width={barW}
                 height={px}
-                style={isExpense ? { fill: colorFor(b.key) } : undefined}
+                style={
+                  isExpense || b.color ? { fill: colorFor(b.key) } : undefined
+                }
               >
                 <title>{`${b.label}\n${isExpense ? 'Spese: -' : 'Entrate: '}${b.value.toFixed(2)}€`}</title>
               </rect>

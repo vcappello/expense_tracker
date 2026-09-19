@@ -204,6 +204,8 @@ export default function CreateCashflowPage() {
             routingAccountId: null,
             routingPairId: pairId,
             isSalary: false,
+            recurringId: null,
+            recurringPeriod: null,
             createdAt: new Date(),
             updatedAt: new Date(),
           };
@@ -216,6 +218,8 @@ export default function CreateCashflowPage() {
             routingAccountId: formData.routingAccountId,
             routingPairId: pairId,
             isSalary: formData.isSalary,
+            recurringId: null,
+            recurringPeriod: null,
             createdAt: new Date(),
             updatedAt: new Date(),
           };
@@ -236,6 +240,8 @@ export default function CreateCashflowPage() {
             routingAccountId: null,
             routingPairId: pairId,
             isSalary: false,
+            recurringId: null,
+            recurringPeriod: null,
             createdAt: new Date(),
             updatedAt: new Date(),
           };
@@ -248,6 +254,8 @@ export default function CreateCashflowPage() {
             routingAccountId: formData.routingAccountId,
             routingPairId: pairId,
             isSalary: formData.isSalary,
+            recurringId: null,
+            recurringPeriod: null,
             createdAt: new Date(),
             updatedAt: new Date(),
           };
@@ -256,7 +264,9 @@ export default function CreateCashflowPage() {
           await createCashflow(cashflow2);
         }
       } else {
-        // Create single cashflow
+        // Create or update a single cashflow. When editing an income created by
+        // a recurring confirmation, keep its recurring link.
+        const current = cashflowId ? await getCashflow(cashflowId) : undefined;
         const cashflow: Cashflow = {
           id: cashflowId || uuidv4(),
           date: new Date(formData.date),
@@ -266,6 +276,8 @@ export default function CreateCashflowPage() {
           routingAccountId: null,
           routingPairId: null,
           isSalary: formData.isSalary,
+          recurringId: current?.recurringId ?? null,
+          recurringPeriod: current?.recurringPeriod ?? null,
           createdAt: new Date(),
           updatedAt: new Date(),
         };

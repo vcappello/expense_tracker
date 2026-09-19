@@ -286,7 +286,7 @@ export default function MainView() {
       await loadMovements(filters);
     } catch (err) {
       console.error('Failed to confirm the expected occurrences:', err);
-      setImportError('Errore durante la conferma delle spese previste');
+      setImportError('Errore durante la conferma dei movimenti previsti');
     }
   };
 
@@ -304,11 +304,12 @@ export default function MainView() {
 
   useEffect(() => {
     if (!lastRecurringConfirmation) return;
-    const count = lastRecurringConfirmation.expenseIds.length;
+    const { records, name } = lastRecurringConfirmation;
+    const kindLabel = records[0]?.kind === 'income' ? 'Entrata' : 'Spesa';
     setToast({
-      message: lastRecurringConfirmation.name
-        ? `Spesa confermata: ${lastRecurringConfirmation.name}`
-        : `${count} spese confermate`,
+      message: name
+        ? `${kindLabel} confermata: ${name}`
+        : `${records.length} movimenti confermati`,
       actionLabel: 'Annulla',
       onAction: handleUndoRecurring,
     });
@@ -405,7 +406,7 @@ export default function MainView() {
     expectedOccurrences.length > 0 ? (
       <li className="day-group expected-group">
         <div className="day-header expected-header">
-          <span>Spese previste</span>
+          <span>Movimenti previsti</span>
           {expectedOccurrences.length > 1 && (
             <button
               type="button"
@@ -419,6 +420,7 @@ export default function MainView() {
         </div>
         <ul className="day-movements">
           {expectedOccurrences.map((occurrence: ExpectedOccurrence) => {
+            const isIncome = occurrence.template.kind === 'income';
             const accountName =
               accounts.find((a) => a.id === occurrence.template.accountId)
                 ?.name || '?';
@@ -429,7 +431,9 @@ export default function MainView() {
             return (
               <li
                 key={occurrence.template.id}
-                className="movement-item expected-item"
+                className={`movement-item expected-item ${
+                  isIncome ? 'income' : ''
+                }`}
                 role="button"
                 tabIndex={0}
                 onClick={() => navigate(`/recurring/${occurrence.template.id}/confirm`)}
@@ -450,11 +454,17 @@ export default function MainView() {
                       </span>
                     </div>
                     <div className="movement-place">
-                      💸 {typeName} · {accountName} — prevista{' '}
-                      {formatDate(occurrence.dueDate)}
+                      {isIncome
+                        ? `💰 ${accountName} — prevista ${formatDate(
+                            occurrence.dueDate
+                          )}`
+                        : `💸 ${typeName} · ${accountName} — prevista ${formatDate(
+                            occurrence.dueDate
+                          )}`}
                     </div>
                   </div>
-                  <div className="amount expected">
+                  <div className={`amount expected ${isIncome ? 'income' : ''}`}>
+                    {isIncome ? '+' : '-'}
                     {abbreviateAmount(occurrence.amount)}€
                   </div>
                 </div>

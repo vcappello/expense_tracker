@@ -93,10 +93,10 @@ The expected occurrences of the recurring templates (see "Recurring expenses" an
 "Recurring / scheduled income") are shown in a single dedicated section titled **"Movimenti
 previsti"** (instead of a day header), placed **right after the "today" day group** and
 before the older days (display order: today, expected, older days): expected expenses
-(red, negative amount) and expected incomes (green, `+` amount) are listed together,
-ordered by due date. The section is shown only in the ranges that contain today (Mese
-corrente, Quest'anno, Tutti) and is **never paginated**: it stays always visible at the top
-of the list, outside the day-group pagination.
+(negative amount, grey because they are not real movements yet) and expected incomes
+(green, `+` amount) are listed together, ordered by due date. The section is shown only in
+the ranges that contain today (Mese corrente, Quest'anno, Tutti) and is **never paginated**:
+it stays always visible at the top of the list, outside the day-group pagination.
 
 Every expected row shows a **frequency badge**: a small pill next to the recurrence name
 carrying the recurrence type in Italian — **"Giornaliera"**, **"Settimanale"**,
@@ -431,8 +431,9 @@ and old backups stay valid).
 - The occurrence does not appear before its due date (the planned day).
 - The period math of the other frequencies is unchanged; the UI label is **"Una sola
   volta"** and the badge carries the same 🔁 icon ("🔁 Una sola volta").
-- "Tutte le successive" is meaningless for `once`: the confirmation modal offers "Solo
-  questa" only.
+- "Tutte le successive" is meaningless for `once`: there is only one occurrence, so when the
+  amount is changed at confirmation time it applies to that occurrence and **no question is
+  asked** (the "Solo questa / Tutte le successive" modal is skipped entirely).
 - The template stays in the list after the confirmation (it does not repeat); the user can
   delete it.
 - Deleting the confirmed income proposes the occurrence again (period not consumed), like
@@ -473,8 +474,9 @@ previous salary, and the confirmed salary becomes the reference for the next per
 
 ### Analytics, cascades, backup
 - Analytics: the expected incomes are counted in the **Total Cashflow** (and therefore in the
-  Net) under the dedicated pseudo bucket **"Entrate previste"**; they never touch the
-  account balances nor the balance trend chart (see "Analytics").
+  Net) under the dedicated pseudo bucket **"Entrate previste"** (grey in the charts, like the
+  "Spese previste" category; green amount in the report list); they never touch the account
+  balances nor the balance trend chart (see "Analytics").
 - Cascades: deleting an Account deletes its templates of both kinds (existing cascade);
   deleting an ExpenseType only affects the expense templates.
 - Backup/restore: `kind` is normalized (`income` only when explicitly set, otherwise
@@ -592,8 +594,8 @@ Display a summary card with the following metrics calculated from filtered movem
 templates (see "Recurring / scheduled income") are the symmetric case: they are aggregated
 under a dedicated pseudo bucket **"Entrate previste"** (grey, not a real Account) and:
 - they are included in **Total Cashflow** and therefore in the **Net Balance**, and they
-  appear in the movement list (green, `+` amount, marked "prevista") and in the CSV export
-  (positive sign);
+  appear in the movement list (green `+` amount, marked "Entrate previste") and in the CSV
+  export (row "Entrata prevista", positive sign);
 - they **never affect the account balances** (Gestione Conti) nor the balance trend chart:
   the money has not arrived yet;
 - same due-date rule and same "Conto" / "Categoria" filter behaviour as the expected

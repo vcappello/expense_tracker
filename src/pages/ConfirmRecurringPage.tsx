@@ -8,7 +8,8 @@ import Modal from '../components/Modal';
 import AlertModal from '../components/AlertModal';
 import Toast from '../components/Toast';
 import { sortAccountsPreferred } from '../utils/accounts';
-import { getFrequencyLabel, getPeriodKey } from '../utils/recurrence';
+import { getFrequencyLabel, getOccurrencePeriodKey } from '../utils/recurrence';
+import { abbreviateAmount } from '../utils/formatting';
 import { useNavigateBack } from '../utils/navigation';
 import '../styles/EntityForm.css';
 import '../styles/RecurringPage.css';
@@ -44,6 +45,7 @@ export default function ConfirmRecurringPage() {
     confirmRecurringOccurrence,
     skipRecurringOccurrence,
     deleteRecurringExpense,
+    getReimbursableSummary,
   } = useApp();
 
   const [template, setTemplate] = useState<RecurringExpense | null>(null);
@@ -54,6 +56,10 @@ export default function ConfirmRecurringPage() {
   // Pending amount waiting for the "this one / all the following" choice
   const [pendingAmount, setPendingAmount] = useState<number | null>(null);
   const [askDelete, setAskDelete] = useState(false);
+  const [reimbursableSummary, setReimbursableSummary] = useState<{
+    total: number;
+    count: number;
+  } | null>(null);
   const [toast, setToast] = useState<{ message: string; icon?: string } | null>(null);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -88,10 +94,12 @@ export default function ConfirmRecurringPage() {
           setAlertMessage('Ricorrenza non trovata');
           return;
         }
-        // Guard: do not confirm a period already consumed (e.g. stale page)
+        // Guard: do not confirm a period already consumed (e.g. stale page).
+        // The period key comes from the due date (for `once` it is the planned
+        // date, not the day of the confirmation).
         if (
           recurring.lastConfirmedPeriod ===
-          getPeriodKey(recurring.frequency, new Date())
+          getOccurrencePeriodKey(recurring, new Date())
         ) {
           setAlertMessage(
             'Questa ricorrenza è già stata confermata per il periodo corrente.'
@@ -112,6 +120,26 @@ export default function ConfirmRecurringPage() {
     const value = e.target.value;
     if (value === '' || /^\d*\.?\d*$/.test(value)) setAmount(value);
   };
+
+  // When the pending movement is a salary, show the reimbursable expenses since
+  // the previous salary (window-only, see utils/reimbursements.ts).
+  useEffect(() => {
+    if (!template || template.kind !== 'income' || !template.isSalary || !date) {
+      setReimbursableSummary(null);
+      return;
+    }
+    let active = true;
+    getReimbursableSummary(new Date(date))
+      .then((summary) => {
+        if (active) setReimbursableSummary(summary);
+      })
+      .catch(() => {
+        if (active) setReimbursableSummary(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [template, date, getReimbursableSummary]);
 
   /**
    * Confirm the occurrence. `alsoUpdateTemplate` = the amount change applies to
@@ -155,8 +183,13 @@ export default function ConfirmRecurringPage() {
     }
 
     // The amount changed: ask whether it applies to this occurrence only or to
-    // all the following ones.
+    // all the following ones. A `once` template has no following occurrence, so
+    // the change applies to this one and no question is needed.
     if (Math.abs(value - template.amount) > 0.001) {
+      if (template.frequency === 'once') {
+        await doConfirm(value, false);
+        return;
+      }
       setPendingAmount(value);
       return;
     }
@@ -172,7 +205,7 @@ export default function ConfirmRecurringPage() {
       navigateBack();
     } catch (err) {
       console.error('Failed to skip recurring occurrence:', err);
-      setAlertMessage('Errore durante il salto della spesa prevista');
+      setAlertMessage('Errore durante il salto del movimento previsto');
     } finally {
       setIsLoading(false);
     }
@@ -213,6 +246,7 @@ export default function ConfirmRecurringPage() {
     });
   }
 
+  const isIncome = template?.kind === 'income';
   const typeName = template
     ? expenseTypes.find((t) => t.id === template.expenseTypeId)?.name ?? '?'
     : '';
@@ -224,7 +258,7 @@ export default function ConfirmRecurringPage() {
   return (
     <div className="entity-page">
       <TitleBar
-        title={template ? `Conferma: ${template.name}` : 'Conferma spesa prevista'}
+        title={template ? `Conferma: ${template.name}` : 'Conferma movimento previsto'}
         actions={titleBarActions}
       />
 
@@ -237,9 +271,29 @@ export default function ConfirmRecurringPage() {
                 <strong>🔁 {getFrequencyLabel(template.frequency)}</strong>
               </span>
               <span>
-                Categoria · Conto: <strong>{typeName} · {accountName}</strong>
+                {isIncome ? 'Conto' : 'Categoria · Conto'}:{' '}
+                <strong>
+                  {isIncome ? accountName : `${typeName} · ${accountName}`}
+                </strong>
               </span>
             </div>
+
+            {isIncome && template.isSalary && (
+              <div className="form-info salary-info">
+                <p className="info-text">
+                  💶{' '}
+                  {reimbursableSummary === null
+                    ? 'Calcolo delle spese da rimborsare…'
+                    : reimbursableSummary.count === 0
+                      ? "Nessuna spesa da rimborsare dall'ultimo stipendio."
+                      : `Spese da rimborsare dall'ultimo stipendio: ${abbreviateAmount(
+                          reimbursableSummary.total
+                        )}€ (${reimbursableSummary.count} ${
+                          reimbursableSummary.count === 1 ? 'spesa' : 'spese'
+                        })`}
+                </p>
+              </div>
+            )}
 
             <form ref={formRef} className="entity-form" onSubmit={handleSubmit}>
               <div className="form-group">
@@ -323,17 +377,17 @@ export default function ConfirmRecurringPage() {
           </>
         }
       >
-        Hai modificato l'importo della spesa prevista.
+        Hai modificato l'importo del movimento previsto.
         <br />
         <br />
-        Vuoi applicarlo solo a <strong>questa</strong> spesa o a{' '}
-        <strong>tutte le successive</strong>?
+        Vuoi applicarlo solo a <strong>questo</strong> movimento o a{' '}
+        <strong>tutti i successivi</strong>?
       </Modal>
 
       {/* Delete: skip this period or stop the recurrence */}
       <Modal
         open={askDelete}
-        title="Elimina spesa prevista"
+        title={isIncome ? 'Elimina entrata prevista' : 'Elimina spesa prevista'}
         onClose={() => setAskDelete(false)}
         actions={
           <>
@@ -353,12 +407,13 @@ export default function ConfirmRecurringPage() {
           </>
         }
       >
-        <strong>Salta questa</strong>: non viene creata nessuna spesa e la
+        <strong>Salta questa</strong>: non viene creato nessun movimento e la
         ricorrenza verrà proposta di nuovo nel prossimo periodo.
         <br />
         <br />
-        <strong>Interrompi la ricorrenza</strong>: la spesa non verrà più
-        proposta (le spese già confermate restano invariate).
+        <strong>Interrompi la ricorrenza</strong>: {' '}
+        {isIncome ? "l'entrata" : 'la spesa'} non verrà più proposta (i movimenti
+        già confermati restano invariati).
       </Modal>
 
       <Toast message={toast?.message ?? null} icon={toast?.icon} />

@@ -242,6 +242,24 @@
       cold load ripetuti (con e senza CPU throttling), tutte le view (main, analytics,
       conti, categorie, ricorrenze), cambio filtro verso un periodo senza movimenti
       (empty state regolare) e nessun errore in console; build OK.
+- [x] **Entrate programmate / ricorrenti (stipendio, una tantum)** (19/09/2026): le
+      **Ricorrenze** ora coprono anche le **entrate**, con **un'unica entità**
+      (`RecurringExpense.kind: 'expense' | 'income'`, default `expense`, normalizzato in
+      lettura/import → nessun bump `DB_VERSION`, backup v2 e file vecchi validi) e la nuova
+      frequenza **`once`** ("Una sola volta") per l'**entrata pianificata una tantum**.
+      La conferma crea un **`Cashflow`** (con `recurringId`/`recurringPeriod`, campi aggiunti a
+      `Cashflow`; `isSalary` copiato dal template) invece di un `Expense`; **eliminare il
+      cashflow confermato ripropone la prevista**; l'undo in blocco gestisce entrambi i tipi;
+      i cascade e il delete del template scollegano anche i cashflow generati. Form Ricorrenze
+      con **switch Tipo Spesa/Entrata** (campi condizionali, \"Stipendio\"), Main view con la
+      sezione unica **\"Movimenti previsti\"** (spese grigie `-`, entrate verdi `+`,
+      \"Conferma tutte\" misto), Analytics con le entrate previste in **Totale Entrate/Saldo**
+      sotto il pseudo-bucket **\"Entrate previste\"** (report, lista, CSV \"Entrata prevista\",
+      grafici) e **mai** nei saldi conto né nel grafico Andamento; pannello \"💶 Spese da
+      rimborsare dall'ultimo stipendio\" nel form di conferma degli stipendi. Verificato E2E in
+      browser (creazione da UI, conferma, undo, delete → prevista che ritorna, `once` senza
+      modale sull'importo, \"Conferma tutte\" mista, backup round-trip e file v2 legacy);
+      build OK. Voci in ⏳ Da fare e spec in `spec.md` (\"Recurring / scheduled income\").
 - [x] **Grafico "Andamento del saldo" a linee in Analytics** (19/09/2026): terza vista dello
       switch di Analisi (`📋 Report` / `📊 Grafico` / `📈 Andamento`) con un grafico a linee
       (nuovo `src/components/BalanceTrendChart.tsx`, SVG senza dipendenze) che mostra
@@ -622,7 +640,7 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 > ⚠️ **Prima del `git push` chiedere sempre conferma all'utente**: il push fa partire il
 > deploy automatico su GitHub Pages e pubblica subito la nuova versione.
 
-### Entrate programmate / ricorrenti (stipendio, una tantum) — pianificata il 19/09/2026
+### Entrate programmate / ricorrenti (stipendio, una tantum) — implementata il 19/09/2026
 
 > Richiesta utente (19/09/2026): estendere le **Ricorrenze** alle **entrate**, così lo
 > stipendio (o un affitto incassato, un rimborso periodico) diventa una **prevista** da
@@ -646,37 +664,52 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
       rimborsi, gestione, Analytics, cascade, backup) + aggiornamenti: Technical info (link
       `recurringId`/`recurringPeriod` anche su `Cashflow`), Main view ("Movimenti previsti" +
       badge "Una sola volta"), Analytics Report/Grafico/Andamento, Backup (`kind`).
-- [ ] **Types + normalizzazione**: `RecurringExpense.kind` (default `'expense'`),
+- [x] **Types + normalizzazione** (fatto): `RecurringExpense.kind` (default `'expense'`),
       `RecurringExpense.isSalary` (default false), `Cashflow.recurringId`/`recurringPeriod`
       (default null); normalizzazione in lettura (`normalizeRecurringExpense`,
-      `normalizeCashflow` in `database.ts`) e in import (`backup.ts`). Niente bump
-      `DB_VERSION` (campi opzionali e retrocompatibili).
-- [ ] **Motore ricorrenze**: nuova frequenza `once` in `recurrence.ts` (period key = la data
-      stessa, scadenza = `startDate`, una sola occorrenza possibile, mai "Tutte le
-      successive") + etichette UI ("Una sola volta"); `getExpectedOccurrence(s)` invariati
-      nella logica.
-- [ ] **AppContext**: la conferma crea un `Cashflow` (con `isSalary` copiato dal template)
-      quando `kind === 'income'`; `deleteCashflow` azzera lo stato del periodo del template
-      (ripropone la prevista, come già fa `deleteExpense`); l'undo in blocco ricorda il
-      **tipo** dei record creati; cascade conto invariata (copre già entrambi i tipi).
-- [ ] **Pagine Ricorrenze**: `CreateRecurringPage` con switch **Tipo Spesa/Entrata** (campi
-      condizionali: categoria/rimborsabile/luogo solo per le spese, "Stipendio" solo per le
-      entrate); `RecurringManagementPage` con indicazione del tipo e data pianificata per i
-      template `once`; `ConfirmRecurringPage` con pannello "💶 Spese da rimborsare
-      dall'ultimo stipendio" per gli stipendi e modale senza "Tutte le successive" per
-      `once`.
-- [ ] **Main view**: sezione unica **"Movimenti previsti"** con righe spesa (rosse) ed
-      entrata (verdi, `+`), badge frequenza incluso "Una sola volta", "Conferma tutte" misto,
-      tap sulla riga → conferma.
-- [ ] **Analytics**: entrate previste incluse in Totale Entrate e Saldo; bucket dedicato
-      "Entrate previste" in report, lista movimenti, CSV e grafici (sopra la linea);
-      escluse da Top 3 categorie, saldi conto e grafico Andamento.
-- [ ] **Test E2E + docs/commit**: creazione template entrata (mensile, annuale, `once`),
-      conferma singola e "Conferma tutte" mista, modifica importo/data, salta/interrompi,
-      delete del cashflow confermato → prevista che ritorna, undo; Analytics coerente
-      (Totale Entrate/Saldo con le previste, saldi conto e Andamento invariati); backup
-      round-trip (inclusi `kind` e i link sui cashflow); `npm run build`; poi commit locale e
-      **push solo dopo la conferma dell'utente**.
+      `normalizeCashflow` in `database.ts`) e in import (`backup.ts`, con `once` tra le
+      frequenze accettate e `kind`/`isSalary` normalizzati). Niente bump `DB_VERSION`:
+      verificato che un backup v2 senza `kind` resta valido (`kind` → `expense`).
+- [x] **Motore ricorrenze** (fatto): frequenza `once` in `recurrence.ts` (period key = la data
+      pianificata, scadenza = `startDate`, `getNextDueDate` = la data stessa) + etichette UI
+      ("Una sola volta" / "Una sola volta (data)"); nuovo helper `getOccurrencePeriodKey`
+      (period key dalla **scadenza**, necessario per `once` e usato uniformemente da
+      `getExpectedOccurrence`, conferma e skip).
+- [x] **AppContext** (fatto): `confirmMany` crea un **`Cashflow`** (con `isSalary` dal
+      template) quando `kind === 'income'` e un `Expense` altrimenti, in entrambi i casi con
+      `recurringId`/`recurringPeriod`; `deleteCashflow` azzera lo stato del periodo del
+      template (ripropone la prevista, come `deleteExpense`); undo in blocco con il **tipo**
+      dei record creati (`ConfirmedRecurringMovement`); `deleteRecurringExpense` e i cascade
+      (`deleteRecurringByIndex`) scollegano anche i **Cashflow** generati (transazioni estese
+      alla store `cashflows`); `skipRecurringOccurrence` usa il period key dalla scadenza.
+- [x] **Pagine Ricorrenze** (fatto): `CreateRecurringPage` con switch **Tipo Spesa/Entrata**
+      (categoria/rimborsabile/luogo solo spese, "Stipendio" solo entrate, placeholder e
+      titolo del campo data dinamici: "Data pianificata"/"Movimento previsto" per `once`);
+      `RecurringManagementPage` (titolo "Ricorrenti") con badge `entrata`, riga
+      categoria·conto (o solo conto), importo `-`/`+` colorato e "Data pianificata" per
+      `once`; `ConfirmRecurringPage` con info adattate al tipo, pannello "💶 Spese da
+      rimborsare dall'ultimo stipendio" per le entrate con `isSalary` e **nessuna domanda**
+      quando cambia l'importo di un template `once`.
+- [x] **Main view** (fatto): sezione unica **"Movimenti previsti"** con spese (importo
+      grigio, `-`) ed entrate (verde, `+`) ordinate per scadenza, badge frequenza incluso
+      "Una sola volta", "Conferma tutte" misto (spese + entrate) e toast con testo adattato
+      al tipo ("Entrata/Spesa confermata").
+- [x] **Analytics** (fatto): le entrate previste entrano in **Totale Entrate** e **Saldo**
+      (meta "+ N previste" sulla card Entrate) con pseudo-bucket **"Entrate previste"** in
+      report (importo verde), lista movimenti, CSV (riga "Entrata prevista", segno positivo)
+      e grafici (segmento grigio sopra la linea nel giornaliero, barra grigia nel mese con
+      conto sintetico); escluse da Top 3 categorie, saldi conto e grafico Andamento.
+- [x] **Test E2E + docs** (fatto, dati di test poi rimossi): creazione template entrata da UI
+      (switch Tipo, campi condizionali), prevista in "Movimenti previsti" (verde `+2.00K€`),
+      Analytics (Totale Entrate 2.00K, Saldo 2.00K, riga "Entrate previste", bucket nel
+      grafico mese/giornaliero, CSV "Entrata prevista"; saldi conto e Andamento **invariati**),
+      pannello rimborsi nel form di conferma (50.00€ (1 spesa)), conferma → `Cashflow` con
+      link e periodo `2026-09`, delete del cashflow → prevista che ritorna, **undo** dal
+      toast, `once` (form, nessuna modale sull'importo, periodo = data pianificata, non si
+      ripete), "Conferma tutte" mista (1 Expense + 1 Cashflow) e relativo undo, pagina
+      Ricorrenti con badge `entrata`/"Data pianificata", backup round-trip (`kind`, `isSalary`
+      e link sui cashflow preservati) e file v2 legacy senza `kind` → `expense`; `npm run
+      build` OK.
 
 ## 🐛 Bug da correggere
 

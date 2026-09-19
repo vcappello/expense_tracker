@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
-import { Account, Expense, ExpenseType, Cashflow, Movement, MovementFilters, RecurringExpense } from '../types';
+import { Account, Expense, ExpenseType, Cashflow, Movement, MovementFilters, RecurringExpense, RecurringKind } from '../types';
 import * as db from '../db/database';
 import { getDateRange, toDateTime } from '../utils/formatting';
-import { getPeriodKey } from '../utils/recurrence';
+import { getOccurrencePeriodKey } from '../utils/recurrence';
 import { initializeDefaultData } from '../utils/initialization';
 import { buildCoinSplitCashflows } from '../utils/coins';
 import { getReimbursableSummary as computeReimbursableSummary, ReimbursableSummary } from '../utils/reimbursements';
@@ -43,7 +43,7 @@ export interface ExpenseWithCoinsInput {
 }
 
 /**
- * Input for confirming an expected occurrence of a recurring expense: the user
+ * Input for confirming an expected occurrence of a recurring template: the user
  * can change the amount and the date/time (defaults: template amount, now).
  */
 export interface ConfirmRecurringInput {
@@ -51,6 +51,23 @@ export interface ConfirmRecurringInput {
   amount: number;
   date: Date;
   time: string;
+}
+
+/**
+ * Movement created by a recurring confirmation: an Expense for an expense
+ * template, a Cashflow for an income one (see spec.md → "Recurring /
+ * scheduled income"). The kind is needed by the undo, which must delete the
+ * right record type.
+ */
+export interface ConfirmedRecurringMovement {
+  kind: RecurringKind;
+  id: string;
+}
+
+/** The pending confirmation batch (used by the undo Toast). */
+export interface RecurringConfirmationBatch {
+  records: ConfirmedRecurringMovement[];
+  name: string;
 }
 
 /**
@@ -139,14 +156,16 @@ interface AppContextType {
     recurring: RecurringExpense
   ) => Promise<RecurringExpense>;
   deleteRecurringExpense: (id: string) => Promise<void>;
-  confirmRecurringOccurrence: (input: ConfirmRecurringInput) => Promise<Expense>;
+  confirmRecurringOccurrence: (
+    input: ConfirmRecurringInput
+  ) => Promise<ConfirmedRecurringMovement>;
   /** Confirm several occurrences at once ("Conferma tutte"); undoable as a group */
   confirmRecurringOccurrences: (
     inputs: ConfirmRecurringInput[]
-  ) => Promise<Expense[]>;
+  ) => Promise<ConfirmedRecurringMovement[]>;
   skipRecurringOccurrence: (recurringId: string) => Promise<void>;
   // Last recurring confirmation (used by the Main view undo Toast)
-  lastRecurringConfirmation: { expenseIds: string[]; name: string } | null;
+  lastRecurringConfirmation: RecurringConfirmationBatch | null;
   undoLastRecurringConfirmation: () => Promise<void>;
   clearLastRecurringConfirmation: () => void;
 
@@ -172,10 +191,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [cashflows, setCashflows] = useState<Cashflow[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
-  const [lastRecurringConfirmation, setLastRecurringConfirmation] = useState<{
-    expenseIds: string[];
-    name: string;
-  } | null>(null);
+  const [lastRecurringConfirmation, setLastRecurringConfirmation] =
+    useState<RecurringConfirmationBatch | null>(null);
   // Number of async loads in flight. `isLoading` must stay true until they ALL
   // finish: with a single boolean the first load that ended (e.g. accounts)
   // cleared the flag while the movements were still loading, so the views
@@ -566,8 +583,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const deleteCashflow = useCallback(async (id: string) => {
     try {
       clearError();
+      const current = await db.getCashflow(id);
       await db.deleteCashflow(id);
       setCashflows((prev) => prev.filter((cf) => cf.id !== id));
+      // An income created by a recurring confirmation keeps its template in
+      // sync: deleting it un-consumes the period, so the expected occurrence is
+      // proposed again (same behaviour as deleteExpense for the expenses).
+      if (current?.recurringId && current.recurringPeriod) {
+        const template = await db.getRecurringExpense(current.recurringId);
+        if (
+          template &&
+          template.lastConfirmedPeriod === current.recurringPeriod
+        ) {
+          const updatedTemplate: RecurringExpense = {
+            ...template,
+            lastConfirmedPeriod: null,
+            lastConfirmedExpenseId: null,
+            updatedAt: new Date(),
+          };
+          await db.updateRecurringExpense(updatedTemplate);
+          setRecurringExpenses((prev) =>
+            prev.map((r) => (r.id === updatedTemplate.id ? updatedTemplate : r))
+          );
+        }
+      }
     } catch (err) {
       throw err;
     }
@@ -763,13 +802,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       clearError();
       await db.deleteRecurringExpense(id);
       setRecurringExpenses((prev) => prev.filter((r) => r.id !== id));
-      // The Expenses already created from the template are kept but lose the
-      // recurring link (they become normal expenses).
+      // The records already created from the template are kept but lose the
+      // recurring link (they become normal movements): both the expenses and
+      // the cashflows (an income template creates Cashflow records).
       setExpenses((prev) =>
         prev.map((e) =>
           e.recurringId === id
             ? { ...e, recurringId: null, recurringPeriod: null }
             : e
+        )
+      );
+      setCashflows((prev) =>
+        prev.map((c) =>
+          c.recurringId === id
+            ? { ...c, recurringId: null, recurringPeriod: null }
+            : c
         )
       );
     } catch (err) {
@@ -779,12 +826,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   /**
    * Shared implementation of the single and bulk confirmations: creates the
-   * Expense for each input and marks the period as consumed.
+   * record for each input (an Expense for an expense template, a Cashflow for
+   * an income template) and marks the period as consumed.
    */
   const confirmMany = useCallback(
-    async (inputs: ConfirmRecurringInput[]): Promise<Expense[]> => {
+    async (inputs: ConfirmRecurringInput[]): Promise<ConfirmedRecurringMovement[]> => {
       clearError();
-      const created: Expense[] = [];
+      const createdRecords: ConfirmedRecurringMovement[] = [];
+      const createdExpenses: Expense[] = [];
+      const createdCashflows: Cashflow[] = [];
       const updatedTemplates: RecurringExpense[] = [];
 
       for (const input of inputs) {
@@ -792,80 +842,114 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (!template) continue;
 
         const now = new Date();
-        const periodKey = getPeriodKey(template.frequency, now);
-        const expense: Expense = {
-          id: uuidv4(),
-          date: input.date,
-          time: input.time,
-          amount: input.amount,
-          expenseTypeId: template.expenseTypeId,
-          accountId: template.accountId,
-          routingPairId: null,
-          notes: template.notes,
-          location: template.location,
-          reimbursable: template.reimbursable,
-          recurringId: template.id,
-          recurringPeriod: periodKey,
-          createdAt: now,
-          updatedAt: now,
-        };
-        await db.createExpense(expense);
+        // The period key comes from the due date, so a `once` occurrence
+        // consumes its planned date and not the day of the confirmation.
+        const periodKey = getOccurrencePeriodKey(template, now);
+        let createdId: string;
+
+        if (template.kind === 'income') {
+          const cashflow: Cashflow = {
+            id: uuidv4(),
+            date: input.date,
+            time: input.time,
+            amount: input.amount,
+            accountId: template.accountId,
+            routingAccountId: null,
+            routingPairId: null,
+            isSalary: template.isSalary,
+            recurringId: template.id,
+            recurringPeriod: periodKey,
+            createdAt: now,
+            updatedAt: now,
+          };
+          await db.createCashflow(cashflow);
+          createdCashflows.push(cashflow);
+          createdId = cashflow.id;
+        } else {
+          const expense: Expense = {
+            id: uuidv4(),
+            date: input.date,
+            time: input.time,
+            amount: input.amount,
+            expenseTypeId: template.expenseTypeId,
+            accountId: template.accountId,
+            routingPairId: null,
+            notes: template.notes,
+            location: template.location,
+            reimbursable: template.reimbursable,
+            recurringId: template.id,
+            recurringPeriod: periodKey,
+            createdAt: now,
+            updatedAt: now,
+          };
+          await db.createExpense(expense);
+          createdExpenses.push(expense);
+          createdId = expense.id;
+        }
 
         const updatedTemplate: RecurringExpense = {
           ...template,
           lastConfirmedPeriod: periodKey,
-          lastConfirmedExpenseId: expense.id,
+          lastConfirmedExpenseId: createdId,
           skippedPeriod:
             template.skippedPeriod === periodKey ? null : template.skippedPeriod,
           updatedAt: now,
         };
         await db.updateRecurringExpense(updatedTemplate);
 
-        created.push(expense);
+        createdRecords.push({
+          kind: template.kind,
+          id: createdId,
+        });
         updatedTemplates.push(updatedTemplate);
       }
 
-      if (created.length > 0) {
-        setExpenses((prev) => [...prev, ...created]);
+      if (createdRecords.length > 0) {
+        if (createdExpenses.length > 0) {
+          setExpenses((prev) => [...prev, ...createdExpenses]);
+        }
+        if (createdCashflows.length > 0) {
+          setCashflows((prev) => [...prev, ...createdCashflows]);
+        }
         setRecurringExpenses((prev) =>
           prev.map((r) => updatedTemplates.find((u) => u.id === r.id) ?? r)
         );
         setLastRecurringConfirmation({
-          expenseIds: created.map((e) => e.id),
-          name: created.length === 1 ? updatedTemplates[0].name : '',
+          records: createdRecords,
+          name: createdRecords.length === 1 ? updatedTemplates[0].name : '',
         });
       }
-      return created;
+      return createdRecords;
     },
     []
   );
 
   /**
-   * Confirm an expected occurrence: creates the Expense (dated at the
-   * confirmation date/time, with the template category/account and the
-   * `recurringId`/`recurringPeriod` link) and marks the period as consumed, so
+   * Confirm an expected occurrence: creates an Expense (expense template) or a
+   * Cashflow (income template) dated at the confirmation date/time, with the
+   * `recurringId`/`recurringPeriod` link, and marks the period as consumed, so
    * the same occurrence cannot be confirmed twice.
    */
   const confirmRecurringOccurrence = useCallback(
-    async (input: ConfirmRecurringInput): Promise<Expense> => {
-      const [expense] = await confirmMany([input]);
-      return expense;
+    async (input: ConfirmRecurringInput): Promise<ConfirmedRecurringMovement> => {
+      const [created] = await confirmMany([input]);
+      return created;
     },
     [confirmMany]
   );
 
   /**
-   * Confirm several occurrences at once ("Conferma tutte"): the created
-   * Expenses are tracked together, so the undo Toast removes them all.
+   * Confirm several occurrences at once ("Conferma tutte", both kinds): the
+   * created records are tracked together, so the undo Toast removes them all.
    */
   const confirmRecurringOccurrences = useCallback(
-    async (inputs: ConfirmRecurringInput[]): Promise<Expense[]> =>
+    async (inputs: ConfirmRecurringInput[]): Promise<ConfirmedRecurringMovement[]> =>
       confirmMany(inputs),
     [confirmMany]
   );
 
   /**
-   * Skip the current period of a template: no Expense is created and the
+   * Skip the current period of a template: no movement is created and the
    * template proposes the occurrence again in the next period.
    */
   const skipRecurringOccurrence = useCallback(async (recurringId: string) => {
@@ -874,7 +958,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!template) return;
     const updated: RecurringExpense = {
       ...template,
-      skippedPeriod: getPeriodKey(template.frequency, new Date()),
+      skippedPeriod: getOccurrencePeriodKey(template, new Date()),
       updatedAt: new Date(),
     };
     await db.updateRecurringExpense(updated);
@@ -889,11 +973,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const undoLastRecurringConfirmation = useCallback(async () => {
     if (!lastRecurringConfirmation) return;
-    for (const expenseId of lastRecurringConfirmation.expenseIds) {
-      await deleteExpense(expenseId);
+    for (const record of lastRecurringConfirmation.records) {
+      if (record.kind === 'income') await deleteCashflow(record.id);
+      else await deleteExpense(record.id);
     }
     setLastRecurringConfirmation(null);
-  }, [lastRecurringConfirmation, deleteExpense]);
+  }, [lastRecurringConfirmation, deleteExpense, deleteCashflow]);
 
   // ============ MOVEMENTS ============
   const loadMovements = useCallback(

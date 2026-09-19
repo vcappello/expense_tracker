@@ -129,11 +129,13 @@ const normalizeExpense = (e: Expense): Expense => ({
  */
 const normalizeRecurringExpense = (r: RecurringExpense): RecurringExpense => ({
   ...r,
+  kind: r.kind === 'income' ? 'income' : 'expense',
   amount: typeof r.amount === 'number' ? r.amount : 0,
   active: r.active !== false,
   notes: r.notes ?? '',
   location: r.location ?? '',
   reimbursable: r.reimbursable === true,
+  isSalary: r.isSalary === true,
   lastConfirmedPeriod: r.lastConfirmedPeriod ?? null,
   lastConfirmedExpenseId: r.lastConfirmedExpenseId ?? null,
   skippedPeriod: r.skippedPeriod ?? null,
@@ -148,6 +150,8 @@ const normalizeCashflow = (c: Cashflow): Cashflow => ({
   ...c,
   routingPairId: c.routingPairId ?? null,
   isSalary: c.isSalary === true,
+  recurringId: c.recurringId ?? null,
+  recurringPeriod: c.recurringPeriod ?? null,
 });
 
 // ============ ACCOUNT OPERATIONS ============
@@ -626,6 +630,11 @@ export const updateRecurringExpense = async (
  * deleted: the Expenses already created are kept and become normal expenses.
  * Runs in the same transaction of the delete when possible.
  */
+/**
+ * Clear the recurring link (`recurringId`/`recurringPeriod`) of every record of
+ * the store created by the given template. Works on both the expenses and the
+ * cashflows store (an income template creates Cashflow records).
+ */
 const clearRecurringLinksInStore = (
   store: IDBObjectStore,
   templateId: string
@@ -634,23 +643,24 @@ const clearRecurringLinksInStore = (
   request.onsuccess = () => {
     const cursor = request.result;
     if (!cursor) return;
-    const expense = cursor.value as Expense;
-    if (expense.recurringId === templateId) {
-      cursor.update({ ...expense, recurringId: null, recurringPeriod: null });
+    const record = cursor.value as Expense | Cashflow;
+    if (record.recurringId === templateId) {
+      cursor.update({ ...record, recurringId: null, recurringPeriod: null });
     }
     cursor.continue();
   };
 };
 
 /**
- * Delete a recurring template. The Expenses already created from it are kept
- * but their recurring link is cleared (they become normal expenses).
+ * Delete a recurring template. The records already created from it (Expense for
+ * an expense template, Cashflow for an income one) are kept but their recurring
+ * link is cleared (they become normal movements).
  */
 export const deleteRecurringExpense = async (id: string): Promise<void> => {
   const database = await initDB();
   return new Promise((resolve, reject) => {
     const transaction = database.transaction(
-      [STORES.RECURRING_EXPENSES, STORES.EXPENSES],
+      [STORES.RECURRING_EXPENSES, STORES.EXPENSES, STORES.CASHFLOWS],
       'readwrite'
     );
 
@@ -658,18 +668,16 @@ export const deleteRecurringExpense = async (id: string): Promise<void> => {
     transaction.onerror = () => reject(transaction.error);
     transaction.onabort = () => reject(transaction.error);
 
-    clearRecurringLinksInStore(
-      transaction.objectStore(STORES.EXPENSES),
-      id
-    );
+    clearRecurringLinksInStore(transaction.objectStore(STORES.EXPENSES), id);
+    clearRecurringLinksInStore(transaction.objectStore(STORES.CASHFLOWS), id);
     transaction.objectStore(STORES.RECURRING_EXPENSES).delete(id);
   });
 };
 
 /**
  * Delete all the recurring templates of a given Account / ExpenseType, clearing
- * the recurring link of the Expenses already created from them. Used by the
- * delete cascades (Account / ExpenseType management).
+ * the recurring link of the records already created from them (expenses and
+ * cashflows). Used by the delete cascades (Account / ExpenseType management).
  */
 const deleteRecurringByIndex = async (
   indexName: string,
@@ -678,7 +686,7 @@ const deleteRecurringByIndex = async (
   const database = await initDB();
   return new Promise((resolve, reject) => {
     const transaction = database.transaction(
-      [STORES.RECURRING_EXPENSES, STORES.EXPENSES],
+      [STORES.RECURRING_EXPENSES, STORES.EXPENSES, STORES.CASHFLOWS],
       'readwrite'
     );
 
@@ -687,6 +695,7 @@ const deleteRecurringByIndex = async (
     transaction.onabort = () => reject(transaction.error);
 
     const expenseStore = transaction.objectStore(STORES.EXPENSES);
+    const cashflowStore = transaction.objectStore(STORES.CASHFLOWS);
     const index = transaction
       .objectStore(STORES.RECURRING_EXPENSES)
       .index(indexName);
@@ -698,6 +707,7 @@ const deleteRecurringByIndex = async (
       if (!cursor) return;
       const recurringId = cursor.value.id as string;
       clearRecurringLinksInStore(expenseStore, recurringId);
+      clearRecurringLinksInStore(cashflowStore, recurringId);
       cursor.delete();
       cursor.continue();
     };

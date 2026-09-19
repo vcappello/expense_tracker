@@ -248,9 +248,18 @@
   color: #bae6fd;
 }
 
-/* The expected amount is not a real movement yet: shown in grey */
+/* The expected amount is not a real movement yet: shown in grey (green for the
+   expected incomes, mirroring the real movements of the same kind) */
 .amount.expected {
   color: #94a3b8;
+}
+
+.amount.expected.income {
+  color: #4ade80;
+}
+
+.expected-item.income {
+  background: rgba(34, 197, 94, 0.06);
 }
 
 .loading-state,
