@@ -11,7 +11,13 @@
 - **Specifiche**: vedi `spec.md` (da aggiornare con ogni nuova feature).
 - **Piano attività**: vedi `plan.md` (step completati = marcati, mai cancellati).
 - **Convenzioni complete**: vedi `.copilot-instructions.md` (file di riferimento principale).
-- **⚠️ GIT + DEPLOY SEMPRE ATTIVI (cruciale)**: il progetto è su **GitHub** (remote `origin` = https://github.com/vcappello/expense_tracker.git, branch `main`) ed è **pubblicato su GitHub Pages** (https://vcappello.github.io/expense_tracker/, HTTPS, deploy automatico via `.github/workflows/deploy.yml` a ogni push su `main`; nome repo = `expense_tracker` con underscore, NON `expense-tracker-ai`). Dopo OGNI modifica rilevante: verificare `npm run build`, poi `git add -A && git commit -m "..." && git push` → il sito live si aggiorna da solo. Mai trattare il progetto come solo-locale.
+- **⚠️ GIT + DEPLOY SEMPRE ATTIVI (cruciale)**: il progetto è su **GitHub** (remote `origin` = https://github.com/vcappello/expense_tracker.git, branch `main`) ed è **pubblicato su GitHub Pages** (https://vcappello.github.io/expense_tracker/, HTTPS, deploy automatico via `.github/workflows/deploy.yml` a ogni push su `main`; nome repo = `expense_tracker` con underscore, NON `expense-tracker-ai`). Mai trattare il progetto come solo-locale.
+- **✋ REGOLA PUSH — CHIEDERE SEMPRE CONFERMA (dal 19/09/2026)**: **fermarsi prima del `git push` e chiedere esplicitamente il via libera all'utente.** Motivo: il push fa partire GitHub Actions che pubblica subito la nuova versione sul sito live, e l'utente vuole prima poterla provare sul server di sviluppo. Flusso corretto:
+  1. `npm run build` (verifica);
+  2. `git add -A && git commit -m "..."` → **commit locale, si può fare senza chiedere** (resta reversibile);
+  3. **CHIEDERE CONFERMA** all'utente (mostrando cosa è stato committato e cosa manca da pushare);
+  4. solo dopo il suo OK: `git push origin main`, poi verificare il deploy (`curl -s https://api.github.com/repos/vcappello/expense_tracker/actions/runs` per lo stato del workflow e `curl -s -o /dev/null -w "%{http_code}" https://vcappello.github.io/expense_tracker/` per il sito live).
+  Non fare MAI il push in autonomia, nemmeno a fine sessione o su modifiche "banali" (docs inclusi).
 
 ## Comandi
 - Avvio dev server: `npm run dev` (serve **terminale unsandboxed** per ascoltare su rete).

@@ -5,6 +5,8 @@
 > Ogni nuova feature o correzione di bug va aggiunta qui.
 > Sezioni: **✅ Completati** (riepilogo + 🗂️ dettaglio degli step) · **⏳ Da fare** ·
 > **🐛 Bug da correggere** · **👀 Osservazioni** (limiti noti) · **🔮 Prossime release**.
+> ⚠️ **Pubblicazione**: `npm run build` → commit locale → **chiedere conferma all'utente** →
+> `git push` (il push pubblica subito su GitHub Pages, vedi `AGENTS.md`).
 
 ## ✅ Completati
 
@@ -617,6 +619,8 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 > I prossimi lavori candidati sono in **🔮 Prossime release**.
 > Le nuove richieste vanno pianificate qui come blocchi di step `[ ]` prima di essere
 > implementate, poi marcate `[x]` e riepilogate in ✅ Completati.
+> ⚠️ **Prima del `git push` chiedere sempre conferma all'utente**: il push fa partire il
+> deploy automatico su GitHub Pages e pubblica subito la nuova versione.
 
 ## 🐛 Bug da correggere
 
