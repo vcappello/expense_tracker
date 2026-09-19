@@ -172,6 +172,23 @@
   `MovementsChart`/`MonthBreakdownChart`), con data = **scadenza**, filtro Conto applicato e
   filtro Categoria non applicato; **mai** nei saldi conto. Le pagine che le mostrano devono
   chiamare `loadRecurringExpenses()` nel mount (Main view, Analytics, pagina Ricorrenze).
+- **Grafico "Andamento del saldo" (Analytics, switch a 3 viste)**: vista `Andamento` con
+  `src/components/BalanceTrendChart.tsx` (SVG a linee, classi CSS `trend-*`). Il **saldo di
+  apertura** = `initialBalance` dei conti in scope + TUTTI i movimenti precedenti al periodo
+  (formula di Gestione Conti `initialBalance + cashflows − expenses`: gli importi spesa sono
+  positivi e vanno sottratti); usa i `movements` completi, quindi controparti dei routing ed
+  entrata interna del coin split, così l'ultimo punto = saldo reale dei conti. **Periodo
+  effettivo** = `max(inizio range, primo movimento)` → `min(fine range, oggi)` (esteso se
+  esiste un movimento futuro dentro il range): ⚠️ per la fine il clamp va fatto con i
+  movimenti **dentro il periodo** — usando l'ultimo movimento globale "Mese scorso" si
+  estendeva fino a settembre. Filtro Categoria = applicato alle **sole spese** (i cashflow
+  non hanno categoria); spese previste **escluse** (non muovono denaro); nessun movimento nel
+  periodo → empty state. Tooltip con `onPointerMove`/`onPointerDown` sull'intero SVG
+  (funziona anche al tocco) e classi `left`/`right` per non uscire dal viewport.
+- **Grafici Analytics: come sono scelti**: `isMonthView` → `MonthBreakdownChart` (barre per
+  conto/categoria); gli altri periodi → `MovementsChart` (giornaliero impilato); la vista
+  `Andamento` è indipendente dal periodo (`BalanceTrendChart`). I tre stati sono in
+  `AnalyticsPage` (`view: 'report' | 'grafico' | 'andamento'`).
 
 ## Limiti noti (non bloccanti)
 - **Main view al primo load freddo**: a volte il filtro "This month" appare vuoto subito dopo il caricamento della pagina (comportamento transitorio legato a IndexedDB); cliccando un qualsiasi filtro i dati compaiono. Rivedere il timing di lettura se si ripresenta. (Non riproducibile in modo stabile il 12/09/2026: 5 reload consecutivi con dati corretti.)

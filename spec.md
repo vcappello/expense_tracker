@@ -517,9 +517,11 @@ Goal: see at a glance whether the balance is growing or shrinking (the other cha
 the movements, not the balance).
 
 **Effective period.** The X axis covers one point per calendar day from
-`max(range start, first movement date)` to `min(range end, today)`. This avoids thousands
-of empty points when "Tutto il periodo" is selected (the raw range is 1970–2099) and avoids
-drawing future days for the current month/year.
+`max(range start, first movement date)` to `min(range end, today)`, extended to the last
+day with a movement when that movement is future-dated and inside the range. This avoids
+thousands of empty points when "Tutto il periodo" is selected (the raw range is 1970–2099)
+and avoids drawing future days for the current month/year. When the selected period contains
+no movement, the view shows the usual "Nessun movimento nel periodo selezionato" empty state.
 
 **Opening balance** (the value the line starts from, before the first day of the period):
 the sum of the `initialBalance` of the accounts in scope plus **all the movements before

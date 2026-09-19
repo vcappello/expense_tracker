@@ -218,6 +218,79 @@
   font-weight: 600;
 }
 
+/* Balance trend chart ("Andamento") */
+.trend-wrap {
+  position: relative;
+}
+
+.trend-legend-muted {
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.chart-grid {
+  stroke: rgba(148, 163, 184, 0.15);
+  stroke-width: 1;
+}
+
+.trend-line {
+  fill: none;
+  stroke: #3b82f6;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.trend-dot {
+  fill: #3b82f6;
+}
+
+.trend-dot-hover {
+  fill: #e5eefb;
+  stroke: #3b82f6;
+  stroke-width: 2;
+}
+
+.trend-tooltip {
+  position: absolute;
+  top: 4px;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: #e5eefb;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.trend-tooltip.left {
+  transform: translateX(0);
+}
+
+.trend-tooltip.right {
+  transform: translateX(-100%);
+}
+
+.trend-tooltip-date {
+  color: #94a3b8;
+}
+
+.trend-tooltip-balance {
+  font-weight: 600;
+}
+
+.trend-tooltip-delta.up {
+  color: #22c55e;
+}
+
+.trend-tooltip-delta.down {
+  color: #ef4444;
+}
+
 /* Summary Section */
 .summary-section {
   margin-bottom: 32px;

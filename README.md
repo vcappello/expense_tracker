@@ -57,6 +57,7 @@ online fai **Ripristina backup**. Da quel momento i dati restano nel browser usa
 - **Spese ricorrenti** (giornaliere, settimanali, mensili, annuali): vengono proposte come **"Spese previste"** nella Main view finché non confermate (all'occorrenza con importo e data/ora modificati); nella pagina **Ricorrenti** (menu Azioni) si creano, modificano, mettono in pausa o si interrompono
 - Gestione **Conti** e **Categorie** (anche gerarchiche) con eliminazione in cascata; creazione/modifica in **pagine dedicate**
 - **Analisi** con riepilogo (totale spese/entrate, saldo, media, top categorie) e **esportazione CSV** (formato Excel italiano)
+- **Grafici** in Analisi: **Report**, **Grafico** (barre per giorno o per categoria/conto) e **Andamento** (linea del saldo cumulativo giorno per giorno, con saldo di partenza reale)
 - Filtri per periodo (mese, anno, tutto), importi abbreviati (K/M)
 - Movimenti con pulsanti modifica/elimina sempre visibili
 - Dati salvati localmente nel browser (IndexedDB)

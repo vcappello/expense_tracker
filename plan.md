@@ -219,6 +219,24 @@
       mount). Verificato in browser con reload diretto sulle tre pagine (dati 2025 +
       2026) e con Back da Analytics → Main view; build OK. Bonus: "Ultimo movimento" in
       Gestione Conti ora ordina per **data + ora** (`toDateTime`), non solo per data.
+- [x] **Grafico "Andamento del saldo" a linee in Analytics** (19/09/2026): terza vista dello
+      switch di Analisi (`📋 Report` / `📊 Grafico` / `📈 Andamento`) con un grafico a linee
+      (nuovo `src/components/BalanceTrendChart.tsx`, SVG senza dipendenze) che mostra
+      l'**andamento del saldo**: asse X = giorni del periodo, asse Y = saldo cumulativo a fine
+      giornata. Il saldo di partenza è **reale** (`initialBalance` dei conti in scope + tutti i
+      movimenti precedenti al periodo, formula di Gestione Conti
+      `initialBalance + cashflows − expenses`), quindi **l'ultimo punto coincide con il saldo
+      dei conti**; i delta giornalieri sono raggruppati in una `Map` e l'asse è limitato al
+      periodo effettivo (`max(inizio, primo movimento)` → `min(fine, oggi)`) per non generare
+      migliaia di punti su "Tutto il periodo" (range grezzo 1970–2099). Filtri applicati al
+      saldo (Conto = conti in scope; Categoria = solo le spese di quelle categorie, i cashflow
+      non hanno categoria); **spese previste escluse**. Tooltip (data, saldo, variazione
+      giornaliera) via pointer events sull'intero SVG, con aggancio ai bordi per non uscire
+      dallo schermo; punti visibili solo per periodi ≤ 31 giorni; linea tratteggiata sullo
+      zero. Verificato E2E in browser (mese corrente/mese scorso/anno/tutto, filtro conto
+      singolo con saldi esatti −45.50€/1.64K€ coerenti con Gestione Conti, filtro categoria,
+      empty state, nessun overflow a 390px, report e grafici esistenti invariati); build OK.
+      `spec.md` aggiornata (sezione "Andamento (balance trend)").
 
 ## 🔄 In corso / Prossimi
 
@@ -334,7 +352,7 @@
 > implementata nella stessa sessione — vedi il blocco qui sotto (step tutti [x]) e la voce
 > in ✅ Completati.
 
-### Grafico "Andamento del saldo" (a linee) — pianificata il 19/09/2026
+### Grafico "Andamento del saldo" (a linee) — implementata il 19/09/2026
 
 > Richiesta utente (19/09/2026): nell'Analisi il grafico "principale" deve essere a
 > **linee**, con sull'asse X i **giorni del periodo** e sull'asse Y il **saldo del giorno**,
@@ -355,34 +373,45 @@
 - [x] **Spec** (fatto il 19/09/2026): `spec.md` con la nuova sottosezione
       "Andamento (balance trend)" (periodo effettivo, saldo di apertura, filtri, esclusioni,
       rendering) e switch Analytics aggiornato a tre pulsanti.
-- [ ] **Nuovo componente `BalanceTrendChart`**: grafico a linee SVG (zero dipendenze, stile
-      coerente con gli altri grafici: `.chart-section` e palette in `AnalyticsPage.css`,
-      classi con prefisso dedicato per evitare collisioni). Linea unica + punto visibile per
-      ogni giorno quando il periodo ha ≤ 31 giorni (per periodi più lunghi solo la linea, con
-      target invisibili per il tooltip), linea tratteggiata sullo zero se il saldo cambia
-      segno, asse Y con min/max + padding ed etichette *abbreviate*, etichette X diradate
-      (~6 tick), tooltip per giorno con data, saldo e variazione giornaliera.
-- [ ] **Calcolo dati in `AnalyticsPage`** (`useMemo`): periodo effettivo
-      `max(inizio range, primo movimento)` → `min(fine range, oggi)` (evita 1970–2099 su
-      "Tutto il periodo" e i giorni futuri su mese/anno corrente); **saldo di apertura** =
-      `initialBalance` dei conti in scope + movimenti precedenti all'inizio (usa `movements`
-      completo, quindi anche controparti dei routing ed entrata interna del coin split, come
-      Gestione Conti); un punto per ogni giorno del periodo (anche senza movimenti = tratto
-      piatto); spese previste **escluse**; filtro Categoria applicato alle sole spese.
-- [ ] **Switch a tre viste**: stato `view: 'report' | 'grafico' | 'andamento'` e terzo
+- [x] **Nuovo componente `BalanceTrendChart`** (fatto): grafico a linee SVG (zero dipendenze,
+      stile coerente con gli altri grafici: `.chart-section` e palette in `AnalyticsPage.css`,
+      classi con prefisso `trend-*` per evitare collisioni). Linea unica + punto visibile per
+      ogni giorno quando il periodo ha ≤ 31 giorni (per periodi più lunghi solo la linea),
+      griglia orizzontale con 3 etichette Y *abbreviate*, linea tratteggiata sullo zero se il
+      saldo cambia segno, etichette X diradate (~6 tick), tooltip HTML posizionato con
+      `onPointerMove`/`onPointerDown` sull'intero SVG (funziona anche al tocco) con data,
+      saldo e variazione giornaliera; il tooltip si aggancia ai bordi (`left`/`right`) per non
+      uscire dallo schermo su smartphone.
+- [x] **Calcolo dati in `AnalyticsPage`** (fatto): periodo effettivo
+      `max(inizio range, primo movimento)` → `min(fine range, oggi)` (esteso all'ultimo giorno
+      con movimento se è futuro e dentro il range); **saldo di apertura** = `initialBalance`
+      dei conti in scope + movimenti precedenti all'inizio (usa `movements` completo, quindi
+      anche controparti dei routing ed entrata interna del coin split, come Gestione Conti);
+      delta giornalieri raggruppati in una `Map` (loop giorni O(giorni), non O(giorni×movimenti));
+      un punto per ogni giorno del periodo (anche senza movimenti = tratto piatto); spese
+      previste **escluse**; filtro Categoria applicato alle sole spese (i cashflow non hanno
+      categoria); nessun movimento nel periodo → empty state.
+- [x] **Switch a tre viste** (fatto): stato `view: 'report' | 'grafico' | 'andamento'` e terzo
       pulsante `📈 Andamento` nella `TitleBar` di Analytics; quando è attivo si mostra il
       nuovo componente (indipendente dal periodo, quindi né `MonthBreakdownChart` né
-      `MovementsChart`); empty state invariato.
-- [ ] **Verifica E2E nel browser** (dev :5173): mese corrente con spese/entrate (linea che
-      parte dal saldo reale e sale/scende), coerenza ultimo punto = saldo in Gestione Conti,
-      "Mese scorso", "Quest'anno" (365 punti con etichette diradate), "Tutto il periodo"
-      (inizio dal primo movimento, non 1970), filtro Conto singolo con routing (controparte
-      correttamente esclusa/inclusa), filtro Categoria (solo spese di quelle categorie),
-      periodo senza movimenti (empty state), spese previste presenti nel Report ma assenti
-      dalla linea; `npm run build` OK.
-- [ ] **Docs + commit**: `plan.md` (step [x] + voce in ✅ Completati), `AGENTS.md`
-      (formula del saldo di apertura + clamp del periodo effettivo), memoria; poi
-      `git add -A && git commit && git push` (il sito live si aggiorna da solo).
+      `MovementsChart`); i due grafici esistenti invariati.
+- [x] **Verifica E2E nel browser** (fatto, dev :5173, dati di test poi rimossi):
+      "Questo mese" 19 punti (01/09→19/09, apertura 1470.00€, ultimo punto 1594.50€ =
+      saldo totale in Gestione Conti, tooltip giorno per giorno corretti: 03/09 1.45K,
+      05/09 1.65K, 10/09 1.63K, 18/09 1.59K); filtro Conto = Cash → apertura −30.00€ e
+      ultimo saldo **−45.50€** = saldo Cash in Gestione Conti (valori esatti, la
+      verifica incrociata con i saldi conto torna); "Mese scorso" 31 punti 01/08→31/08 con
+      apertura 1.00K (bug trovato e corretto durante il test: l'asse si estendeva fino a
+      settembre perché il clamp usava l'ultimo movimento *globale*, non quello del periodo);
+      "Quest'anno" e "Tutto il periodo" 81 punti con inizio 01/07 (primo movimento, **non**
+      1970); filtro Categoria = Dinner → ultimo saldo 1.63K (solo le spese Dinner,
+      cashflow inclusi); combinazione Conto=Cash + Categoria=Dinner su mese corrente →
+      empty state; viste Report (4 card, 7 righe) e Grafico (barre mese/anno) invariate;
+      nessun overflow a 390px e tooltip dentro il viewport; nessun errore in console;
+      `npm run build` OK.
+- [x] **Docs + commit** (fatto): `plan.md` (step [x] + voce in ✅ Completati), `spec.md`
+      (sezione "Andamento (balance trend)"), `AGENTS.md` (formula del saldo di apertura +
+      clamp del periodo effettivo + filtro Categoria), memoria di sessione.
 
 ### Spese ricorrenti (recurring expenses) — implementata il 12/09/2026
 
