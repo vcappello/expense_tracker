@@ -333,6 +333,57 @@
 > **Chiusa (12/09/2026)**: la feature **Spese ricorrenti** è stata pianificata e
 > implementata nella stessa sessione — vedi il blocco qui sotto (step tutti [x]) e la voce
 > in ✅ Completati.
+
+### Grafico "Andamento del saldo" (a linee) — pianificata il 19/09/2026
+
+> Richiesta utente (19/09/2026): nell'Analisi il grafico "principale" deve essere a
+> **linee**, con sull'asse X i **giorni del periodo** e sull'asse Y il **saldo del giorno**,
+> per vedere l'andamento del saldo.
+> Decisioni raccolte in pianificazione:
+> - **saldo cumulativo progressivo** (non il netto del singolo giorno): la linea parte dal
+>   saldo reale dei conti a inizio periodo e si aggiorna giorno per giorno;
+> - **saldo di partenza reale** = `initialBalance` dei conti in scope + TUTTI i movimenti
+>   precedenti al periodo (stessa formula di "Gestione Conti":
+>   `initialBalance + cashflows − expenses`), così l'ultimo punto = saldo reale dei conti;
+> - **terzo pulsante nello switch** `📋 Report` / `📊 Grafico` / `📈 Andamento`: i due grafici
+>   attuali restano invariati;
+> - **tutti i periodi**, asse X sempre a giorni; **filtri applicati al saldo** (Conto = conti
+>   in scope con le loro giacenze; Categoria = solo le spese di quelle categorie);
+> - **spese previste (ricorrenti) escluse** dalla linea: non muovono denaro, coerenza coi
+>   saldi conto.
+
+- [x] **Spec** (fatto il 19/09/2026): `spec.md` con la nuova sottosezione
+      "Andamento (balance trend)" (periodo effettivo, saldo di apertura, filtri, esclusioni,
+      rendering) e switch Analytics aggiornato a tre pulsanti.
+- [ ] **Nuovo componente `BalanceTrendChart`**: grafico a linee SVG (zero dipendenze, stile
+      coerente con gli altri grafici: `.chart-section` e palette in `AnalyticsPage.css`,
+      classi con prefisso dedicato per evitare collisioni). Linea unica + punto visibile per
+      ogni giorno quando il periodo ha ≤ 31 giorni (per periodi più lunghi solo la linea, con
+      target invisibili per il tooltip), linea tratteggiata sullo zero se il saldo cambia
+      segno, asse Y con min/max + padding ed etichette *abbreviate*, etichette X diradate
+      (~6 tick), tooltip per giorno con data, saldo e variazione giornaliera.
+- [ ] **Calcolo dati in `AnalyticsPage`** (`useMemo`): periodo effettivo
+      `max(inizio range, primo movimento)` → `min(fine range, oggi)` (evita 1970–2099 su
+      "Tutto il periodo" e i giorni futuri su mese/anno corrente); **saldo di apertura** =
+      `initialBalance` dei conti in scope + movimenti precedenti all'inizio (usa `movements`
+      completo, quindi anche controparti dei routing ed entrata interna del coin split, come
+      Gestione Conti); un punto per ogni giorno del periodo (anche senza movimenti = tratto
+      piatto); spese previste **escluse**; filtro Categoria applicato alle sole spese.
+- [ ] **Switch a tre viste**: stato `view: 'report' | 'grafico' | 'andamento'` e terzo
+      pulsante `📈 Andamento` nella `TitleBar` di Analytics; quando è attivo si mostra il
+      nuovo componente (indipendente dal periodo, quindi né `MonthBreakdownChart` né
+      `MovementsChart`); empty state invariato.
+- [ ] **Verifica E2E nel browser** (dev :5173): mese corrente con spese/entrate (linea che
+      parte dal saldo reale e sale/scende), coerenza ultimo punto = saldo in Gestione Conti,
+      "Mese scorso", "Quest'anno" (365 punti con etichette diradate), "Tutto il periodo"
+      (inizio dal primo movimento, non 1970), filtro Conto singolo con routing (controparte
+      correttamente esclusa/inclusa), filtro Categoria (solo spese di quelle categorie),
+      periodo senza movimenti (empty state), spese previste presenti nel Report ma assenti
+      dalla linea; `npm run build` OK.
+- [ ] **Docs + commit**: `plan.md` (step [x] + voce in ✅ Completati), `AGENTS.md`
+      (formula del saldo di apertura + clamp del periodo effettivo), memoria; poi
+      `git add -A && git commit && git push` (il sito live si aggiorna da solo).
+
 ### Spese ricorrenti (recurring expenses) — implementata il 12/09/2026
 
 > Richiesta utente: poter registrare **spese ricorrenti** (giornaliere, settimanali, mensili,

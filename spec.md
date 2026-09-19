@@ -461,9 +461,10 @@ Filters:
 - ExpenseType: allow to filter by ExpenseType, multiple values can be selected
 - Account: allow to filter by Account, multiple values can be selected
 
-The Analytics view has two toggle buttons that switch between two visualizations of the filtered movements:
+The Analytics view has three toggle buttons that switch between three visualizations of the filtered movements:
 - **Report**: shows the numerical summary and the list of filtered movements
 - **Grafico**: shows a graphic of movements by date
+- **Andamento**: shows the balance trend (line chart of the daily balance, see "Andamento (balance trend)")
 
 ### Report
 Display a summary card with the following metrics calculated from filtered movements:
@@ -508,6 +509,53 @@ The Grafico view shows a chart of the filtered movements (ignoring Cashflow used
 In both charts the movements used for routing (the receiving movement and its negative counterpart) are excluded.
 Expected expenses (recurring) are stacked/aggregated under the dedicated "Spese previste"
 pseudo-category (grey), so the chart totals match the Report totals.
+
+### Andamento (balance trend)
+Line chart showing how the **account balance** evolves day by day over the selected period:
+X axis = one point per day of the period, Y axis = the balance at the end of that day.
+Goal: see at a glance whether the balance is growing or shrinking (the other charts show
+the movements, not the balance).
+
+**Effective period.** The X axis covers one point per calendar day from
+`max(range start, first movement date)` to `min(range end, today)`. This avoids thousands
+of empty points when "Tutto il periodo" is selected (the raw range is 1970–2099) and avoids
+drawing future days for the current month/year.
+
+**Opening balance** (the value the line starts from, before the first day of the period):
+the sum of the `initialBalance` of the accounts in scope plus **all the movements before
+the period start**, using the same formula as "Gestione Conti"
+(`initialBalance + cashflows − expenses`; expenses are stored as positive amounts and are
+subtracted). The full movements dataset is used, so both legs of a routing transfer and the
+internal income of a coin-split expense are counted: the last point of the line therefore
+equals the **real** account balance. A point is drawn for every day of the period,
+including the days without movements (flat segment).
+
+**Filters.**
+- *Conto*: selects the accounts in scope → their `initialBalance` and their movements are
+  part of the balance (empty selection = all accounts). With a single account selected the
+  line is exactly that account's balance; the routing counterpart sitting on another
+  account is correctly excluded.
+- *Categoria*: only the expenses of the selected categories (descendants included) are
+  subtracted from the balance; the initial balances and the cashflows are unaffected,
+  because cashflows have no category. The line is therefore a "hypothetical" balance that
+  shows the impact of those categories.
+
+**Not included.** Expected (recurring, not yet confirmed) expenses are **not** counted:
+no money has moved yet, coherently with the account balances.
+
+**Rendering** (SVG, no external libraries, same style as the other charts):
+- a single continuous line (blue `#3b82f6`), with a visible dot on every day when the
+  period has at most 31 days (for longer periods only the line, keeping invisible hover
+  targets for the tooltip);
+- a dashed horizontal line at zero when the balance changes sign;
+- Y axis scaled on the min/max balance with padding, labelled with *abbreviated* amounts;
+- X axis labelled with the days, labels thinned to about 6 ticks when the period is long;
+- tooltip on each point with the date, the balance and the day variation (delta), coloured
+  by sign.
+
+Note: the last point of the line is the **real** account balance, while the "Saldo" card of
+the Report shows the **variation** of the period (`Total Cashflow − Total Expenses`): the
+two values are different by design.
 
 ## Progressive Web App (PWA)
 The app is installable on the phone home screen and usable offline:
@@ -651,7 +699,7 @@ when switching to the HTTPS server (or any other origin change).
 
 ### Analytics
 - Desired changes:
-  - The "Report" and "Grafico" toggle buttons are placed in the title bar.
+  - The "Report", "Grafico" and "Andamento" toggle buttons are placed in the title bar.
   - The "Export CSV" action is moved into a menu button (three lines icon) in the title bar, like the Main view action menu; this menu can host more options in the future.
   - Filters remain as they are.
 
