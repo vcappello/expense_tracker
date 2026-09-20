@@ -25,6 +25,7 @@ export default function MainView() {
   });
   const [page, setPage] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showExpectedReminder, setShowExpectedReminder] = useState(false);
   const ITEMS_PER_PAGE = 20;
 
   // Backup / Restore state
@@ -245,6 +246,14 @@ export default function MainView() {
       ].some((value) => value.toLocaleLowerCase().includes(normalizedSearch));
     });
   }, [accounts, expenseTypes, expectedOccurrences, normalizedSearch]);
+
+  useEffect(() => {
+    if (expectedOccurrences.length === 0) return;
+    const reminderKey = `expense-tracker-expected-reminder-${new Date().toISOString().slice(0, 10)}`;
+    if (window.localStorage.getItem(reminderKey) === 'shown') return;
+    window.localStorage.setItem(reminderKey, 'shown');
+    setShowExpectedReminder(true);
+  }, [expectedOccurrences.length]);
 
   // Group the (already date/time-desc sorted) movements by calendar day.
   const dayGroups = useMemo(() => {
@@ -550,6 +559,28 @@ export default function MainView() {
       />
 
       <div className="main-content">
+        {showExpectedReminder && (
+          <div className="expected-reminder" role="status">
+            <span>
+              Hai {expectedOccurrences.length}{' '}
+              {expectedOccurrences.length === 1
+                ? 'movimento previsto'
+                : 'movimenti previsti'}{' '}
+              da confermare.
+            </span>
+            <button type="button" onClick={handleRecurring}>
+              Apri Ricorrenti
+            </button>
+            <button
+              type="button"
+              className="expected-reminder-dismiss"
+              aria-label="Chiudi promemoria"
+              onClick={() => setShowExpectedReminder(false)}
+            >
+              ×
+            </button>
+          </div>
+        )}
         <div className="actions-bar">
           <ActionMenu
             triggerLabel="Filtri"

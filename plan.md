@@ -741,9 +741,10 @@ stato risolto — vedi il bullet in ✅ Completati.)*
 - [ ] **Create from photo**: fotocamera smartphone + lettura dello scontrino con AI per creare
       la spesa automaticamente.
 - [ ] **Gestione multi-valuta**.
-- [ ] **Promemoria scadenze ricorrenze**: avviso all'apertura dell'app e/o notifica via
-      service worker ("hai N movimenti previsti") per le ricorrenze scadute e non confermate,
-      incluse spese ed entrate programmate.
+- [x] **Promemoria scadenze ricorrenze**: all'apertura della Main view mostrare una volta al
+      giorno un banner ("hai N movimenti previsti") per spese ed entrate programmate non
+      confermate, con accesso diretto alla gestione Ricorrenti. Le notifiche PWA via service
+      worker restano un'estensione futura, subordinata al consenso dell'utente.
 - [ ] **Saldo previsto nel grafico Andamento**: linea tratteggiata che proietta il saldo
       includendo le occorrenze previste, sia spese sia entrate, accanto al saldo reale.
 - [x] **Asse temporale settimanale nel grafico Andamento**: su smartphone mostrare come

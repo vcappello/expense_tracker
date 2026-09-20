@@ -878,6 +878,7 @@ This is a set of feature that can be implemented in the next version of this app
 - multiple currency management
 - recurring Cashflows (e.g. the monthly salary), reusing the recurring expenses
   infrastructure
-- reminders for the due recurring expenses (notification when the app is opened / PWA
-  notification, the service worker already exists)
+- reminders for due recurring movements: show an in-app reminder banner once per day when
+  the app opens, with a link to the recurring management page; optional PWA notifications
+  may be added later only after explicit user consent
 - "Create from photo": take a picture of a receipt and let the AI create the expense
