@@ -106,6 +106,8 @@ on every expected row, whatever the active date range.
 
 List filters:
 - date range: current month, previous month, current year, all
+- text search: category, account, notes and place; applied together with the date range
+  filter and also matching expected recurring movements
 
 Actions:
 - New expense: navigate to Edit or Create Expense, this is the most used action and must be accessible always

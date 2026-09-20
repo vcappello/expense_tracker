@@ -749,7 +749,7 @@ stato risolto — vedi il bullet in ✅ Completati.)*
 - [x] **Asse temporale settimanale nel grafico Andamento**: su smartphone mostrare come
       etichetta la data del lunedì di inizio settimana sull'asse X, riducendo le etichette
       sovrapposte e rendendo più leggibile l'andamento.
-- [ ] **Ricerca movimenti** nella Main view: campo di ricerca testuale su categoria, conto,
+- [x] **Ricerca movimenti** nella Main view: campo di ricerca testuale su categoria, conto,
       note e luogo, combinabile con i filtri periodo e gli altri filtri esistenti.
 - [ ] **Confronto periodo** in Analytics: delta assoluto e percentuale rispetto al periodo
       precedente, nel riepilogo generale e per categoria.

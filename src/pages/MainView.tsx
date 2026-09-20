@@ -24,6 +24,7 @@ export default function MainView() {
     dateRange: 'current-month',
   });
   const [page, setPage] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
   const ITEMS_PER_PAGE = 20;
 
   // Backup / Restore state
@@ -59,6 +60,11 @@ export default function MainView() {
 
   const handleDateRangeChange = (range: DateRange) => {
     setFilters({ ...filters, dateRange: range });
+    setPage(0);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
     setPage(0);
   };
 
@@ -161,9 +167,28 @@ export default function MainView() {
     () => routingCounterpartIds(movements.filter((m) => m.type === 'cashflow')),
     [movements]
   );
-  const displayMovements = movements.filter(
+  const baseDisplayMovements = movements.filter(
     (m) => m.type === 'expense' || !hiddenCashflowIds.has(m.id)
   );
+  const normalizedSearch = searchQuery.trim().toLocaleLowerCase();
+  const displayMovements = useMemo(() => {
+    if (!normalizedSearch) return baseDisplayMovements;
+    return baseDisplayMovements.filter((movement) => {
+      const accountName =
+        accounts.find((account) => account.id === movement.accountId)?.name || '';
+      const categoryName =
+        movement.type === 'expense'
+          ? expenseTypes.find((type) => type.id === movement.expenseTypeId)?.name || ''
+          : '';
+      const searchableText =
+        movement.type === 'expense'
+          ? [categoryName, accountName, movement.notes, movement.location]
+          : [accountName];
+      return searchableText.some((value) =>
+        value.toLocaleLowerCase().includes(normalizedSearch)
+      );
+    });
+  }, [accounts, baseDisplayMovements, expenseTypes, normalizedSearch]);
 
   // Single-month ranges get a compact day header; Quest'anno/Tutti show the
   // full month name (and the year when the day is not in the current year).
@@ -200,6 +225,26 @@ export default function MainView() {
     () => (rangeIncludesToday ? getExpectedOccurrences(recurringExpenses) : []),
     [recurringExpenses, rangeIncludesToday]
   );
+  const filteredExpectedOccurrences = useMemo(() => {
+    if (!normalizedSearch) return expectedOccurrences;
+    return expectedOccurrences.filter((occurrence) => {
+      const accountName =
+        accounts.find((account) => account.id === occurrence.template.accountId)?.name || '';
+      const categoryName =
+        occurrence.template.kind === 'expense'
+          ? expenseTypes.find(
+              (type) => type.id === occurrence.template.expenseTypeId
+            )?.name || ''
+          : '';
+      return [
+        occurrence.template.name,
+        categoryName,
+        accountName,
+        occurrence.template.notes,
+        occurrence.template.location,
+      ].some((value) => value.toLocaleLowerCase().includes(normalizedSearch));
+    });
+  }, [accounts, expenseTypes, expectedOccurrences, normalizedSearch]);
 
   // Group the (already date/time-desc sorted) movements by calendar day.
   const dayGroups = useMemo(() => {
@@ -268,14 +313,14 @@ export default function MainView() {
 
   /** Confirm every expected occurrence at once (default amount, now). */
   const handleConfirmAll = async () => {
-    if (expectedOccurrences.length === 0) return;
+    if (filteredExpectedOccurrences.length === 0) return;
     try {
       const now = new Date();
       const time = `${String(now.getHours()).padStart(2, '0')}:${String(
         now.getMinutes()
       ).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
       await confirmRecurringOccurrences(
-        expectedOccurrences.map((occurrence) => ({
+        filteredExpectedOccurrences.map((occurrence) => ({
           recurringId: occurrence.template.id,
           amount: occurrence.amount,
           date: now,
@@ -403,11 +448,11 @@ export default function MainView() {
   );
 
   const expectedSection =
-    expectedOccurrences.length > 0 ? (
+    filteredExpectedOccurrences.length > 0 ? (
       <li className="day-group expected-group">
         <div className="day-header expected-header">
           <span>Movimenti previsti</span>
-          {expectedOccurrences.length > 1 && (
+          {filteredExpectedOccurrences.length > 1 && (
             <button
               type="button"
               className="expected-confirm-all"
@@ -419,7 +464,7 @@ export default function MainView() {
           )}
         </div>
         <ul className="day-movements">
-          {expectedOccurrences.map((occurrence: ExpectedOccurrence) => {
+          {filteredExpectedOccurrences.map((occurrence: ExpectedOccurrence) => {
             const isIncome = occurrence.template.kind === 'income';
             const accountName =
               accounts.find((a) => a.id === occurrence.template.accountId)
@@ -533,13 +578,33 @@ export default function MainView() {
               { label: '📥 Ripristina backup', onClick: () => fileInputRef.current?.click() },
             ]}
           />
+          <label className="movement-search">
+            <span className="sr-only">Cerca movimenti</span>
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => handleSearchChange(event.target.value)}
+              placeholder="Cerca movimenti"
+              aria-label="Cerca movimenti"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                className="movement-search-clear"
+                onClick={() => handleSearchChange('')}
+                aria-label="Cancella ricerca"
+              >
+                ×
+              </button>
+            )}
+          </label>
         </div>
 
         {!movementsLoaded || (isLoading && !movements.length) ? (
           <div className="loading-state">
             <p>Caricamento movimenti...</p>
           </div>
-        ) : displayMovements.length === 0 && expectedOccurrences.length === 0 ? (
+        ) : displayMovements.length === 0 && filteredExpectedOccurrences.length === 0 ? (
           <div className="empty-state">
             <p>Nessun movimento</p>
             <p className="subtitle">Clicca "Nuova spesa" per iniziare</p>
