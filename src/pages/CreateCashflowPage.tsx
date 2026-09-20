@@ -366,7 +366,7 @@ export default function CreateCashflowPage() {
       />
 
       <main className="page-content">
-        <form ref={formRef} className="cashflow-form" onSubmit={handleSubmit}>
+        <form ref={formRef} className="cashflow-form" onSubmit={handleSubmit} noValidate>
           {/* Date Field */}
           <div className="form-group">
             <label htmlFor="date">Data *</label>

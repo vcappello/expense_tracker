@@ -416,7 +416,7 @@ export default function CreateExpensePage() {
       />
 
       <main className="page-content">
-        <form ref={formRef} className="expense-form" onSubmit={handleSubmit}>
+        <form ref={formRef} className="expense-form" onSubmit={handleSubmit} noValidate>
           {/* Date Field */}
           <div className="form-group">
             <label htmlFor="date">Data *</label>

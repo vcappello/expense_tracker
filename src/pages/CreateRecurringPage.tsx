@@ -269,7 +269,7 @@ export default function CreateRecurringPage() {
       />
 
       <main className="entity-content">
-        <form ref={formRef} className="entity-form" onSubmit={handleSubmit}>
+        <form ref={formRef} className="entity-form" onSubmit={handleSubmit} noValidate>
           <div className="form-group">
             <label>Tipo *</label>
             <div className="kind-switch">

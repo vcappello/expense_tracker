@@ -8,6 +8,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import Toast from '../components/Toast';
 import AlertModal from '../components/AlertModal';
 import { useNavigateBack } from '../utils/navigation';
+import { v4 as uuidv4 } from 'uuid';
 import '../styles/EntityForm.css';
 
 export default function CreateAccountPage() {
@@ -109,7 +110,7 @@ export default function CreateAccountPage() {
         }
       } else {
         const newAccount: Account = {
-          id: Date.now().toString(),
+          id: uuidv4(),
           name: formData.name,
           initialBalance,
           isPreferred: formData.isPreferred,
@@ -182,7 +183,7 @@ export default function CreateAccountPage() {
       />
 
       <main className="entity-content">
-        <form ref={formRef} className="entity-form" onSubmit={handleSubmit}>
+        <form ref={formRef} className="entity-form" onSubmit={handleSubmit} noValidate>
           <div className="form-group">
             <label htmlFor="name">Nome Conto *</label>
             <input

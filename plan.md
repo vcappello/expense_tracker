@@ -1,4 +1,4 @@
-# Plan — Expense Tracker AI
+i# Plan — Expense Tracker AI
 
 > Piano di attività per lo sviluppo della webapp.
 > Regole: gli step completati vengono **marcati come completati ma mai cancellati**.
@@ -632,9 +632,9 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 
 ## ⏳ Da fare
 
-> **Nessuna voce aperta al 19/09/2026**: tutte le attività pianificate sono state
-> implementate (riepilogo in ✅ Completati, step di lavoro in 🗂️ Dettaglio).
-> I prossimi lavori candidati sono in **🔮 Prossime release**.
+> **Voci aperte al 19/09/2026**: le due rifiniture tecniche qui sotto. Tutte le feature
+> pianificate finora sono state implementate (riepilogo in ✅ Completati, step di lavoro in
+> 🗂️ Dettaglio); i prossimi lavori candidati sono in **🔮 Prossime release**.
 > Le nuove richieste vanno pianificate qui come blocchi di step `[ ]` prima di essere
 > implementate, poi marcate `[x]` e riepilogate in ✅ Completati.
 > ⚠️ **Prima del `git push` chiedere sempre conferma all'utente**: il push fa partire il
@@ -711,6 +711,16 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
       e link sui cashflow preservati) e file v2 legacy senza `kind` → `expense`; `npm run
       build` OK.
 
+### Manutenzione / rifiniture tecniche — da pianificare
+
+- [x] **`noValidate` sui form**: usare i `Toast` ⚠️ per le validazioni dei campi obbligatori
+      invece dei bubble nativi HTML5, che bloccano il submit e rendono il Toast quasi
+      irraggiungibile. Aggiungere `noValidate` ai form di Spesa, Entrata, Conti, Categorie,
+      Ricorrenze e conferma prevista, verificando ogni messaggio di validazione.
+- [x] **Id conto con `uuid`**: in `CreateAccountPage` sostituire l’id generato con
+      `Date.now().toString()` con `uuidv4()`, come nelle altre pagine, per evitare collisioni
+      nella creazione ravvicinata di due conti.
+
 ## 🐛 Bug da correggere
 
 *(Tutti i bug elencati sono stati corretti il 16/08/2026 — vedi sezione ✅ Completati.)*
@@ -721,5 +731,28 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 stato risolto — vedi il bullet in ✅ Completati.)*
 
 ## 🔮 Prossime release
-- [ ] **Create from photo**: fotocamera smartphone + lettura dello scontrino con AI per creare la spesa automaticamente
-- [ ] **Gestione multi-valuta**
+
+> Backlog delle funzionalità candidate (ordine indicativo di valore/costo, non vincolante).
+> Quando se ne affronta una va prima pianificata in `⏳ Da fare` come blocco di step `[ ]`,
+> poi implementata e riepilogata in ✅ Completati.
+
+- [ ] **Create from photo**: fotocamera smartphone + lettura dello scontrino con AI per creare
+      la spesa automaticamente.
+- [ ] **Gestione multi-valuta**.
+- [ ] **Promemoria scadenze ricorrenze**: avviso all'apertura dell'app e/o notifica via
+      service worker ("hai N movimenti previsti") per le ricorrenze scadute e non confermate,
+      incluse spese ed entrate programmate.
+- [ ] **Saldo previsto nel grafico Andamento**: linea tratteggiata che proietta il saldo
+      includendo le occorrenze previste, sia spese sia entrate, accanto al saldo reale.
+- [ ] **Ricerca movimenti** nella Main view: campo di ricerca testuale su categoria, conto,
+      note e luogo, combinabile con i filtri periodo e gli altri filtri esistenti.
+- [ ] **Confronto periodo** in Analytics: delta assoluto e percentuale rispetto al periodo
+      precedente, nel riepilogo generale e per categoria.
+- [ ] **Budget mensile per categoria**: limite di spesa per categoria e/o mese, barra di
+      avanzamento in Analisi e avviso al superamento.
+- [ ] **Vista "Rimborsi in attesa"**: elenco delle spese marcate "Sarà rimborsata" non ancora
+      coperte da uno stipendio, riusando `utils/reimbursements.ts`.
+- [ ] **Foto allegata alla spesa**: salvare la foto dello scontrino nella spesa e includerla
+      nel backup; feature collegata a "Create from photo" e con gestione dello storage.
+- [ ] **Statistiche di tendenza**: medie per categoria, andamento degli ultimi mesi e
+      riepilogo "dove vanno i miei soldi".

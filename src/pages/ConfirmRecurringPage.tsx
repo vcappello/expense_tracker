@@ -295,7 +295,7 @@ export default function ConfirmRecurringPage() {
               </div>
             )}
 
-            <form ref={formRef} className="entity-form" onSubmit={handleSubmit}>
+            <form ref={formRef} className="entity-form" onSubmit={handleSubmit} noValidate>
               <div className="form-group">
                 <label htmlFor="amount">Importo (€) *</label>
                 <input

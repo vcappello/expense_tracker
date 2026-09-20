@@ -167,7 +167,7 @@ export default function CreateExpenseTypePage() {
       />
 
       <main className="entity-content">
-        <form ref={formRef} className="entity-form" onSubmit={handleSubmit}>
+        <form ref={formRef} className="entity-form" onSubmit={handleSubmit} noValidate>
           <div className="form-group">
             <label htmlFor="name">Nome Categoria *</label>
             <input
