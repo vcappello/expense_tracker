@@ -666,7 +666,8 @@ account balances.
   targets for the tooltip);
 - a dashed horizontal line at zero when the balance changes sign;
 - Y axis scaled on the min/max balance with padding, labelled with *abbreviated* amounts;
-- X axis labelled with the days, labels thinned to about 6 ticks when the period is long;
+- X axis labelled with the Monday starting each week on smartphone-sized layouts; labels
+  are thinned to about 6 ticks when the period is long;
 - tooltip on each point with the date, the balance and the day variation (delta), coloured
   by sign.
 

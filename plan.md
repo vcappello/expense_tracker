@@ -274,7 +274,9 @@ i# Plan — Expense Tracker AI
       non hanno categoria); **spese previste escluse**. Tooltip (data, saldo, variazione
       giornaliera) via pointer events sull'intero SVG, con aggancio ai bordi per non uscire
       dallo schermo; punti visibili solo per periodi ≤ 31 giorni; linea tratteggiata sullo
-      zero. Verificato E2E in browser (mese corrente/mese scorso/anno/tutto, filtro conto
+      zero. Su smartphone le etichette dell'asse X indicano il lunedì di inizio settimana,
+      con riduzione automatica dei label nei periodi lunghi. Verificato E2E in browser
+      (mese corrente/mese scorso/anno/tutto, filtro conto
       singolo con saldi esatti −45.50€/1.64K€ coerenti con Gestione Conti, filtro categoria,
       empty state, nessun overflow a 390px, report e grafici esistenti invariati); build OK.
       `spec.md` aggiornata (sezione "Andamento (balance trend)").
@@ -744,6 +746,9 @@ stato risolto — vedi il bullet in ✅ Completati.)*
       incluse spese ed entrate programmate.
 - [ ] **Saldo previsto nel grafico Andamento**: linea tratteggiata che proietta il saldo
       includendo le occorrenze previste, sia spese sia entrate, accanto al saldo reale.
+- [x] **Asse temporale settimanale nel grafico Andamento**: su smartphone mostrare come
+      etichetta la data del lunedì di inizio settimana sull'asse X, riducendo le etichette
+      sovrapposte e rendendo più leggibile l'andamento.
 - [ ] **Ricerca movimenti** nella Main view: campo di ricerca testuale su categoria, conto,
       note e luogo, combinabile con i filtri periodo e gli altri filtri esistenti.
 - [ ] **Confronto periodo** in Analytics: delta assoluto e percentuale rispetto al periodo

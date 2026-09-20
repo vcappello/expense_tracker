@@ -23,6 +23,24 @@ const LINE_COLOR = '#3b82f6';
 const MAX_X_LABELS = 6;
 const MAX_DOTS = 31; // draw a visible dot per day only for short periods
 
+const getMondayKey = (key: string): string => {
+  const [year, month, day] = key.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  const dayOfWeek = date.getDay();
+  const daysFromMonday = (dayOfWeek + 6) % 7;
+  date.setDate(date.getDate() - daysFromMonday);
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+};
+
+const formatShortDate = (key: string): string => {
+  const [, month, day] = key.split('-');
+  return `${day}/${month}`;
+};
+
 /**
  * Balance trend: line chart of the daily cumulative balance.
  * X axis = one point per day of the period, Y axis = the account balance at the
@@ -60,6 +78,13 @@ export default function BalanceTrendChart({
   const showZeroLine = minValue < 0 && maxValue > 0;
   const last = data[data.length - 1];
   const yTicks = [maxValue, (maxValue + minValue) / 2, minValue];
+  const weeklyLabelIndexes = data.reduce<number[]>((indexes, point, index) => {
+    if (index === 0 || getMondayKey(point.key) !== getMondayKey(data[index - 1].key)) {
+      indexes.push(index);
+    }
+    return indexes;
+  }, []);
+  const weeklyLabelStep = Math.max(1, Math.ceil(weeklyLabelIndexes.length / MAX_X_LABELS));
 
   /**
    * Nearest day under the pointer: the whole chart is the hit area, so the
@@ -171,12 +196,33 @@ export default function BalanceTrendChart({
                 x={xFor(i)}
                 y={H - 8}
                 textAnchor="middle"
-                className="chart-label"
+                className="chart-label trend-label-daily"
               >
                 {d.label.slice(0, 5)}
               </text>
             ) : null
           )}
+
+          {weeklyLabelIndexes.map((index, weeklyIndex) => {
+            if (
+              weeklyIndex % weeklyLabelStep !== 0 &&
+              weeklyIndex !== weeklyLabelIndexes.length - 1
+            ) {
+              return null;
+            }
+            const point = data[index];
+            return (
+              <text
+                key={`x-week-${point.key}`}
+                x={xFor(index)}
+                y={H - 8}
+                textAnchor="middle"
+                className="chart-label trend-label-weekly"
+              >
+                {formatShortDate(getMondayKey(point.key))}
+              </text>
+            );
+          })}
         </svg>
 
         {hovered !== null && (
