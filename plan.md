@@ -665,6 +665,16 @@ Decisioni utente (26/09/2026):
 - [x] **Verifica e documentazione**: casi per ricorrenze future e una tantum, filtri e
       limiti temporali; aggiornati spec e README; `npm run build` e `git diff --check` OK.
 
+### Vista "Rimborsi in attesa" — implementata il 26/09/2026
+
+- [x] **Accesso e pagina**: aggiunta la voce "💶 Rimborsi in attesa" al menu Azioni della
+      Main view e la route `#/reimbursements`.
+- [x] **Lista e totale**: mostra spese marcate rimborsabili successive all'ultimo stipendio
+      (tutte se non è ancora registrato uno stipendio), totale e conteggio; righe apribili
+      nella pagina di modifica spesa.
+- [x] **Verifica e documentazione**: riusata la stessa regola temporale del riepilogo
+      stipendio; aggiornati spec e README; build OK.
+
 ### Entrate programmate / ricorrenti (stipendio, una tantum) — implementata il 19/09/2026
 
 > Richiesta utente (19/09/2026): estendere le **Ricorrenze** alle **entrate**, così lo
@@ -779,7 +789,7 @@ stato risolto — vedi il bullet in ✅ Completati.)*
       precedente, nel riepilogo generale e per categoria.
 - [ ] **Budget mensile per categoria**: limite di spesa per categoria e/o mese, barra di
       avanzamento in Analisi e avviso al superamento.
-- [ ] **Vista "Rimborsi in attesa"**: elenco delle spese marcate "Sarà rimborsata" non ancora
+- [x] **Vista "Rimborsi in attesa"**: elenco delle spese marcate "Sarà rimborsata" non ancora
       coperte da uno stipendio, riusando `utils/reimbursements.ts`.
 - [ ] **Foto allegata alla spesa**: salvare la foto dello scontrino nella spesa e includerla
       nel backup; feature collegata a "Create from photo" e con gestione dello storage.

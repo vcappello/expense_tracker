@@ -93,6 +93,10 @@ export default function MainView() {
     navigate('/recurring');
   };
 
+  const handleReimbursements = () => {
+    navigate('/reimbursements');
+  };
+
   const handleExportBackup = async () => {
     try {
       await exportDatabase();
@@ -605,6 +609,7 @@ export default function MainView() {
               { label: '🏦 Conti', onClick: handleAccounts },
               { label: '🏷️ Categorie', onClick: handleExpenseTypes },
               { label: '🔁 Ricorrenti', onClick: handleRecurring },
+              { label: '💶 Rimborsi in attesa', onClick: handleReimbursements },
               { label: '💾 Esporta backup', onClick: handleExportBackup },
               { label: '📥 Ripristina backup', onClick: () => fileInputRef.current?.click() },
             ]}

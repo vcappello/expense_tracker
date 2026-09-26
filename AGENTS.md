@@ -150,6 +150,11 @@
   aggiornare: types, normalizzazione lettura (database.ts), normalizzazione import
   (backup.ts) e TUTTI gli object literal che costruiscono il record (coins.ts,
   AppContext, form).
+- **Vista Rimborsi in attesa**: accessibile dal menu Azioni della Main view, elenca le spese
+  rimborsabili strettamente successive all'ultimo stipendio precedente a oggi (tutte se non
+  esiste uno stipendio) usando `getOutstandingReimbursableExpenses` in
+  `src/utils/reimbursements.ts`, la stessa finestra temporale di `getReimbursableSummary`.
+  Ogni riga apre la modifica della spesa; non introdurre uno stato persistente "rimborsata".
 - **Spese ricorrenti (`RecurringExpense`, store `recurringExpenses`)**: **primo bump del
   progetto `DB_VERSION` 1 → 2** (`database.ts`): in `onupgradeneeded` creare SOLO gli store
   mancanti (i dati esistenti non vanno toccati) e gestire `request.onblocked` con un errore

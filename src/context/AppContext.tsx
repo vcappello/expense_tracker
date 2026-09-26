@@ -5,7 +5,11 @@ import { getDateRange, toDateTime } from '../utils/formatting';
 import { getOccurrencePeriodKey } from '../utils/recurrence';
 import { initializeDefaultData } from '../utils/initialization';
 import { buildCoinSplitCashflows } from '../utils/coins';
-import { getReimbursableSummary as computeReimbursableSummary, ReimbursableSummary } from '../utils/reimbursements';
+import {
+  getOutstandingReimbursableExpenses,
+  getReimbursableSummary as computeReimbursableSummary,
+  ReimbursableSummary,
+} from '../utils/reimbursements';
 import { BackupData } from '../utils/backup';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -171,6 +175,7 @@ interface AppContextType {
 
   // Reimbursable expenses summary (see utils/reimbursements.ts)
   getReimbursableSummary: (referenceDate: Date) => Promise<ReimbursableSummary>;
+  getOutstandingReimbursableExpenses: (referenceDate: Date) => Promise<Expense[]>;
 
   // Backup / Restore (JSON export/import, see utils/backup.ts)
   restoreBackup: (data: BackupData) => Promise<void>;
@@ -1031,6 +1036,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, []);
 
+  const getOutstandingReimbursableExpensesForWindow = useCallback(
+    async (referenceDate: Date) => {
+      try {
+        clearError();
+        const [allExpenses, allCashflows] = await Promise.all([
+          db.getExpenses(),
+          db.getCashflows(),
+        ]);
+        return getOutstandingReimbursableExpenses(
+          allExpenses,
+          allCashflows,
+          referenceDate
+        );
+      } catch (err) {
+        throw err;
+      }
+    },
+    []
+  );
+
   // ============ BACKUP / RESTORE ============
   const restoreBackup = useCallback(
     async (data: BackupData) => {
@@ -1113,6 +1138,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // Reimbursable summary
     getReimbursableSummary,
+    getOutstandingReimbursableExpenses:
+      getOutstandingReimbursableExpensesForWindow,
 
     // Backup / Restore
     restoreBackup,

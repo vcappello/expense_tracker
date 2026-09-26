@@ -32,6 +32,23 @@ export const findPreviousSalary = (
 };
 
 /**
+ * Reimbursable expenses in the current salary window. With no earlier salary,
+ * all reimbursable expenses are included.
+ */
+export const getOutstandingReimbursableExpenses = (
+  expenses: Expense[],
+  cashflows: Cashflow[],
+  referenceDate: Date
+): Expense[] => {
+  const previous = findPreviousSalary(cashflows, referenceDate);
+  const from = previous ? new Date(previous.date).getTime() : -Infinity;
+  return expenses.filter(
+    (expense) =>
+      expense.reimbursable && new Date(expense.date).getTime() > from
+  );
+};
+
+/**
  * Total (and count) of the reimbursable expenses to be claimed with the next
  * salary: all Expenses with `reimbursable = true` whose date is later than the
  * date of the previous salary (if any). With no previous salary every
@@ -43,18 +60,13 @@ export const getReimbursableSummary = (
   cashflows: Cashflow[],
   referenceDate: Date
 ): ReimbursableSummary => {
-  const previous = findPreviousSalary(cashflows, referenceDate);
-  const from = previous ? new Date(previous.date).getTime() : -Infinity;
-  let total = 0;
-  let count = 0;
-  for (const e of expenses) {
-    if (!e.reimbursable) continue;
-    const t = new Date(e.date).getTime();
-    // strictly later than the previous salary (expenses on the same day as the
-    // salary belong to the previous period)
-    if (t <= from) continue;
-    total += e.amount;
-    count += 1;
-  }
-  return { total, count };
+  const outstanding = getOutstandingReimbursableExpenses(
+    expenses,
+    cashflows,
+    referenceDate
+  );
+  return {
+    total: outstanding.reduce((sum, expense) => sum + expense.amount, 0),
+    count: outstanding.length,
+  };
 };

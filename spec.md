@@ -287,6 +287,17 @@ Implementation notes:
 - for a coin-split expense the flag is stored on the main Expense record only (not on the
   generated Cashflows).
 
+### "Rimborsi in attesa" view
+- Reachable from the Main view "Azioni" menu as **"💶 Rimborsi in attesa"**.
+- Lists all `reimbursable` Expenses dated strictly after the latest salary Cashflow before
+  today; when no salary exists, all reimbursable Expenses are listed. This is the same
+  window-only rule used by the reimbursable summary in the salary form: expenses on the
+  salary date are considered part of the preceding period. No separate reimbursed state is
+  introduced.
+- Shows the outstanding total and count, with each row displaying category, account, date,
+  amount, and optional place/note. Selecting a row opens the Expense edit view.
+- If the window is empty, show an empty state; if loading fails, surface the error.
+
 ## Recurring expenses
 
 Allows the user to register expenses that repeat over time (rent, gym, subscriptions,
