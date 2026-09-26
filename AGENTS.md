@@ -197,21 +197,23 @@
   - frequenza **`once`** = period key = la data pianificata, `getNextDueDate` = la data stessa,
     nessuna domanda "Tutte le successive" quando cambia l'importo a conferma;
   - Analytics: pseudo-bucket **`EXPECTED_INCOME_ACCOUNT_ID` / "Entrate previste"** (grigio nei
-    grafici, verde in lista) contato in **Totale Entrate** e Saldo, mai nei saldi conto né in
-    `BalanceTrendChart` (che legge solo `movements`); il conto sintetico va passato ai grafici
-    via `expectedAccounts` (come `expectedType` per le categorie).
+    grafici, verde in lista) contato in **Totale Entrate** e Saldo, mai nei saldi conto né
+    nella linea reale di `BalanceTrendChart`; entrate e spese previste sono incluse solo
+    nella linea tratteggiata della proiezione.
 - **Grafico "Andamento del saldo" (Analytics, switch a 3 viste)**: vista `Andamento` con
   `src/components/BalanceTrendChart.tsx` (SVG a linee, classi CSS `trend-*`). Il **saldo di
   apertura** = `initialBalance` dei conti in scope + TUTTI i movimenti precedenti al periodo
   (formula di Gestione Conti `initialBalance + cashflows − expenses`: gli importi spesa sono
   positivi e vanno sottratti); usa i `movements` completi, quindi controparti dei routing ed
-  entrata interna del coin split, così l'ultimo punto = saldo reale dei conti. **Periodo
-  effettivo** = `max(inizio range, primo movimento)` → `min(fine range, oggi)` (esteso se
-  esiste un movimento futuro dentro il range): ⚠️ per la fine il clamp va fatto con i
-  movimenti **dentro il periodo** — usando l'ultimo movimento globale "Mese scorso" si
-  estendeva fino a settembre. Filtro Categoria = applicato alle **sole spese** (i cashflow
-  non hanno categoria); spese previste **escluse** (non muovono denaro); nessun movimento nel
-  periodo → empty state. Tooltip con `onPointerMove`/`onPointerDown` sull'intero SVG
+  entrata interna del coin split, così il saldo al giorno corrente coincide con i saldi reali
+  dei conti. La linea reale è continua e blu; la linea prevista è tratteggiata viola e include
+  le ricorrenze future e i movimenti reali con data futura. Marker e tooltip distinguono
+  spese previste rosse ed entrate previste verdi. La proiezione arriva alla fine del periodo
+  selezionato e per "Tutto" è limitata a 12 mesi; i periodi passati mostrano la sola linea
+  reale. Ricorrenze in pausa/confermate/saltate non sono proiettate; le scadenze già maturate
+  ma ancora pendenti entrano nella previsione da oggi (mai retroattivamente). Filtro Categoria
+  = applicato alle sole spese; i cashflow non hanno categoria. I saldi conto non sono mai
+  modificati dalle previsioni. Tooltip con `onPointerMove`/`onPointerDown` sull'intero SVG
   (funziona anche al tocco) e classi `left`/`right` per non uscire dal viewport.
 - **Grafici Analytics: come sono scelti**: `isMonthView` → `MonthBreakdownChart` (barre per
   conto/categoria); gli altri periodi → `MovementsChart` (giornaliero impilato); la vista

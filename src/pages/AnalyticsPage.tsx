@@ -6,10 +6,11 @@ import ActionMenu from '../components/ActionMenu';
 import MultiSelectFilter from '../components/MultiSelectFilter';
 import MovementsChart, { DailyTotal } from '../components/MovementsChart';
 import MonthBreakdownChart from '../components/MonthBreakdownChart';
-import BalanceTrendChart, { BalancePoint } from '../components/BalanceTrendChart';
+import BalanceTrendChart from '../components/BalanceTrendChart';
 import { getDateRange, abbreviateAmount, formatCurrency, formatDate } from '../utils/formatting';
 import { sortAccountsPreferred } from '../utils/accounts';
 import { isRoutingCashflow, routingCounterpartIds } from '../utils/routing';
+import { buildBalanceTrend } from '../utils/balanceTrend';
 import {
   ExpectedOccurrence,
   EXPECTED_EXPENSE_TYPE_ID,
@@ -310,102 +311,18 @@ export default function AnalyticsPage() {
     };
   }, [filteredMovements, cashflows, expectedExpenseTotal, expectedIncomeTotal]);
 
-  /**
-   * Balance trend ("Andamento" view): the cumulative balance day by day.
-   *
-   * The opening balance is the REAL one: the `initialBalance` of the accounts in
-   * scope plus every movement before the period start, with the same formula used
-   * by "Gestione Conti" (`initialBalance + cashflows - expenses`; expenses are
-   * stored as positive amounts and are subtracted here). The full movements
-   * dataset is used, so both legs of a routing transfer and the internal income of
-   * a coin-split expense are counted: the last point of the line equals the real
-   * account balance.
-   * Expected (recurring) expenses are NOT counted: no money has moved yet.
-   */
-  const balanceTrend = useMemo(() => {
-    const range = getDateRange(dateRange);
-    const rangeStartTime = range.start.getTime();
-    const rangeEndTime = range.end.getTime();
-    const inAccountScope = (accountId: string) =>
-      selectedAccountIds.length === 0 || selectedAccountIds.includes(accountId);
-    // Expenses count only when they belong to the selected categories (expanded
-    // to their descendants); cashflows have no category and are always part of
-    // the balance.
-    const countsMovement = (m: Movement) =>
-      m.type === 'cashflow' ||
-      expandedTypeIds.size === 0 ||
-      expandedTypeIds.has(m.expenseTypeId);
-    const contribution = (m: Movement) => (m.type === 'expense' ? -m.amount : m.amount);
-
-    const relevant = movements.filter(
-      (m) => inAccountScope(m.accountId) && countsMovement(m)
-    );
-
-    let firstMovement: number | null = null;
-    let lastInPeriod: number | null = null;
-    let inPeriodCount = 0;
-    relevant.forEach((m) => {
-      const t = new Date(m.date).getTime();
-      if (firstMovement === null || t < firstMovement) firstMovement = t;
-      if (t >= rangeStartTime && t <= rangeEndTime) {
-        inPeriodCount += 1;
-        if (lastInPeriod === null || t > lastInPeriod) lastInPeriod = t;
-      }
-    });
-
-    // No movement in the selected period: the page shows its empty state.
-    if (inPeriodCount === 0) return { points: [], openingBalance: 0 };
-
-    // Effective period: the start is clamped to the data so "Tutto il periodo"
-    // (raw range 1970–2099) does not produce thousands of empty points; the end
-    // stops at today, but a movement dated in the future inside the range is kept.
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
-    const startTime = Math.max(rangeStartTime, firstMovement ?? rangeStartTime);
-    const endTime = Math.max(
-      Math.min(rangeEndTime, today.getTime()),
-      lastInPeriod ?? 0
-    );
-    if (startTime > endTime) return { points: [], openingBalance: 0 };
-
-    const dayKey = (d: Date) =>
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
-        d.getDate()
-      ).padStart(2, '0')}`;
-
-    // Bucket the movements by day: the day loop below stays O(days) instead of
-    // O(days x movements).
-    const deltasByDay = new Map<string, number>();
-    let openingBalance = accounts
-      .filter((a) => inAccountScope(a.id))
-      .reduce((sum, a) => sum + (a.initialBalance || 0), 0);
-
-    relevant.forEach((m) => {
-      const when = new Date(m.date);
-      const value = contribution(m);
-      if (when.getTime() < startTime) {
-        // Movements before the period (or before the first one kept on the axis)
-        // build the opening balance.
-        openingBalance += value;
-      } else if (when.getTime() <= endTime) {
-        const key = dayKey(when);
-        deltasByDay.set(key, (deltasByDay.get(key) || 0) + value);
-      }
-    });
-
-    const points: BalancePoint[] = [];
-    let balance = openingBalance;
-    const cursor = new Date(startTime);
-    while (cursor.getTime() <= endTime) {
-      const key = dayKey(cursor);
-      const delta = deltasByDay.get(key) || 0;
-      balance += delta;
-      points.push({ key, label: formatDate(cursor), balance, delta });
-      cursor.setDate(cursor.getDate() + 1);
-    }
-
-    return { points, openingBalance };
-  }, [movements, accounts, dateRange, selectedAccountIds, expandedTypeIds]);
+  const balanceTrend = useMemo(
+    () =>
+      buildBalanceTrend({
+        movements,
+        accounts,
+        recurringExpenses,
+        dateRange,
+        selectedAccountIds,
+        expenseTypeIds: expandedTypeIds,
+      }),
+    [movements, accounts, recurringExpenses, dateRange, selectedAccountIds, expandedTypeIds]
+  );
 
   // Movements shown in the report list / CSV export: same display rule as the
   // Main view (hide routing counterparts and coin-split internal incomes),

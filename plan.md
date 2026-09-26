@@ -287,6 +287,13 @@ i# Plan — Expense Tracker AI
       passato alla `TitleBar` tramite il nuovo slot `extraActions`; rimosso il kind `toggle`
       ormai inutilizzato. Verificato a 390px e 320px (titolo e Back sempre visibili, menu
       dentro il viewport) e a 1200px.
+- [x] **Saldo previsto nel grafico Andamento** (26/09/2026): la linea continua blu mostra il
+      saldo reale fino a oggi; la linea tratteggiata viola proietta il saldo fino alla fine
+      del periodo selezionato (massimo 12 mesi per "Tutto il periodo"), includendo
+      ricorrenze future e movimenti reali con data futura. Marker rossi/verdi e tooltip
+      distinguono spese ed entrate previste. Filtri di conto/categoria rispettati;
+      ricorrenze in pausa, confermate o saltate escluse. Motore in
+      `src/utils/balanceTrend.ts`; specifica e README aggiornati; `npm run build` OK.
 
 ## �️ Dettaglio dei lavori a più step (tutti completati)
 
@@ -634,13 +641,29 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 
 ## ⏳ Da fare
 
-> **Voci aperte al 19/09/2026**: le due rifiniture tecniche qui sotto. Tutte le feature
-> pianificate finora sono state implementate (riepilogo in ✅ Completati, step di lavoro in
-> 🗂️ Dettaglio); i prossimi lavori candidati sono in **🔮 Prossime release**.
+> Le attività recenti sono conservate qui con gli step completati; al **26/09/2026** non ci
+> sono lavori in corso. Le prossime feature candidate sono in **🔮 Prossime release**.
 > Le nuove richieste vanno pianificate qui come blocchi di step `[ ]` prima di essere
 > implementate, poi marcate `[x]` e riepilogate in ✅ Completati.
 > ⚠️ **Prima del `git push` chiedere sempre conferma all'utente**: il push fa partire il
 > deploy automatico su GitHub Pages e pubblica subito la nuova versione.
+
+### Saldo previsto nel grafico Andamento — implementato il 26/09/2026
+
+Decisioni utente (26/09/2026):
+- mantenere la linea continua per il saldo reale e aggiungere la proiezione tratteggiata;
+- distinguere le occorrenze previste con indicatori rossi (spese) e verdi (entrate), con
+  tooltip dettagliati;
+- proiettare fino alla fine del periodo selezionato, con un massimo di 12 mesi per
+  "Tutto il periodo".
+
+- [x] **Motore previsione**: proiettare il saldo registrato e le occorrenze ricorrenti
+      (spese e entrate) non ancora confermate, rispettando filtri di conto/categoria e stati
+      di pausa, conferma e skip.
+- [x] **Grafico Andamento**: linea reale continua, saldo previsto tratteggiato, marker
+      colorati per tipo e tooltip che descrivono saldo, variazione e movimenti previsti.
+- [x] **Verifica e documentazione**: casi per ricorrenze future e una tantum, filtri e
+      limiti temporali; aggiornati spec e README; `npm run build` e `git diff --check` OK.
 
 ### Entrate programmate / ricorrenti (stipendio, una tantum) — implementata il 19/09/2026
 
@@ -713,7 +736,7 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
       e link sui cashflow preservati) e file v2 legacy senza `kind` → `expense`; `npm run
       build` OK.
 
-### Manutenzione / rifiniture tecniche — da pianificare
+### Manutenzione / rifiniture tecniche — completata il 20/09/2026
 
 - [x] **`noValidate` sui form**: usare i `Toast` ⚠️ per le validazioni dei campi obbligatori
       invece dei bubble nativi HTML5, che bloccano il submit e rendono il Toast quasi
@@ -745,7 +768,7 @@ stato risolto — vedi il bullet in ✅ Completati.)*
       giorno un banner ("hai N movimenti previsti") per spese ed entrate programmate non
       confermate, con accesso diretto alla gestione Ricorrenti. Le notifiche PWA via service
       worker restano un'estensione futura, subordinata al consenso dell'utente.
-- [ ] **Saldo previsto nel grafico Andamento**: linea tratteggiata che proietta il saldo
+- [x] **Saldo previsto nel grafico Andamento**: linea tratteggiata viola che proietta il saldo
       includendo le occorrenze previste, sia spese sia entrate, accanto al saldo reale.
 - [x] **Asse temporale settimanale nel grafico Andamento**: su smartphone mostrare come
       etichetta la data del lunedì di inizio settimana sull'asse X, riducendo le etichette

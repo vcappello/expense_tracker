@@ -477,8 +477,9 @@ previous salary, and the confirmed salary becomes the reference for the next per
 ### Analytics, cascades, backup
 - Analytics: the expected incomes are counted in the **Total Cashflow** (and therefore in the
   Net) under the dedicated pseudo bucket **"Entrate previste"** (grey in the charts, like the
-  "Spese previste" category; green amount in the report list); they never touch the account
-  balances nor the balance trend chart (see "Analytics").
+  "Spese previste" category; green amount in the report list); they never touch account
+  balances or the solid real-balance line, but are included with green markers in the dashed
+  projected balance (see "Analytics").
 - Cascades: deleting an Account deletes its templates of both kinds (existing cascade);
   deleting an ExpenseType only affects the expense templates.
 - Backup/restore: `kind` is normalized (`income` only when explicitly set, otherwise
@@ -598,8 +599,9 @@ under a dedicated pseudo bucket **"Entrate previste"** (grey, not a real Account
 - they are included in **Total Cashflow** and therefore in the **Net Balance**, and they
   appear in the movement list (green `+` amount, marked "Entrate previste") and in the CSV
   export (row "Entrata prevista", positive sign);
-- they **never affect the account balances** (Gestione Conti) nor the balance trend chart:
-  the money has not arrived yet;
+- they **never affect the account balances** (Gestione Conti) nor the solid real-balance
+  line; when the forecast is shown, they are included in the dashed projected balance with
+  a green marker;
 - same due-date rule and same "Conto" / "Categoria" filter behaviour as the expected
   expenses;
 - they do **not** appear in the Top 3 Categories list, which is about spending.
@@ -632,21 +634,31 @@ X axis = one point per day of the period, Y axis = the balance at the end of tha
 Goal: see at a glance whether the balance is growing or shrinking (the other charts show
 the movements, not the balance).
 
-**Effective period.** The X axis covers one point per calendar day from
-`max(range start, first movement date)` to `min(range end, today)`, extended to the last
-day with a movement when that movement is future-dated and inside the range. This avoids
-thousands of empty points when "Tutto il periodo" is selected (the raw range is 1970–2099)
-and avoids drawing future days for the current month/year. When the selected period contains
-no movement, the view shows the usual "Nessun movimento nel periodo selezionato" empty state.
+**Effective period.** The X axis has one point per calendar day, starting at the later of
+the selected range start and the first relevant movement (or today if there are only future
+planned movements). The solid line shows recorded movements through today. For a range that
+includes today, the dashed projection continues to the end of the selected range; for
+"Tutto il periodo", the projection is capped at 12 months from today. Ranges entirely in the
+past show only the real balance. This avoids thousands of empty points when "Tutto il
+periodo" is selected (the raw range is 1970–2099). When the selected range contains neither
+real nor projected movements, the view shows the usual "Nessun movimento nel periodo
+selezionato" empty state.
 
-**Opening balance** (the value the line starts from, before the first day of the period):
-the sum of the `initialBalance` of the accounts in scope plus **all the movements before
-the period start**, using the same formula as "Gestione Conti"
+**Opening balance** (the value the real line starts from, before the first day shown): the
+sum of the `initialBalance` of the accounts in scope plus **all the movements before the
+first day shown**, using the same formula as "Gestione Conti"
 (`initialBalance + cashflows − expenses`; expenses are stored as positive amounts and are
 subtracted). The full movements dataset is used, so both legs of a routing transfer and the
-internal income of a coin-split expense are counted: the last point of the line therefore
-equals the **real** account balance. A point is drawn for every day of the period,
-including the days without movements (flat segment).
+internal income of a coin-split expense are counted. A point is drawn for every day,
+including days without movements (flat segment). Future-dated real movements affect only
+the projection, not the solid real-balance line.
+
+**Projection.** Pending recurring expenses and incomes (daily, weekly, monthly, yearly and
+one-off) are projected at their due dates through the selected future range. An occurrence
+already due but not confirmed is applied from today in the projection, never retroactively to
+the real balance. Future-dated real movements already recorded are also included. Paused
+templates, confirmed periods and skipped periods are excluded. Projection is informational
+only: it does not create movements or affect account balances.
 
 **Filters.**
 - *Conto*: selects the accounts in scope → their `initialBalance` and their movements are
@@ -658,24 +670,22 @@ including the days without movements (flat segment).
   because cashflows have no category. The line is therefore a "hypothetical" balance that
   shows the impact of those categories.
 
-**Not included.** Expected (recurring / scheduled, not yet confirmed) movements — both
-expenses and incomes — are **not** counted: no money has moved yet, coherently with the
-account balances.
-
 **Rendering** (SVG, no external libraries, same style as the other charts):
-- a single continuous line (blue `#3b82f6`), with a visible dot on every day when the
-  period has at most 31 days (for longer periods only the line, keeping invisible hover
-  targets for the tooltip);
+- the real balance is a continuous blue line (`#3b82f6`); the projected balance is a
+  dashed purple line, with red markers for planned expenses and green markers for planned
+  incomes; the legend identifies each series and marker type;
+- a visible dot is shown on every real-balance day when the period has at most 31 days (for
+  longer periods only the line, keeping hover targets for the tooltip);
 - a dashed horizontal line at zero when the balance changes sign;
 - Y axis scaled on the min/max balance with padding, labelled with *abbreviated* amounts;
 - X axis labelled with the Monday starting each week on smartphone-sized layouts; labels
   are thinned to about 6 ticks when the period is long;
-- tooltip on each point with the date, the balance and the day variation (delta), coloured
-  by sign.
+- tooltip on each point with the date, real and projected balance, projected variation, and
+  the names, types and amounts of scheduled movements due that day.
 
-Note: the last point of the line is the **real** account balance, while the "Saldo" card of
-the Report shows the **variation** of the period (`Total Cashflow − Total Expenses`): the
-two values are different by design.
+Note: the final point of the solid line is the **real** account balance; the dashed line's
+final point is the projected balance. The "Saldo" card of the Report shows the **variation**
+of the period (`Total Cashflow − Total Expenses`): these values are different by design.
 
 ## Progressive Web App (PWA)
 The app is installable on the phone home screen and usable offline:

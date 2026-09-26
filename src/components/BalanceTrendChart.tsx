@@ -1,12 +1,6 @@
 import { useState } from 'react';
 import { abbreviateAmount } from '../utils/formatting';
-
-export interface BalancePoint {
-  key: string; // YYYY-MM-DD (sortable)
-  label: string; // DD/MM/YYYY (display)
-  balance: number; // cumulative balance at the end of the day
-  delta: number; // day variation (cashflows − expenses)
-}
+import { BalancePoint } from '../utils/balanceTrend';
 
 interface BalanceTrendChartProps {
   data: BalancePoint[];
@@ -22,6 +16,15 @@ const PAD_B = 24; // room for the X axis labels
 const LINE_COLOR = '#3b82f6';
 const MAX_X_LABELS = 6;
 const MAX_DOTS = 31; // draw a visible dot per day only for short periods
+
+const todayKey = (): string => {
+  const today = new Date();
+  return [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, '0'),
+    String(today.getDate()).padStart(2, '0'),
+  ].join('-');
+};
 
 const getMondayKey = (key: string): string => {
   const [year, month, day] = key.split('-').map(Number);
@@ -42,9 +45,8 @@ const formatShortDate = (key: string): string => {
 };
 
 /**
- * Balance trend: line chart of the daily cumulative balance.
- * X axis = one point per day of the period, Y axis = the account balance at the
- * end of that day, so the trend of the balance is visible at a glance.
+ * Balance trend: solid line for recorded movements and a dashed line for the
+ * balance projected with future-dated records and pending recurring movements.
  * Built with SVG to avoid external dependencies (like the other charts).
  */
 export default function BalanceTrendChart({
@@ -59,7 +61,22 @@ export default function BalanceTrendChart({
   const innerH = H - PAD_T - PAD_B;
   const slot = innerW / data.length;
 
-  const values = data.map((d) => d.balance);
+  const hasForecast = data.some((point) => point.projectedBalance !== undefined);
+  const today = todayKey();
+  const realData = hasForecast ? data.filter((point) => point.key <= today) : data;
+  const projectedData = data.filter((point) => point.projectedBalance !== undefined);
+  const hasExpectedExpenses = data.some((point) =>
+    point.scheduledMovements.some((movement) => movement.kind === 'expense')
+  );
+  const hasExpectedIncomes = data.some((point) =>
+    point.scheduledMovements.some((movement) => movement.kind === 'income')
+  );
+  const indexByKey = new Map(data.map((point, index) => [point.key, index]));
+  const values = data.flatMap((point) =>
+    point.projectedBalance === undefined
+      ? [point.balance]
+      : [point.balance, point.projectedBalance]
+  );
   const minValue = Math.min(...values);
   const maxValue = Math.max(...values);
   const span = maxValue - minValue;
@@ -72,11 +89,22 @@ export default function BalanceTrendChart({
   const xFor = (i: number) => PAD_L + slot / 2 + i * slot;
   const yFor = (v: number) => PAD_T + innerH - ((v - lo) / (hi - lo)) * innerH;
 
-  const linePoints = data.map((d, i) => `${xFor(i)},${yFor(d.balance)}`).join(' ');
-  const showDots = data.length <= MAX_DOTS;
+  const realLinePoints = realData
+    .map((point) => `${xFor(indexByKey.get(point.key) ?? 0)},${yFor(point.balance)}`)
+    .join(' ');
+  const projectedLinePoints = projectedData
+    .map(
+      (point) =>
+        `${xFor(indexByKey.get(point.key) ?? 0)},${yFor(
+          point.projectedBalance ?? point.balance
+        )}`
+    )
+    .join(' ');
+  const showDots = realData.length <= MAX_DOTS;
   const labelStep = Math.max(1, Math.ceil(data.length / MAX_X_LABELS));
   const showZeroLine = minValue < 0 && maxValue > 0;
-  const last = data[data.length - 1];
+  const lastReal = realData[realData.length - 1];
+  const lastProjected = projectedData[projectedData.length - 1];
   const yTicks = [maxValue, (maxValue + minValue) / 2, minValue];
   const weeklyLabelIndexes = data.reduce<number[]>((indexes, point, index) => {
     if (index === 0 || getMondayKey(point.key) !== getMondayKey(data[index - 1].key)) {
@@ -107,14 +135,36 @@ export default function BalanceTrendChart({
     <div className="chart-section">
       <div className="chart-legend">
         <span className="legend-item">
-          <span className="legend-dot" style={{ background: LINE_COLOR }} /> Saldo
+          <span className="legend-dot" style={{ background: LINE_COLOR }} /> Saldo reale
         </span>
+        {hasForecast && (
+          <span className="legend-item">
+            <span className="trend-legend-line" /> Saldo previsto
+          </span>
+        )}
+        {hasExpectedExpenses && (
+          <span className="legend-item">
+            <span className="trend-scheduled-legend expense" /> Spesa prevista
+          </span>
+        )}
+        {hasExpectedIncomes && (
+          <span className="legend-item">
+            <span className="trend-scheduled-legend income" /> Entrata prevista
+          </span>
+        )}
         <span className="legend-item trend-legend-muted">
           Inizio periodo: {abbreviateAmount(openingBalance)}€
         </span>
-        <span className="legend-item trend-legend-muted">
-          Ultimo saldo: {abbreviateAmount(last.balance)}€
-        </span>
+        {lastReal && (
+          <span className="legend-item trend-legend-muted">
+            Saldo reale: {abbreviateAmount(lastReal.balance)}€
+          </span>
+        )}
+        {lastProjected && (
+          <span className="legend-item trend-legend-muted">
+            Saldo previsto: {abbreviateAmount(lastProjected.projectedBalance ?? 0)}€
+          </span>
+        )}
       </div>
 
       <div className="trend-wrap">
@@ -123,7 +173,7 @@ export default function BalanceTrendChart({
           viewBox={`0 0 ${W} ${H}`}
           preserveAspectRatio="xMidYMid meet"
           role="img"
-          aria-label="Grafico dell'andamento del saldo"
+          aria-label="Grafico dell'andamento reale e previsto del saldo"
           onPointerMove={handlePointer}
           onPointerDown={handlePointer}
           onPointerLeave={() => setHoverIndex(null)}
@@ -158,34 +208,63 @@ export default function BalanceTrendChart({
             />
           )}
 
-          <polyline points={linePoints} className="trend-line" />
+          {realData.length > 1 && (
+            <polyline points={realLinePoints} className="trend-line" />
+          )}
 
-          {data.length === 1 && (
+          {hasForecast && projectedData.length > 1 && (
+            <polyline points={projectedLinePoints} className="trend-projected-line" />
+          )}
+
+          {realData.length === 1 && (
             <circle
-              cx={xFor(0)}
-              cy={yFor(data[0].balance)}
+              cx={xFor(indexByKey.get(realData[0].key) ?? 0)}
+              cy={yFor(realData[0].balance)}
               r={3.5}
               className="trend-dot"
             />
           )}
 
           {showDots &&
-            data.map((d, i) => (
+            realData.map((point) => (
               <circle
-                key={d.key}
-                cx={xFor(i)}
-                cy={yFor(d.balance)}
+                key={point.key}
+                cx={xFor(indexByKey.get(point.key) ?? 0)}
+                cy={yFor(point.balance)}
                 r={2.5}
                 className="trend-dot"
               />
             ))}
 
+          {data.flatMap((point, index) =>
+            point.scheduledMovements.map((movement, movementIndex) => (
+              <circle
+                key={`${point.key}-${movement.id}`}
+                cx={xFor(index)}
+                cy={
+                  yFor(point.projectedBalance ?? point.balance) +
+                  (movementIndex % 2 === 0 ? -5 : 5)
+                }
+                r={4}
+                className={`trend-scheduled-marker ${movement.kind}`}
+              />
+            ))
+          )}
+
           {hovered !== null && hoverIndex !== null && (
             <circle
               cx={xFor(hoverIndex)}
-              cy={yFor(hovered.balance)}
+              cy={yFor(
+                hovered.projectedBalance !== undefined
+                  ? hovered.projectedBalance
+                  : hovered.balance
+              )}
               r={4.5}
-              className="trend-dot-hover"
+              className={
+                hovered.projectedBalance !== undefined
+                  ? 'trend-dot-hover projected'
+                  : 'trend-dot-hover'
+              }
             />
           )}
 
@@ -231,15 +310,47 @@ export default function BalanceTrendChart({
             style={{ left: `${hoveredLeft}%` }}
           >
             <div className="trend-tooltip-date">{hovered.label}</div>
-            <div className="trend-tooltip-balance">
-              Saldo: {abbreviateAmount(hovered.balance)}€
-            </div>
-            <div
-              className={`trend-tooltip-delta ${hovered.delta >= 0 ? 'up' : 'down'}`}
-            >
-              {hovered.delta >= 0 ? '+' : '-'}
-              {abbreviateAmount(Math.abs(hovered.delta))}€
-            </div>
+            {hovered.projectedBalance === undefined ? (
+              <>
+                <div className="trend-tooltip-balance">
+                  Saldo reale: {abbreviateAmount(hovered.balance)}€
+                </div>
+                <div
+                  className={`trend-tooltip-delta ${hovered.delta >= 0 ? 'up' : 'down'}`}
+                >
+                  Variazione reale: {hovered.delta >= 0 ? '+' : '-'}
+                  {abbreviateAmount(Math.abs(hovered.delta))}€
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="trend-tooltip-balance">
+                  Saldo reale: {abbreviateAmount(hovered.balance)}€
+                </div>
+                <div className="trend-tooltip-balance">
+                  Saldo previsto: {abbreviateAmount(hovered.projectedBalance)}€
+                </div>
+                <div
+                  className={`trend-tooltip-delta ${
+                    (hovered.projectedDelta ?? 0) >= 0 ? 'up' : 'down'
+                  }`}
+                >
+                  Variazione prevista:{' '}
+                  {(hovered.projectedDelta ?? 0) >= 0 ? '+' : '-'}
+                  {abbreviateAmount(Math.abs(hovered.projectedDelta ?? 0))}€
+                </div>
+                {hovered.scheduledMovements.map((movement) => (
+                  <div
+                    key={movement.id}
+                    className={`trend-tooltip-movement ${movement.kind}`}
+                  >
+                    {movement.kind === 'expense' ? 'Spesa' : 'Entrata'} prevista:{' '}
+                    {movement.kind === 'expense' ? '−' : '+'}
+                    {abbreviateAmount(movement.amount)}€ · {movement.name}
+                  </div>
+                ))}
+              </>
+            )}
           </div>
         )}
       </div>

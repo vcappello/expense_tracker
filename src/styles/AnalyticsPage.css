@@ -245,6 +245,36 @@
   stroke-linecap: round;
 }
 
+.trend-legend-line {
+  display: inline-block;
+  width: 20px;
+  border-top: 2px dashed #a78bfa;
+}
+
+.trend-scheduled-legend {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.trend-scheduled-legend.expense {
+  background: #ef4444;
+}
+
+.trend-scheduled-legend.income {
+  background: #22c55e;
+}
+
+.trend-projected-line {
+  fill: none;
+  stroke: #a78bfa;
+  stroke-width: 2.5;
+  stroke-dasharray: 6 5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
 .trend-dot {
   fill: #3b82f6;
 }
@@ -253,6 +283,23 @@
   fill: #e5eefb;
   stroke: #3b82f6;
   stroke-width: 2;
+}
+
+.trend-dot-hover.projected {
+  stroke: #a78bfa;
+}
+
+.trend-scheduled-marker {
+  stroke: #0f172a;
+  stroke-width: 1.5;
+}
+
+.trend-scheduled-marker.expense {
+  fill: #ef4444;
+}
+
+.trend-scheduled-marker.income {
+  fill: #22c55e;
 }
 
 .trend-tooltip {
@@ -266,7 +313,9 @@
   font-size: 0.8rem;
   line-height: 1.35;
   color: #e5eefb;
-  white-space: nowrap;
+  width: max-content;
+  max-width: min(280px, 80vw);
+  white-space: normal;
   pointer-events: none;
   z-index: 2;
 }
@@ -293,6 +342,14 @@
 
 .trend-tooltip-delta.down {
   color: #ef4444;
+}
+
+.trend-tooltip-movement.expense {
+  color: #f87171;
+}
+
+.trend-tooltip-movement.income {
+  color: #4ade80;
 }
 
 @media (max-width: 600px) {
