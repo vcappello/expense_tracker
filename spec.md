@@ -573,13 +573,30 @@ Filters:
 - ExpenseType: allow to filter by ExpenseType, multiple values can be selected
 - Account: allow to filter by Account, multiple values can be selected
 
-The Analytics view switches between three visualizations of the filtered movements, chosen
+The Analytics view switches between four visualizations of the filtered movements, chosen
 from a **pill menu in the title bar** (it shows the active view and opens the list with a
 checkmark on the selected one; keeping the Back button and the title always visible on
 smartphones):
 - **Report**: shows the numerical summary and the list of filtered movements
 - **Grafico**: shows a graphic of movements by date
 - **Andamento**: shows the balance trend (line chart of the daily balance, see "Andamento (balance trend)")
+- **Tendenze**: shows the monthly spending trend and category changes (see "Expense trends")
+
+### Expense trends
+The Tendenze view always analyzes the current month and the previous 11 months, independently
+of the selected date range. It follows the selected Account and ExpenseType filters and
+includes recorded expenses (including reimbursable expenses), but excludes expected,
+unconfirmed recurring movements and cashflows.
+
+- Display monthly expense totals as stacked category bars, with a line for the average across
+  all 12 months. Up to six categories are shown individually; remaining categories are grouped
+  as "Altre categorie".
+- Display the three categories with the largest increases and decreases in average monthly
+  spending, comparing the latest three months with the preceding three months. A category
+  with no spending in the earlier period and spending in the recent period is marked "Nuova";
+  spending reduced to zero is a 100% decrease.
+- The current month is included as a partial month in both the 12-month average and the latest
+  three-month comparison.
 
 ### Report
 Display a summary card with the following metrics calculated from filtered movements:

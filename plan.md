@@ -675,6 +675,24 @@ Decisioni utente (26/09/2026):
 - [x] **Verifica e documentazione**: riusata la stessa regola temporale del riepilogo
       stipendio; aggiornati spec e README; build OK.
 
+### Statistiche di tendenza in Analytics — implementata
+
+Decisioni utente (26/09/2026):
+- aggiungere una vista "Tendenze" ad Analisi;
+- mostrare le spese mese per mese sugli ultimi 12 mesi e una linea della media mensile;
+- confrontare le medie degli ultimi 3 mesi con quelle dei 3 mesi precedenti per individuare
+  categorie in crescita o calo;
+- mostrare l'evoluzione delle categorie principali nel tempo;
+- riutilizzare i filtri di conto e categoria; includere solo le spese registrate (non le
+  occorrenze previste), incluse quelle rimborsabili.
+
+- [x] **Aggregazione**: produrre serie mensili mobili di 12 mesi e confronti per categoria
+      sugli ultimi due blocchi di 3 mesi, rispettando i filtri e i movimenti effettivi.
+- [x] **Vista Analytics**: aggiungere l'opzione Tendenze e mostrare totale mensile con media,
+      ripartizione per categoria e categorie con variazione crescente/calante.
+- [x] **Verifica e documentazione**: testare periodi, filtri, categorie nuove/azzerate e dati
+      vuoti; aggiornare spec/README/istruzioni e verificare build.
+
 ### Entrate programmate / ricorrenti (stipendio, una tantum) — implementata il 19/09/2026
 
 > Richiesta utente (19/09/2026): estendere le **Ricorrenze** alle **entrate**, così lo

@@ -222,6 +222,118 @@
   font-weight: 600;
 }
 
+.expense-trends {
+  margin-bottom: 32px;
+}
+
+.expense-trends-chart {
+  padding: 18px 12px;
+}
+
+.expense-trends-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 8px 14px;
+}
+
+.expense-trends-heading h2,
+.expense-trend-panel h2 {
+  margin: 0 0 4px;
+  color: #e5eefb;
+  font-size: 1.1rem;
+}
+
+.expense-trends-heading p,
+.expense-trend-panel > p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.expense-trends-svg {
+  overflow: visible;
+}
+
+.expense-trend-average-key {
+  display: inline-block;
+  width: 18px;
+  border-top: 2px dashed #f8fafc;
+}
+
+.expense-trend-average-line {
+  stroke: #f8fafc;
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+
+.expense-trends-comparisons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.expense-trend-panel {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 12px;
+  background: rgba(148, 163, 184, 0.05);
+}
+
+.expense-trend-panel ul {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.expense-trend-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.expense-trend-row:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.expense-trend-category {
+  overflow: hidden;
+  color: #e5eefb;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.expense-trend-values {
+  color: #94a3b8;
+  font-size: 0.82rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.expense-trend-change {
+  grid-column: 2;
+  color: #f87171;
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.expense-trend-row.down .expense-trend-change {
+  color: #4ade80;
+}
+
+.expense-trend-empty {
+  padding: 18px 0 2px;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
 /* Balance trend chart ("Andamento") */
 .trend-wrap {
   position: relative;
@@ -353,6 +465,14 @@
 }
 
 @media (max-width: 600px) {
+  .expense-trends-comparisons {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .expense-trends-chart {
+    padding: 14px 8px;
+  }
+
   .trend-label-daily {
     display: none;
   }

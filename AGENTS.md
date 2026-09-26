@@ -222,8 +222,12 @@
   (funziona anche al tocco) e classi `left`/`right` per non uscire dal viewport.
 - **Grafici Analytics: come sono scelti**: `isMonthView` → `MonthBreakdownChart` (barre per
   conto/categoria); gli altri periodi → `MovementsChart` (giornaliero impilato); la vista
-  `Andamento` è indipendente dal periodo (`BalanceTrendChart`). I tre stati sono in
-  `AnalyticsPage` (`view: 'report' | 'grafico' | 'andamento'`).
+  `Andamento` è indipendente dal periodo (`BalanceTrendChart`). La vista `Tendenze` usa
+  `buildExpenseTrends`/`ExpenseTrendsChart`: mese corrente + 11 precedenti, media su tutti i
+  12 mesi, confronto delle medie degli ultimi 3 con i 3 precedenti, applica i filtri conto e
+  categoria ma ignora il filtro periodo, conta solo spese registrate (incluse rimborsabili;
+  escluse le previste). Le viste in `AnalyticsPage` sono
+  `report | grafico | andamento | tendenze`.
 - **Title bar affollata su smartphone (Analytics)**: i tre pulsanti toggle
   Report/Grafico/Andamento occupavano tutta la barra (a 390px il titolo si comprimeva a 1px e
   il Back sembrava sparire). Regola: nella title bar tenere pochi controlli a destra; per gli

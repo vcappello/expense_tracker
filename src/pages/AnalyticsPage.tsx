@@ -7,10 +7,12 @@ import MultiSelectFilter from '../components/MultiSelectFilter';
 import MovementsChart, { DailyTotal } from '../components/MovementsChart';
 import MonthBreakdownChart from '../components/MonthBreakdownChart';
 import BalanceTrendChart from '../components/BalanceTrendChart';
+import ExpenseTrendsChart from '../components/ExpenseTrendsChart';
 import { getDateRange, abbreviateAmount, formatCurrency, formatDate } from '../utils/formatting';
 import { sortAccountsPreferred } from '../utils/accounts';
 import { isRoutingCashflow, routingCounterpartIds } from '../utils/routing';
 import { buildBalanceTrend } from '../utils/balanceTrend';
+import { buildExpenseTrends } from '../utils/expenseTrends';
 import {
   ExpectedOccurrence,
   EXPECTED_EXPENSE_TYPE_ID,
@@ -23,10 +25,13 @@ import { exportMovementsToCSV, ExpectedCsvRow } from '../utils/csv';
 import '../styles/AnalyticsPage.css';
 
 // Visualizations available in the Analytics view (switched from the title bar pill)
-const VIEW_OPTIONS: { value: 'report' | 'grafico' | 'andamento'; label: string }[] = [
+type AnalyticsView = 'report' | 'grafico' | 'andamento' | 'tendenze';
+
+const VIEW_OPTIONS: { value: AnalyticsView; label: string }[] = [
   { value: 'report', label: '📋 Report' },
   { value: 'grafico', label: '📊 Grafico' },
   { value: 'andamento', label: '📈 Andamento' },
+  { value: 'tendenze', label: '📉 Tendenze' },
 ];
 
 export default function AnalyticsPage() {
@@ -44,7 +49,7 @@ export default function AnalyticsPage() {
   // Empty array = no filter (all)
   const [selectedTypeIds, setSelectedTypeIds] = useState<string[]>([]);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
-  const [view, setView] = useState<'report' | 'grafico' | 'andamento'>('report');
+  const [view, setView] = useState<AnalyticsView>('report');
 
   // Load the movements here with the full range ('all'): this page applies its
   // own date filter, so relying on the Main view load would scope the data to
@@ -324,6 +329,17 @@ export default function AnalyticsPage() {
     [movements, accounts, recurringExpenses, dateRange, selectedAccountIds, expandedTypeIds]
   );
 
+  const expenseTrends = useMemo(
+    () =>
+      buildExpenseTrends(
+        movements,
+        expenseTypes,
+        selectedAccountIds,
+        expandedTypeIds
+      ),
+    [movements, expenseTypes, selectedAccountIds, expandedTypeIds]
+  );
+
   // Movements shown in the report list / CSV export: same display rule as the
   // Main view (hide routing counterparts and coin-split internal incomes),
   // while the summary totals still count the internal income (option A).
@@ -457,6 +473,14 @@ export default function AnalyticsPage() {
             />
           ) : (
             <div className="empty-state">Nessun movimento nel periodo selezionato</div>
+          )
+        ) : view === 'tendenze' ? (
+          expenseTrends.months.some((month) => month.total > 0) ? (
+            <ExpenseTrendsChart data={expenseTrends} />
+          ) : (
+            <div className="empty-state">
+              Nessuna spesa registrata negli ultimi 12 mesi con i filtri selezionati
+            </div>
           )
         ) : filteredMovements.length === 0 && expectedOccurrences.length === 0 ? (
           <div className="empty-state">Nessun movimento nel periodo selezionato</div>
