@@ -19,6 +19,56 @@ const formatTimeToHHMMSS = (date: Date): string => {
   return `${hours}:${minutes}:${seconds}`;
 };
 
+interface LocationSuggestion {
+  label: string;
+}
+
+type LocationSearchStatus = 'idle' | 'loading' | 'results' | 'empty' | 'error';
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const getPhotonSuggestions = (payload: unknown): LocationSuggestion[] => {
+  if (!isRecord(payload) || !Array.isArray(payload.features)) {
+    throw new Error('Invalid Photon response');
+  }
+
+  const labels = new Set<string>();
+  return payload.features.flatMap((feature: unknown) => {
+    if (!isRecord(feature) || !isRecord(feature.properties)) return [];
+
+    const properties = feature.properties;
+    const get = (key: string): string =>
+      typeof properties[key] === 'string' ? properties[key].trim() : '';
+    const locality = get('city') || get('locality');
+    const streetAddress = [get('street'), get('housenumber')]
+      .filter(Boolean)
+      .join(' ');
+    const county = locality ? '' : get('county');
+    const parts = [
+      get('name'),
+      streetAddress,
+      [get('postcode'), locality].filter(Boolean).join(' '),
+      get('district'),
+      county,
+      get('state'),
+      get('country'),
+    ].filter(Boolean);
+    const label = parts.filter(
+      (part, index) =>
+        parts.findIndex(
+          (candidate) =>
+            candidate.toLocaleLowerCase() === part.toLocaleLowerCase()
+        ) === index
+    ).join(', ');
+    const normalizedLabel = label.toLocaleLowerCase();
+
+    if (!label || labels.has(normalizedLabel)) return [];
+    labels.add(normalizedLabel);
+    return [{ label }];
+  });
+};
+
 export default function CreateExpensePage() {
   const navigateBack = useNavigateBack('/');
   const { id: expenseId } = useParams<{ id: string }>();
@@ -50,6 +100,58 @@ export default function CreateExpensePage() {
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+  const [locationSearchQuery, setLocationSearchQuery] = useState('');
+  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
+  const [locationSearchStatus, setLocationSearchStatus] =
+    useState<LocationSearchStatus>('idle');
+  const [activeLocationSuggestion, setActiveLocationSuggestion] = useState(-1);
+  const locationSuggestionsOpen =
+    locationSearchQuery.trim().length >= 3 && locationSearchStatus !== 'idle';
+
+  useEffect(() => {
+    const query = locationSearchQuery.trim();
+    if (query.length < 3) {
+      setLocationSuggestions([]);
+      setLocationSearchStatus('idle');
+      setActiveLocationSuggestion(-1);
+      return;
+    }
+
+    setLocationSuggestions([]);
+    setLocationSearchStatus('idle');
+    setActiveLocationSuggestion(-1);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(async () => {
+      setLocationSearchStatus('loading');
+      try {
+        const params = new URLSearchParams({ q: query, lang: 'default', limit: '5' });
+        const response = await fetch(
+          `https://photon.komoot.io/api/?${params.toString()}`,
+          { signal: controller.signal }
+        );
+        if (!response.ok) {
+          throw new Error(`Photon request failed with status ${response.status}`);
+        }
+
+        const suggestions = getPhotonSuggestions(await response.json());
+        if (!controller.signal.aborted) {
+          setLocationSuggestions(suggestions);
+          setLocationSearchStatus(suggestions.length > 0 ? 'results' : 'empty');
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.error('Place search failed:', error);
+          setLocationSuggestions([]);
+          setLocationSearchStatus('error');
+        }
+      }
+    }, 500);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [locationSearchQuery]);
 
   useEffect(() => {
     const loadExpense = async () => {
@@ -186,10 +288,45 @@ export default function CreateExpensePage() {
   };
 
   const handleLocationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocationSearchQuery(e.target.value);
+    setActiveLocationSuggestion(-1);
     setFormData((prev) => ({
       ...prev,
       location: e.target.value,
     }));
+  };
+
+  const handleLocationSuggestionSelect = (suggestion: LocationSuggestion) => {
+    setFormData((prev) => ({ ...prev, location: suggestion.label }));
+    setLocationSearchQuery('');
+    setLocationSuggestions([]);
+    setLocationSearchStatus('idle');
+    setActiveLocationSuggestion(-1);
+  };
+
+  const handleLocationKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown' && locationSuggestions.length > 0) {
+      e.preventDefault();
+      setActiveLocationSuggestion((current) =>
+        Math.min(current + 1, locationSuggestions.length - 1)
+      );
+    } else if (e.key === 'ArrowUp' && locationSuggestions.length > 0) {
+      e.preventDefault();
+      setActiveLocationSuggestion((current) => Math.max(current - 1, 0));
+    } else if (
+      e.key === 'Enter' &&
+      activeLocationSuggestion >= 0 &&
+      locationSuggestions[activeLocationSuggestion]
+    ) {
+      e.preventDefault();
+      handleLocationSuggestionSelect(locationSuggestions[activeLocationSuggestion]);
+    } else if (e.key === 'Escape' && locationSuggestionsOpen) {
+      e.preventDefault();
+      setLocationSearchQuery('');
+      setLocationSuggestions([]);
+      setLocationSearchStatus('idle');
+      setActiveLocationSuggestion(-1);
+    }
   };
 
   const handleReimbursableChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -201,12 +338,14 @@ export default function CreateExpensePage() {
 
   /**
    * Fill the Location field from the current GPS position via the online
-   * Nominatim reverse geocoding service. This is the only network call of the
-   * app and only happens when the button is pressed. Geolocation requires a
-   * secure context (HTTPS/localhost); failures never block saving the Expense
-   * (the location is optional).
+   * Nominatim reverse geocoding service. This lookup only happens when the
+   * button is pressed. Geolocation requires a secure context (HTTPS/localhost);
+   * failures never block saving the Expense (the location is optional).
    */
   const handleUseCurrentLocation = () => {
+    setLocationSearchQuery('');
+    setLocationSuggestions([]);
+    setLocationSearchStatus('idle');
     if (!('geolocation' in navigator)) {
       showToast('Geolocalizzazione non supportata dal dispositivo', '⚠️');
       return;
@@ -549,29 +688,101 @@ export default function CreateExpensePage() {
             </div>
             <div className="form-group">
               <label htmlFor="location">Luogo</label>
-              <div className="location-row">
-                <input
-                  type="text"
-                  id="location"
-                  placeholder="Es. Via Roma 1, Milano"
-                  value={formData.location}
-                  onChange={handleLocationChange}
-                  className="form-input"
-                />
-                <button
-                  type="button"
-                  className="location-button"
-                  onClick={handleUseCurrentLocation}
-                  disabled={isLocating}
-                  title={
-                    isLocating
-                      ? 'Rilevamento posizione…'
-                      : 'Compila il luogo con la posizione attuale'
-                  }
-                  aria-label="Compila il luogo con la posizione attuale"
-                >
-                  {isLocating ? <span className="locating-dot" /> : <LocateIcon />}
-                </button>
+              <div className="location-autocomplete">
+                <div className="location-row">
+                  <input
+                    type="text"
+                    id="location"
+                    placeholder="Es. Via Roma 1, Milano"
+                    value={formData.location}
+                    onChange={handleLocationChange}
+                    onKeyDown={handleLocationKeyDown}
+                    className="form-input"
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-haspopup="listbox"
+                    aria-expanded={locationSuggestionsOpen}
+                    aria-controls={
+                      locationSearchStatus === 'results'
+                        ? 'location-suggestions'
+                        : undefined
+                    }
+                    aria-activedescendant={
+                      activeLocationSuggestion >= 0
+                        ? `location-suggestion-${activeLocationSuggestion}`
+                        : undefined
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="location-button"
+                    onClick={handleUseCurrentLocation}
+                    disabled={isLocating}
+                    title={
+                      isLocating
+                        ? 'Rilevamento posizione…'
+                        : 'Compila il luogo con la posizione attuale'
+                    }
+                    aria-label="Compila il luogo con la posizione attuale"
+                  >
+                    {isLocating ? <span className="locating-dot" /> : <LocateIcon />}
+                  </button>
+                </div>
+                {locationSuggestionsOpen && (
+                  <div className="location-suggestions">
+                    {locationSearchStatus === 'results' ? (
+                      <ul id="location-suggestions" role="listbox">
+                        {locationSuggestions.map((suggestion, index) => (
+                          <li key={`${suggestion.label}-${index}`} role="presentation">
+                            <button
+                              id={`location-suggestion-${index}`}
+                              type="button"
+                              role="option"
+                              aria-selected={activeLocationSuggestion === index}
+                              className={`location-suggestion${
+                                activeLocationSuggestion === index ? ' active' : ''
+                              }`}
+                              onMouseEnter={() => setActiveLocationSuggestion(index)}
+                              onClick={() => handleLocationSuggestionSelect(suggestion)}
+                            >
+                              {suggestion.label}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="location-search-status" role="status">
+                        {locationSearchStatus === 'loading' && 'Ricerca luoghi…'}
+                        {locationSearchStatus === 'empty' &&
+                          'Nessun risultato. Puoi inserire il luogo manualmente.'}
+                        {locationSearchStatus === 'error' &&
+                          'Ricerca non disponibile. Puoi continuare a inserirlo manualmente.'}
+                      </div>
+                    )}
+                    <div className="location-attribution">
+                      Risultati da{' '}
+                      <a
+                        href="https://photon.komoot.io/"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Photon
+                      </a>
+                      {' · Dati © '}
+                      <a
+                        href="https://www.openstreetmap.org/copyright"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        OpenStreetMap
+                      </a>
+                    </div>
+                  </div>
+                )}
+                {locationSearchQuery.trim().length > 0 &&
+                  locationSearchQuery.trim().length < 3 && (
+                    <p className="location-search-hint">Digita almeno 3 caratteri per cercare.</p>
+                  )}
               </div>
             </div>
           </div>

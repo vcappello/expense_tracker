@@ -54,6 +54,7 @@ online fai **Ripristina backup**. Da quel momento i dati restano nel browser usa
 - Interfaccia in **italiano** ottimizzata per smartphone
 - **Installabile** e **offline** (PWA: manifest, icone, service worker)
 - Registrazione di **Spese** ed **Entrate** con data e ora (hh:mm:ss)
+- Searchable place suggestions in the expense **Location** field, in addition to GPS autofill
 - **Movimenti ricorrenti e programmati** (spese ed entrate, anche una tantum): vengono proposti come **"Movimenti previsti"** finché non confermati; nella pagina **Ricorrenti** (menu Azioni) si creano, modificano, mettono in pausa o si interrompono
 - **Rimborsi in attesa**: dal menu Azioni si consulta l'elenco delle spese rimborsabili successive all'ultimo stipendio, con totale e accesso alla modifica
 - Gestione **Conti** e **Categorie** (anche gerarchiche) con eliminazione in cascata; creazione/modifica in **pagine dedicate**

@@ -89,10 +89,15 @@
   in `backup.ts`; niente bump `DB_VERSION`). Non influenzano Analytics/saldi. Passare
   `notes`/`location` nel form spesa e nell'input di `saveExpenseWithCoins` (oggetto
   `Expense` in `AppContext`).
-- **Luogo da GPS (reverse geocoding)**: il bottone 📍 accanto al campo Luogo usa
+- **Ricerca Luogo e GPS**: nel form spesa, la digitazione di almeno 3 caratteri nel campo
+  Luogo mostra suggerimenti da **Photon** (`https://photon.komoot.io/api/`) dopo 500 ms di
+  debounce; annullare la richiesta obsoleta, supportare tastiera/tocco e attribuire Photon +
+  OpenStreetMap. La query digitata è inviata al servizio esterno; errori/offline lasciano
+  utilizzabile il campo manuale. Il bottone 📍 separato usa
   `navigator.geolocation.getCurrentPosition` + **Nominatim** online
   (`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=..&lon=..&zoom=18&accept-language=it`).
-  È l'**unica chiamata di rete** dell'app e avviene solo alla pressione del bottone.
+  Nominatim è solo reverse geocoding su pressione esplicita (la sua API pubblica vieta
+  autocomplete lato client).
   Geolocation richiede **secure context** (HTTPS o localhost; NON su HTTP su IP di rete).
   Gestire errore/permesso negato/timeout/offline con `Toast` ⚠️ e lasciare il campo
   manuale: non bloccare MAI il salvataggio (luogo facoltativo). Errore GPS: codice 1 =

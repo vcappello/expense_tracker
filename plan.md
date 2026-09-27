@@ -693,6 +693,21 @@ Decisioni utente (26/09/2026):
 - [x] **Verifica e documentazione**: testare periodi, filtri, categorie nuove/azzerate e dati
       vuoti; aggiornare spec/README/istruzioni e verificare build.
 
+### Ricerca suggerita dei luoghi nel form spesa — implementata il 27/09/2026
+
+Decisioni utente (27/09/2026):
+- mentre l'utente digita il campo Luogo, mostrare risultati selezionabili;
+- usare Photon per la ricerca autocomplete (il servizio pubblico Nominatim non consente
+  autocomplete lato client);
+- mantenere il campo modificabile manualmente e il pulsante GPS esistente.
+
+- [x] **Ricerca**: suggerimenti Photon dopo almeno 3 caratteri, con debounce e annullamento
+      delle richieste obsolete.
+- [x] **Interazione**: selezione accessibile da tocco e tastiera; errore/offline non bloccano
+      l'inserimento manuale e il salvataggio.
+- [x] **Documentazione e verifica**: attribuzione OpenStreetMap, privacy e servizio esterno
+      documentati; test mirati e build.
+
 ### Entrate programmate / ricorrenti (stipendio, una tantum) — implementata il 19/09/2026
 
 > Richiesta utente (19/09/2026): estendere le **Ricorrenze** alle **entrate**, così lo

@@ -228,10 +228,28 @@ records created before this feature; no DB version bump required).
 
 - **Note (Note)**: a free annotation (e.g. "cena con amici", "numero fattura …"). Optional.
 - **Location (Luogo)**: a place name (e.g. "Via Roma 1, Milano", "Stazione Centrale").
-  Optional; the user can type it or fill it in from the GPS position (see below).
+  Optional; the user can type it, choose a suggestion while typing, or fill it in from the
+  GPS position (see below).
 
 Both fields are entered in the Create/Edit Expense page and pre-populated when editing an
 existing Expense. They do not affect Analytics or the account balances.
+
+### Search location suggestions
+When the user types at least 3 characters in the Location field, the app waits 500 ms after
+typing stops and requests up to five suggestions from the online Photon service. Suggestions
+are shown below the field and can be selected by touch/click or with the keyboard (arrow keys,
+Enter, Escape). The selected label remains editable and is saved as the existing free-text
+`location` value; coordinates are not stored.
+
+- Search is only triggered by user typing, never when opening an existing Expense or using GPS.
+- The previous request is aborted when the query changes or the page is left. Search errors
+  are shown inline; the user can always type a location manually and save the Expense.
+- The query text is sent to Photon (`photon.komoot.io`), a third-party online service based on
+  OpenStreetMap data. The app displays links attributing Photon and OpenStreetMap. Results are
+  not persisted separately; only the label selected by the user is saved with the local
+  Expense.
+- Photon is a public service without an availability guarantee; the manual field and GPS
+  reverse lookup remain available if it is unavailable.
 
 ### Fill location from GPS (reverse geocoding)
 In the Create/Edit Expense page a "use current position" button next to the Location field:
@@ -246,14 +264,15 @@ Constraints and fallbacks:
 - Geolocation works only on a **secure context** (HTTPS or localhost). It is available on
   GitHub Pages (HTTPS) and on the localhost dev server, but not on plain HTTP over the LAN
   IP.
-- Reverse geocoding **requires a network connection**: it is the only network call of the
-  app and happens only when the button is pressed, never automatically.
+- Reverse geocoding **requires a network connection** and happens only when the button is
+  pressed, never automatically. Place suggestions are a separate user-initiated Photon
+  lookup as described above.
 - On denied permission, GPS error or missing network the app shows a transient warning
   (Toast) and leaves the field empty/manual: the Expense can always be saved because the
   location is optional.
-- Nominatim usage policy: low volume; a descriptive User-Agent/Referer is sent. The result
-  is only stored in the local field (nothing is sent or stored server-side beyond the
-  geocoding request).
+- Nominatim is used only for reverse lookup on explicit GPS-button press; it is not used for
+  autocomplete. The result is stored only in the local field (nothing is saved server-side
+  beyond the geocoding request).
 
 ## Expenses to be reimbursed (reimbursable) and Salary
 Some expenses (e.g. business trips) are paid by the user and later reimbursed by the
