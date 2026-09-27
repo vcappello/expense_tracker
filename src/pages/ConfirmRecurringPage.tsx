@@ -11,6 +11,7 @@ import { sortAccountsPreferred } from '../utils/accounts';
 import { getFrequencyLabel, getOccurrencePeriodKey } from '../utils/recurrence';
 import { abbreviateAmount } from '../utils/formatting';
 import { useNavigateBack } from '../utils/navigation';
+import { ONLINE_LOCATION_VALUE } from '../utils/locationCategories';
 import '../styles/EntityForm.css';
 import '../styles/RecurringPage.css';
 
@@ -50,6 +51,7 @@ export default function ConfirmRecurringPage() {
 
   const [template, setTemplate] = useState<RecurringExpense | null>(null);
   const [amount, setAmount] = useState('');
+  const [location, setLocation] = useState(ONLINE_LOCATION_VALUE);
   const [date, setDate] = useState(toInputDate(new Date()));
   const [time, setTime] = useState(formatTimeToHHMMSS(new Date()));
   const [isLoading, setIsLoading] = useState(false);
@@ -108,6 +110,9 @@ export default function ConfirmRecurringPage() {
         }
         setTemplate(recurring);
         setAmount(String(recurring.amount));
+        if (recurring.kind !== 'income') {
+          setLocation(recurring.location || ONLINE_LOCATION_VALUE);
+        }
       } catch (err) {
         console.error('Failed to load recurring expense:', err);
         setAlertMessage('Errore durante il caricamento della ricorrenza');
@@ -161,6 +166,7 @@ export default function ConfirmRecurringPage() {
         amount: value,
         date: new Date(`${date}T00:00:00`),
         time,
+        ...(template.kind === 'income' ? {} : { location }),
       });
       navigateBack();
     } catch (err) {
@@ -175,6 +181,11 @@ export default function ConfirmRecurringPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!template) return;
+
+    if (template.kind !== 'income' && !location.trim()) {
+      showToast('Indica un luogo o seleziona “Online / nessun luogo”', '⚠️');
+      return;
+    }
 
     const value = parseFloat(amount);
     if (!value || value <= 0) {
@@ -247,6 +258,7 @@ export default function ConfirmRecurringPage() {
   }
 
   const isIncome = template?.kind === 'income';
+  const isOnlineLocation = location === ONLINE_LOCATION_VALUE;
   const typeName = template
     ? expenseTypes.find((t) => t.id === template.expenseTypeId)?.name ?? '?'
     : '';
@@ -309,6 +321,48 @@ export default function ConfirmRecurringPage() {
                   required
                 />
               </div>
+
+              {!isIncome && (
+                <div className="form-group">
+                  <label htmlFor="recurring-location">Luogo *</label>
+                  {isOnlineLocation ? (
+                    <div className="recurring-online-choice">
+                      <span>{ONLINE_LOCATION_VALUE}</span>
+                      <button
+                        type="button"
+                        className="recurring-location-mode"
+                        onClick={() => setLocation('')}
+                      >
+                        Inserisci un luogo
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <input
+                        type="text"
+                        id="recurring-location"
+                        value={location}
+                        onChange={(e) => setLocation(e.target.value)}
+                        className="form-input"
+                        required
+                      />
+                      <div className="recurring-location-actions">
+                        <button
+                          type="button"
+                          className="recurring-location-mode"
+                          onClick={() => setLocation(ONLINE_LOCATION_VALUE)}
+                        >
+                          Online / nessun luogo
+                        </button>
+                      </div>
+                    </>
+                  )}
+                  <p className="field-hint">
+                    Vale per questa conferma; per le prossime modifiche il modello
+                    ricorrente.
+                  </p>
+                </div>
+              )}
 
               <div className="form-group">
                 <label htmlFor="date">Data *</label>

@@ -708,6 +708,36 @@ Decisioni utente (27/09/2026):
 - [x] **Documentazione e verifica**: attribuzione OpenStreetMap, privacy e servizio esterno
       documentati; test mirati e build.
 
+### Suggerimento della categoria dalla posizione GPS — implementata il 27/09/2026
+
+Obiettivo: velocizzare l'inserimento della spesa usando la posizione come indizio per
+proporre una categoria, senza assegnarla automaticamente. La vicinanza a un'attività non
+garantisce che la spesa sia stata fatta lì: la categoria resta sempre modificabile e va
+confermata dall'utente. Decisione utente: il luogo è obbligatorio nei form di spesa e va
+spostato prima degli altri campi; per spese senza luogo fisico usare "Online / nessun luogo".
+Le spese ricorrenti senza luogo vengono proposte come Online alla conferma e il valore può
+essere cambiato per la singola occorrenza.
+
+Comportamento implementato:
+- dopo il rilevamento esplicito della posizione, ricavare una categoria probabile dal tipo
+  OSM restituito dal reverse geocoding; usare anche i metadati OSM dei luoghi scelti dalla
+  ricerca testuale;
+- dare priorità alle associazioni luogo → categoria già confermate dall'utente in spese
+  precedenti; usare il tipo di attività come fallback;
+- se ci sono più candidati o il risultato è incerto, mostrare il suggerimento senza
+  preselezionarlo o chiedere conferma; non impedire mai l'inserimento manuale;
+- spiegare quale posizione viene inviata al servizio esterno e chiedere/ottenere il consenso
+  secondo il flusso GPS esplicito già presente.
+
+- [x] **Ricerca e classificazione**: usare il tipo OSM del luogo restituito da GPS/Photon e
+      associare i tipi di attività alle categorie configurate dall'utente.
+- [x] **Apprendimento locale**: riutilizzare le corrispondenze luogo/categoria confermate
+      nelle spese precedenti, senza inviare lo storico spese a servizi esterni.
+- [x] **Interazione sicura**: mostrare la categoria come suggerimento modificabile, gestire
+      più luoghi/risultati ambigui e mantenere sempre la scelta manuale.
+- [x] **Privacy e verifica**: documentare servizio, dati trasmessi e attribuzione; verificare
+      permessi GPS, risultati ambigui, fallback offline e casi senza categoria compatibile.
+
 ### Entrate programmate / ricorrenti (stipendio, una tantum) — implementata il 19/09/2026
 
 > Richiesta utente (19/09/2026): estendere le **Ricorrenze** alle **entrate**, così lo

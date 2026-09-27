@@ -5,6 +5,7 @@ import { getDateRange, toDateTime } from '../utils/formatting';
 import { getOccurrencePeriodKey } from '../utils/recurrence';
 import { initializeDefaultData } from '../utils/initialization';
 import { buildCoinSplitCashflows } from '../utils/coins';
+import { ONLINE_LOCATION_VALUE } from '../utils/locationCategories';
 import {
   getOutstandingReimbursableExpenses,
   getReimbursableSummary as computeReimbursableSummary,
@@ -55,6 +56,7 @@ export interface ConfirmRecurringInput {
   amount: number;
   date: Date;
   time: string;
+  location?: string;
 }
 
 /**
@@ -880,7 +882,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             accountId: template.accountId,
             routingPairId: null,
             notes: template.notes,
-            location: template.location,
+            location:
+              input.location ??
+              (template.location || ONLINE_LOCATION_VALUE),
             reimbursable: template.reimbursable,
             recurringId: template.id,
             recurringPeriod: periodKey,

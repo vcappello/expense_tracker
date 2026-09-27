@@ -1,8 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { ExpenseType } from '../types';
+import { Expense, ExpenseType } from '../types';
 import { sortAccountsPreferred } from '../utils/accounts';
+import {
+  ONLINE_LOCATION_VALUE,
+  PlaceCategoryMetadata,
+  suggestExpenseTypeForLocation,
+} from '../utils/locationCategories';
 import { useNavigateBack } from '../utils/navigation';
 import TitleBar, { TitleBarAction } from '../components/TitleBar';
 import { CheckIcon, TrashIcon, LocateIcon } from '../components/icons';
@@ -21,6 +26,8 @@ const formatTimeToHHMMSS = (date: Date): string => {
 
 interface LocationSuggestion {
   label: string;
+  category?: string;
+  type?: string;
 }
 
 type LocationSearchStatus = 'idle' | 'loading' | 'results' | 'empty' | 'error';
@@ -65,14 +72,28 @@ const getPhotonSuggestions = (payload: unknown): LocationSuggestion[] => {
 
     if (!label || labels.has(normalizedLabel)) return [];
     labels.add(normalizedLabel);
-    return [{ label }];
+    return [{
+      label,
+      category: typeof properties.osm_key === 'string' ? properties.osm_key : undefined,
+      type: typeof properties.osm_value === 'string' ? properties.osm_value : undefined,
+    }];
   });
 };
 
 export default function CreateExpensePage() {
   const navigateBack = useNavigateBack('/');
   const { id: expenseId } = useParams<{ id: string }>();
-  const { accounts, expenseTypes, createExpenseType, getExpense, deleteExpense, saveExpenseWithCoins, getCashflows } = useApp();
+  const {
+    accounts,
+    expenseTypes,
+    expenses,
+    loadExpenses,
+    createExpenseType,
+    getExpense,
+    deleteExpense,
+    saveExpenseWithCoins,
+    getCashflows,
+  } = useApp();
   const sortedAccounts = sortAccountsPreferred(accounts);
   const coinAccounts = sortedAccounts.filter((a) => a.isCoinAccount);
 
@@ -105,8 +126,26 @@ export default function CreateExpensePage() {
   const [locationSearchStatus, setLocationSearchStatus] =
     useState<LocationSearchStatus>('idle');
   const [activeLocationSuggestion, setActiveLocationSuggestion] = useState(-1);
+  const [locationMetadata, setLocationMetadata] =
+    useState<PlaceCategoryMetadata>({});
   const locationSuggestionsOpen =
     locationSearchQuery.trim().length >= 3 && locationSearchStatus !== 'idle';
+  const isOnlineLocation = formData.location === ONLINE_LOCATION_VALUE;
+  const suggestedExpenseType = useMemo(
+    () =>
+      suggestExpenseTypeForLocation(
+        formData.location,
+        locationMetadata,
+        expenses,
+        expenseTypes,
+        expenseId
+      ),
+    [formData.location, locationMetadata, expenses, expenseTypes, expenseId]
+  );
+
+  useEffect(() => {
+    void loadExpenses();
+  }, [loadExpenses]);
 
   useEffect(() => {
     const query = locationSearchQuery.trim();
@@ -290,18 +329,35 @@ export default function CreateExpensePage() {
   const handleLocationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setLocationSearchQuery(e.target.value);
     setActiveLocationSuggestion(-1);
+    setLocationMetadata({});
     setFormData((prev) => ({
       ...prev,
       location: e.target.value,
     }));
   };
 
-  const handleLocationSuggestionSelect = (suggestion: LocationSuggestion) => {
-    setFormData((prev) => ({ ...prev, location: suggestion.label }));
+  const setLocation = (label: string, metadata: PlaceCategoryMetadata = {}) => {
+    setFormData((prev) => ({ ...prev, location: label }));
+    setLocationMetadata(metadata);
     setLocationSearchQuery('');
     setLocationSuggestions([]);
     setLocationSearchStatus('idle');
     setActiveLocationSuggestion(-1);
+  };
+
+  const handleLocationSuggestionSelect = (suggestion: LocationSuggestion) => {
+    setLocation(suggestion.label, {
+      category: suggestion.category,
+      type: suggestion.type,
+    });
+  };
+
+  const handleOnlineLocationToggle = () => {
+    if (isOnlineLocation) {
+      setLocation('');
+    } else {
+      setLocation(ONLINE_LOCATION_VALUE);
+    }
   };
 
   const handleLocationKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -361,12 +417,15 @@ export default function CreateExpensePage() {
           if (!response.ok) {
             throw new Error('network');
           }
-          const data = (await response.json()) as { display_name?: string };
-          const placeName = data.display_name ?? '';
-          setFormData((prev) => ({
-            ...prev,
-            location: placeName,
-          }));
+          const data: unknown = await response.json();
+          if (!isRecord(data)) throw new Error('Invalid reverse geocoding response');
+          const placeName =
+            typeof data.display_name === 'string' ? data.display_name : '';
+          setLocation(placeName, {
+            category:
+              typeof data.category === 'string' ? data.category : undefined,
+            type: typeof data.type === 'string' ? data.type : undefined,
+          });
           if (placeName) {
             showToast('Luogo rilevato dalla posizione');
           } else {
@@ -451,7 +510,17 @@ export default function CreateExpensePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.date || !formData.amount || !formData.expenseTypeId || !formData.accountId) {
+    if (!formData.location.trim()) {
+      showToast('Indica un luogo o seleziona “Online / nessun luogo”', '⚠️');
+      return;
+    }
+
+    if (
+      !formData.date ||
+      !formData.amount ||
+      !formData.expenseTypeId ||
+      !formData.accountId
+    ) {
       showToast('Compila tutti i campi obbligatori', '⚠️');
       return;
     }
@@ -539,6 +608,203 @@ export default function CreateExpensePage() {
   });
 
   const selectedType = expenseTypes.find((t) => t.id === formData.expenseTypeId);
+  const categoryField = (
+    <div className="form-group">
+      <label htmlFor="expenseType">Categoria *</label>
+      <div className="expense-type-container" ref={dropdownRef}>
+        <input
+          type="text"
+          id="expenseType"
+          placeholder="Cerca o scrivi una categoria..."
+          value={expenseTypeSearch || selectedType?.name || ''}
+          onChange={(e) => handleExpenseTypeSearch(e.target.value)}
+          onFocus={() => setShowTypeDropdown(true)}
+          className="form-input"
+        />
+        {showTypeDropdown && (
+          <div className="dropdown-menu">
+            {filteredTypes.length > 0 && (
+              <>
+                {filteredTypes.map((type) => (
+                  <div
+                    key={type.id}
+                    className="dropdown-item"
+                    onClick={() => selectExpenseType(type.id)}
+                  >
+                    {type.name}
+                  </div>
+                ))}
+                <div className="dropdown-divider"></div>
+              </>
+            )}
+            {expenseTypeSearch.trim() &&
+              !filteredTypes.find((t) => t.name === expenseTypeSearch) && (
+                <div
+                  className="dropdown-item new-item"
+                  onClick={createNewExpenseType}
+                >
+                  <span className="badge">nuovo</span> {expenseTypeSearch}
+                </div>
+              )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+  const suggestedType = suggestedExpenseType
+    ? expenseTypes.find(
+        (type) => type.id === suggestedExpenseType.expenseTypeId
+      )
+    : undefined;
+  const locationField = (
+    <div className="form-group">
+      <label htmlFor={isOnlineLocation ? undefined : 'location'}>Luogo *</label>
+      {isOnlineLocation ? (
+        <div className="location-online-selected">
+          <span>{ONLINE_LOCATION_VALUE}</span>
+          <button
+            type="button"
+            className="location-mode-button"
+            onClick={handleOnlineLocationToggle}
+          >
+            Inserisci un luogo
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="location-autocomplete">
+            <div className="location-row">
+              <input
+                type="text"
+                id="location"
+                placeholder="Es. Via Roma 1, Milano"
+                value={formData.location}
+                onChange={handleLocationChange}
+                onKeyDown={handleLocationKeyDown}
+                className="form-input"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-haspopup="listbox"
+                aria-expanded={locationSuggestionsOpen}
+                aria-controls={
+                  locationSearchStatus === 'results'
+                    ? 'location-suggestions'
+                    : undefined
+                }
+                aria-activedescendant={
+                  activeLocationSuggestion >= 0
+                    ? `location-suggestion-${activeLocationSuggestion}`
+                    : undefined
+                }
+                required
+              />
+              <button
+                type="button"
+                className="location-button"
+                onClick={handleUseCurrentLocation}
+                disabled={isLocating}
+                title={
+                  isLocating
+                    ? 'Rilevamento posizione…'
+                    : 'Compila il luogo con la posizione attuale'
+                }
+                aria-label="Compila il luogo con la posizione attuale"
+              >
+                {isLocating ? <span className="locating-dot" /> : <LocateIcon />}
+              </button>
+            </div>
+            {locationSuggestionsOpen && (
+              <div className="location-suggestions">
+                {locationSearchStatus === 'results' ? (
+                  <ul id="location-suggestions" role="listbox">
+                    {locationSuggestions.map((suggestion, index) => (
+                      <li key={`${suggestion.label}-${index}`} role="presentation">
+                        <button
+                          id={`location-suggestion-${index}`}
+                          type="button"
+                          role="option"
+                          aria-selected={activeLocationSuggestion === index}
+                          className={`location-suggestion${
+                            activeLocationSuggestion === index ? ' active' : ''
+                          }`}
+                          onMouseEnter={() =>
+                            setActiveLocationSuggestion(index)
+                          }
+                          onClick={() =>
+                            handleLocationSuggestionSelect(suggestion)
+                          }
+                        >
+                          {suggestion.label}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="location-search-status" role="status">
+                    {locationSearchStatus === 'loading' && 'Ricerca luoghi…'}
+                    {locationSearchStatus === 'empty' &&
+                      'Nessun risultato. Puoi inserire il luogo manualmente.'}
+                    {locationSearchStatus === 'error' &&
+                      'Ricerca non disponibile. Puoi continuare a inserirlo manualmente.'}
+                  </div>
+                )}
+                <div className="location-attribution">
+                  Risultati da{' '}
+                  <a
+                    href="https://photon.komoot.io/"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Photon
+                  </a>
+                  {' · Dati © '}
+                  <a
+                    href="https://www.openstreetmap.org/copyright"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    OpenStreetMap
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
+          {locationSearchQuery.trim().length > 0 &&
+            locationSearchQuery.trim().length < 3 && (
+              <p className="location-search-hint">
+                Digita almeno 3 caratteri per cercare.
+              </p>
+            )}
+          <button
+            type="button"
+            className="location-mode-button"
+            onClick={handleOnlineLocationToggle}
+          >
+            Acquisto online / nessun luogo
+          </button>
+        </>
+      )}
+      {suggestedType &&
+        formData.expenseTypeId !== suggestedExpenseType?.expenseTypeId && (
+          <div className="category-suggestion">
+            <span>
+              Categoria suggerita: <strong>{suggestedType.name}</strong>
+              <small>
+                {suggestedExpenseType?.source === 'history'
+                  ? 'Basata su una spesa precedente in questo luogo'
+                  : 'Basata sul tipo di attività del luogo'}
+              </small>
+            </span>
+            <button
+              type="button"
+              onClick={() => selectExpenseType(suggestedType.id)}
+            >
+              Usa
+            </button>
+          </div>
+        )}
+    </div>
+  );
 
   const coinsActive =
     formData.coinsAccountId !== '' && parseFloat(formData.coinsAmount) > 0;
@@ -556,6 +822,9 @@ export default function CreateExpensePage() {
 
       <main className="page-content">
         <form ref={formRef} className="expense-form" onSubmit={handleSubmit} noValidate>
+          {locationField}
+          {categoryField}
+
           {/* Date Field */}
           <div className="form-group">
             <label htmlFor="date">Data *</label>
@@ -598,47 +867,6 @@ export default function CreateExpensePage() {
             />
           </div>
 
-          {/* Expense Type Field */}
-          <div className="form-group">
-            <label htmlFor="expenseType">Categoria *</label>
-            <div className="expense-type-container" ref={dropdownRef}>
-              <input
-                type="text"
-                id="expenseType"
-                placeholder="Cerca o scrivi una categoria..."
-                value={expenseTypeSearch || selectedType?.name || ''}
-                onChange={(e) => handleExpenseTypeSearch(e.target.value)}
-                onFocus={() => setShowTypeDropdown(true)}
-                className="form-input"
-              />
-
-              {showTypeDropdown && (
-                <div className="dropdown-menu">
-                  {filteredTypes.length > 0 && (
-                    <>
-                      {filteredTypes.map((type) => (
-                        <div
-                          key={type.id}
-                          className="dropdown-item"
-                          onClick={() => selectExpenseType(type.id)}
-                        >
-                          {type.name}
-                        </div>
-                      ))}
-                      <div className="dropdown-divider"></div>
-                    </>
-                  )}
-
-                  {expenseTypeSearch.trim() && !filteredTypes.find((t) => t.name === expenseTypeSearch) && (
-                    <div className="dropdown-item new-item" onClick={createNewExpenseType}>
-                      <span className="badge">nuovo</span> {expenseTypeSearch}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
           {/* Account Field */}
           <div className="form-group">
             <label htmlFor="account">Conto *</label>
@@ -670,7 +898,7 @@ export default function CreateExpensePage() {
             </label>
           </div>
 
-          {/* Additional info (optional): note and location */}
+          {/* Additional info (optional) */}
           <div className="form-section">
             <div className="form-section-title">
               Informazioni aggiuntive (opzionale)
@@ -685,105 +913,6 @@ export default function CreateExpensePage() {
                 onChange={handleNotesChange}
                 className="form-textarea"
               />
-            </div>
-            <div className="form-group">
-              <label htmlFor="location">Luogo</label>
-              <div className="location-autocomplete">
-                <div className="location-row">
-                  <input
-                    type="text"
-                    id="location"
-                    placeholder="Es. Via Roma 1, Milano"
-                    value={formData.location}
-                    onChange={handleLocationChange}
-                    onKeyDown={handleLocationKeyDown}
-                    className="form-input"
-                    role="combobox"
-                    aria-autocomplete="list"
-                    aria-haspopup="listbox"
-                    aria-expanded={locationSuggestionsOpen}
-                    aria-controls={
-                      locationSearchStatus === 'results'
-                        ? 'location-suggestions'
-                        : undefined
-                    }
-                    aria-activedescendant={
-                      activeLocationSuggestion >= 0
-                        ? `location-suggestion-${activeLocationSuggestion}`
-                        : undefined
-                    }
-                  />
-                  <button
-                    type="button"
-                    className="location-button"
-                    onClick={handleUseCurrentLocation}
-                    disabled={isLocating}
-                    title={
-                      isLocating
-                        ? 'Rilevamento posizione…'
-                        : 'Compila il luogo con la posizione attuale'
-                    }
-                    aria-label="Compila il luogo con la posizione attuale"
-                  >
-                    {isLocating ? <span className="locating-dot" /> : <LocateIcon />}
-                  </button>
-                </div>
-                {locationSuggestionsOpen && (
-                  <div className="location-suggestions">
-                    {locationSearchStatus === 'results' ? (
-                      <ul id="location-suggestions" role="listbox">
-                        {locationSuggestions.map((suggestion, index) => (
-                          <li key={`${suggestion.label}-${index}`} role="presentation">
-                            <button
-                              id={`location-suggestion-${index}`}
-                              type="button"
-                              role="option"
-                              aria-selected={activeLocationSuggestion === index}
-                              className={`location-suggestion${
-                                activeLocationSuggestion === index ? ' active' : ''
-                              }`}
-                              onMouseEnter={() => setActiveLocationSuggestion(index)}
-                              onClick={() => handleLocationSuggestionSelect(suggestion)}
-                            >
-                              {suggestion.label}
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <div className="location-search-status" role="status">
-                        {locationSearchStatus === 'loading' && 'Ricerca luoghi…'}
-                        {locationSearchStatus === 'empty' &&
-                          'Nessun risultato. Puoi inserire il luogo manualmente.'}
-                        {locationSearchStatus === 'error' &&
-                          'Ricerca non disponibile. Puoi continuare a inserirlo manualmente.'}
-                      </div>
-                    )}
-                    <div className="location-attribution">
-                      Risultati da{' '}
-                      <a
-                        href="https://photon.komoot.io/"
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Photon
-                      </a>
-                      {' · Dati © '}
-                      <a
-                        href="https://www.openstreetmap.org/copyright"
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        OpenStreetMap
-                      </a>
-                    </div>
-                  </div>
-                )}
-                {locationSearchQuery.trim().length > 0 &&
-                  locationSearchQuery.trim().length < 3 && (
-                    <p className="location-search-hint">Digita almeno 3 caratteri per cercare.</p>
-                  )}
-              </div>
             </div>
           </div>
 

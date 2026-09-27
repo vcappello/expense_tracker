@@ -79,6 +79,37 @@
   color: #e5eefb;
 }
 
+.recurring-online-choice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 10px 12px;
+  border: 1px solid rgba(45, 212, 191, 0.35);
+  border-radius: 8px;
+  background: rgba(20, 184, 166, 0.1);
+  color: #ccfbf1;
+}
+
+.recurring-location-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.recurring-location-mode {
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  color: #5eead4;
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
 /* Tipo Spesa / Entrata switch of the create/edit form */
 .kind-switch {
   display: flex;

@@ -14,9 +14,10 @@ The `Expense` and `Cashflow` records support an optional `routingPairId` used to
 movements of a routing transfer or of a coin-split expense (see "Expense paid partly from a
 second account (coin split)").
 
-The `Expense` record also carries two optional free-text fields, `notes` and `location`
-(a note and a place), both defaulting to an empty string (see "Notes and location on an
-Expense").
+The `Expense` record also carries two free-text fields, `notes` and `location` (a note and
+a place), both defaulting to an empty string for older records (see "Notes and location on
+an Expense"). Notes are optional; newly created or edited expenses require a location or
+the explicit "Online / nessun luogo" choice.
 
 The `Expense` record carries a `reimbursable` boolean flag and the `Cashflow` record an
 `isSalary` boolean flag (both defaulting to false), used by the "Expenses to be reimbursed
@@ -149,7 +150,7 @@ The user can enter:
 - (mandatory) the ExpenseType. The user can type any value, when the user type text a dropdown listbox display a list of already created ExpenseType that contains the inserted text and the user can select a value from the list. When the inserted text does not match any existing ExpenseType in the dropdown list the first entry is the inserted value with a badge showing the "new" info, the user can create the ExpenseType inline pressing this item. When the item is pressed a message toast display the correct creation of the ExpenseType. When the ExpenseType is created inline the system create a new ExpenseType with the inserted name and with null parent
 - (mandatory) the Account. This is a dropdown list, the default is the first defined Account (Cash)
 - (optional) the Note: a free-text annotation stored on the Expense (see "Notes and location on an Expense")
-- (optional) the Location: a free-text place name, optionally filled in from the GPS position (see "Notes and location on an Expense")
+- (required) the Location: a free-text place name, selected from suggestions, typed manually or filled from GPS; online purchases/no physical place use "Online / nessun luogo" (see "Notes and location on an Expense")
 
 When editing an existing Expense, all fields are pre-populated with the stored values.
 
@@ -222,17 +223,37 @@ Resulting balances:
   Cashflow records.
 
 ## Notes and location on an Expense
-An Expense can carry two optional free-text annotations, stored directly on the record
+An Expense carries two free-text annotations, stored directly on the record
 (`notes: string` and `location: string`, default `''`, normalized on read and on import for
-records created before this feature; no DB version bump required).
+records created before this feature; no DB version bump required). Notes are optional. For
+new or edited expenses, Location is required; use the explicit "Online / nessun luogo"
+choice when there is no physical place.
 
 - **Note (Note)**: a free annotation (e.g. "cena con amici", "numero fattura …"). Optional.
 - **Location (Luogo)**: a place name (e.g. "Via Roma 1, Milano", "Stazione Centrale").
-  Optional; the user can type it, choose a suggestion while typing, or fill it in from the
-  GPS position (see below).
+  Required in the Create/Edit Expense form; the user can type it, choose a suggestion while
+  typing, or fill it in from the GPS position (see below). "Online / nessun luogo" is an
+  explicit valid value for purchases without a physical location.
 
 Both fields are entered in the Create/Edit Expense page and pre-populated when editing an
 existing Expense. They do not affect Analytics or the account balances.
+
+### Suggest an ExpenseType from a place
+After the user chooses a place suggestion or fills the location using GPS, the form may
+suggest a category. The suggestion is never applied automatically: the user must choose
+"Usa" or select another category manually.
+
+- First, use the most frequent category on previous expenses with the same normalized place
+  label. If the prior category counts are tied, no history-based suggestion is made.
+- Otherwise, map a supported OpenStreetMap place type (food businesses, shops, fuel, toll
+  booths) to a unique matching user category using known Italian/English category names.
+  Unknown or ambiguous types/categories produce no suggestion.
+- The `Online / nessun luogo` choice never produces a place-based suggestion.
+- Place name/type and local expense history are processed in the browser. No expense history
+  is transmitted to Photon or Nominatim; GPS coordinates are sent only to the existing
+  reverse-geocoding request after the user explicitly presses the GPS button.
+- Suggestions are advisory because GPS can identify a nearby place that was not the source
+  of the expense.
 
 ### Search location suggestions
 When the user types at least 3 characters in the Location field, the app waits 500 ms after
@@ -268,8 +289,8 @@ Constraints and fallbacks:
   pressed, never automatically. Place suggestions are a separate user-initiated Photon
   lookup as described above.
 - On denied permission, GPS error or missing network the app shows a transient warning
-  (Toast) and leaves the field empty/manual: the Expense can always be saved because the
-  location is optional.
+  (Toast) and leaves the field available for manual entry; the user can also explicitly
+  choose "Online / nessun luogo" and save the Expense.
 - Nominatim is used only for reverse lookup on explicit GPS-button press; it is not used for
   autocomplete. The result is stored only in the local field (nothing is saved server-side
   beyond the geocoding request).
@@ -332,7 +353,9 @@ Expense dated at the confirmation moment.
 - `startDate`: reference day of the recurrence (for weekly the weekday, for monthly the
   day of the month, for yearly the day of the year)
 - `active`: boolean, pauses / re-activates the proposals without deleting the template
-- `notes`, `location`, `reimbursable`: copied to the confirmed Expense (optional)
+- `notes`, `location`, `reimbursable`: notes/location can be empty in the template; the
+  confirmation defaults an empty location to "Online / nessun luogo", editable for that
+  occurrence, and copies it to the confirmed Expense
 - `createdAt`, `updatedAt`
 
 A recurring expense is **not** a movement: it never appears in the account balances nor in
@@ -400,7 +423,11 @@ like Accounts/Categories).
 Create / Edit view (title bar: Confirm, and Delete in edit mode only; the Back button
 cancels):
 - `name`, `frequency`, `amount`, category, account, start date;
-- optional notes, location and "Sarà rimborsata" flag;
+- optional notes and "Sarà rimborsata" flag;
+- for an expected recurring expense, the confirmation form requires a location and defaults
+  to "Online / nessun luogo" when the template has no location; the user can enter a physical
+  place for that occurrence. "Conferma tutte" uses the same online default for templates
+  without a saved location;
 - a preview of the **next due date** (and, when it is already due, the expected amount is
   immediately visible in the Main view);
 - an "attiva / in pausa" switch to pause the proposals;
@@ -906,7 +933,7 @@ when switching to the HTTPS server (or any other origin change).
   date; active first, paused after them with an "in pausa" badge; rows clickable → Edit
   view (no Edit/Delete buttons in the list), like the other management pages.
 - Create / Edit view: name, frequency, default amount, category, account, start date,
-  optional notes/location/reimbursable flag, "in pausa" switch and a preview of the next
+  optional notes/reimbursable flag, "in pausa" switch and a preview of the next
   due date. Title bar: Confirm only in create mode, Confirm + Delete in edit mode (Back
   cancels), like the other create/edit views.
 - Confirmation view (opened from an expected row in the Main view): amount and date/time,

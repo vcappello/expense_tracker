@@ -93,7 +93,17 @@
   Luogo mostra suggerimenti da **Photon** (`https://photon.komoot.io/api/`) dopo 500 ms di
   debounce; annullare la richiesta obsoleta, supportare tastiera/tocco e attribuire Photon +
   OpenStreetMap. La query digitata è inviata al servizio esterno; errori/offline lasciano
-  utilizzabile il campo manuale. Il bottone 📍 separato usa
+  utilizzabile il campo manuale. Il luogo è obbligatorio nel form Spesa ed è tra i primi
+  campi; "Online / nessun luogo" è il valore esplicito per acquisti senza posto fisico.
+  Dopo un luogo Photon/GPS (o l'inserimento esatto di un luogo già usato), `utils/locationCategories.ts`
+  suggerisce la categoria più frequente già associata localmente allo stesso luogo; altrimenti
+  usa una mappatura conservativa tipo OSM → nome categoria (ristorazione, negozi, carburante,
+  pedaggi). Non assegnare automaticamente: l'utente deve premere "Usa"; in caso di parità,
+  categoria mancante o luogo online non suggerire. Non inviare mai lo storico spese al servizio.
+  Nelle conferme delle spese ricorrenti, se il template non ha un luogo usare
+  `Online / nessun luogo` come default modificabile per la singola occorrenza; la conferma
+  in blocco usa lo stesso default per i template senza luogo.
+  Il bottone 📍 separato usa
   `navigator.geolocation.getCurrentPosition` + **Nominatim** online
   (`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=..&lon=..&zoom=18&accept-language=it`).
   Nominatim è solo reverse geocoding su pressione esplicita (la sua API pubblica vieta
