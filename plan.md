@@ -750,6 +750,24 @@ Comportamento implementato:
 - [x] **Documentazione e verifica**: aggiornare spec, README e istruzioni agenti; verificare
       build e comportamento di creazione/modifica, annullamento GPS e fallback manuale.
 
+### Riconoscimento acquisto online a casa — completato il 01/10/2026
+
+Decisioni utente:
+- salvare la posizione di casa dalle coordinate GPS direttamente nel browser, senza inviarla
+  a servizi esterni;
+- considerare "casa" un raggio di 100 metri; quando il GPS rileva la posizione in quel raggio,
+  attivare automaticamente "Online / nessun luogo".
+
+- [x] **Impostazione posizione**: consentire di salvare la posizione GPS rilevata come casa,
+      da Main view → Azioni → Posizione casa; mostrare accuratezza e chiedere conferma,
+      consentire aggiornamento/rimozione; conservare le coordinate nel solo `localStorage`
+      dell'origine, fuori dal backup.
+- [x] **Riconoscimento e privacy**: confrontare le coordinate prima del reverse-geocoding;
+      entro 100 m selezionare Online senza inviare la posizione a Nominatim. Checkbox sempre
+      modificabile per gli acquisti fisici effettuati a casa.
+- [x] **Documentazione e verifica**: aggiornare README, spec e istruzioni; verificare formula
+      di distanza, attivazione automatica, raggio esterno e assenza di chiamata Nominatim.
+
 ### Entrate programmate / ricorrenti (stipendio, una tantum) — implementata il 19/09/2026
 
 > Richiesta utente (19/09/2026): estendere le **Ricorrenze** alle **entrate**, così lo

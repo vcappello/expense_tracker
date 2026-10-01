@@ -67,6 +67,49 @@
   font-weight: 400;
 }
 
+.home-location-settings {
+  display: grid;
+  gap: 14px;
+}
+
+.home-location-settings p {
+  margin: 0;
+}
+
+.home-location-status,
+.home-location-error {
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.home-location-error {
+  color: #fca5a5;
+}
+
+.home-location-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.home-location-actions button,
+.home-location-candidate button {
+  min-height: 42px;
+}
+
+.home-location-candidate {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(45, 212, 191, 0.3);
+  border-radius: 8px;
+  background: rgba(20, 184, 166, 0.08);
+}
+
+.home-location-candidate p {
+  color: #cbd5e1;
+  font-size: 0.85rem;
+}
+
 .movement-search {
   position: relative;
   flex: 1;

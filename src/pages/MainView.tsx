@@ -10,6 +10,7 @@ import TitleBar from '../components/TitleBar';
 import ActionMenu from '../components/ActionMenu';
 import ConfirmModal from '../components/ConfirmModal';
 import AlertModal from '../components/AlertModal';
+import HomeLocationSettingsModal from '../components/HomeLocationSettingsModal';
 import Toast from '../components/Toast';
 import { FunnelIcon, PlusIcon } from '../components/icons';
 import '../styles/MainView.css';
@@ -26,6 +27,7 @@ export default function MainView() {
   const [page, setPage] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [showExpectedReminder, setShowExpectedReminder] = useState(false);
+  const [showHomeLocationSettings, setShowHomeLocationSettings] = useState(false);
   const ITEMS_PER_PAGE = 20;
 
   // Backup / Restore state
@@ -95,6 +97,10 @@ export default function MainView() {
 
   const handleReimbursements = () => {
     navigate('/reimbursements');
+  };
+
+  const handleHomeLocationSettings = () => {
+    setShowHomeLocationSettings(true);
   };
 
   const handleExportBackup = async () => {
@@ -610,6 +616,7 @@ export default function MainView() {
               { label: '🏷️ Categorie', onClick: handleExpenseTypes },
               { label: '🔁 Ricorrenti', onClick: handleRecurring },
               { label: '💶 Rimborsi in attesa', onClick: handleReimbursements },
+              { label: '🏠 Posizione casa', onClick: handleHomeLocationSettings },
               { label: '💾 Esporta backup', onClick: handleExportBackup },
               { label: '📥 Ripristina backup', onClick: () => fileInputRef.current?.click() },
             ]}
@@ -702,6 +709,11 @@ export default function MainView() {
         open={importError !== null}
         message={importError}
         onClose={() => setImportError(null)}
+      />
+
+      <HomeLocationSettingsModal
+        open={showHomeLocationSettings}
+        onClose={() => setShowHomeLocationSettings(false)}
       />
 
       <Toast

@@ -105,7 +105,13 @@
   carburante, pedaggi). Se la categoria è identificata, selezionarla automaticamente e
   informare con un toast; non sovrascrivere mai una categoria scelta manualmente. In caso di
   parità, categoria mancante o luogo online non assegnare una categoria. Non inviare mai lo
-  storico spese al servizio.
+  storico spese al servizio. La posizione di casa si configura da Main view → Azioni →
+  Posizione casa; il GPS si acquisisce su pressione esplicita e l'accuratezza è mostrata prima
+  della conferma (non mostrare le coordinate numeriche). Coordinate in `localStorage` solo su
+  questo browser, non nel backup e non inviate a servizi esterni. Confrontare il fix GPS con
+  una distanza haversine di 100 m prima di chiamare Nominatim; dentro il raggio selezionare
+  "Online / nessun luogo" e lasciare il checkbox modificabile. Rendere disponibili le azioni
+  per aggiornare/rimuovere la posizione salvata.
   Nelle conferme delle spese ricorrenti, se il template non ha un luogo usare
   `Online / nessun luogo` come default modificabile per la singola occorrenza; la conferma
   in blocco usa lo stesso default per i template senza luogo. Il bottone 📍 permette di

@@ -256,7 +256,8 @@ lookup.
 - Place name/type and local expense history are processed in the browser. No expense history
   is transmitted to Photon or Nominatim. When creating a new expense, the form starts GPS
   detection automatically; coordinates are sent to Nominatim for reverse geocoding after a
-  location fix. The user can stop GPS by typing or selecting the online/no-place checkbox.
+  location fix unless the coordinates match a locally saved home location. The user can stop
+  GPS by typing or selecting the online/no-place checkbox.
 - Suggestions are advisory because GPS can identify a nearby place that was not the source
   of the expense.
 
@@ -302,6 +303,17 @@ Constraints and fallbacks:
 - Nominatim is used only for reverse lookup after a GPS fix; it is not used for autocomplete.
    The result is stored only in the local field (nothing is saved server-side beyond the
    geocoding request).
+
+### Recognize online purchases at home
+The user can manage the home position from **Main view → Actions → Posizione casa**. GPS
+capture requires an explicit button press; the measured GPS accuracy is shown before
+confirmation, not the numeric coordinates. The home coordinates are stored only in this
+browser's local storage; they are not included in backup files or sent to a third-party
+service. If a later GPS fix is within 100 meters of the saved position, the form
+automatically selects "Online / nessun luogo" without sending those coordinates to Nominatim.
+The user can update or remove the saved position at any time. This recognition is only a
+convenience: the online checkbox remains editable, and the user can uncheck it for an
+in-person purchase made at home.
 
 ## Expenses to be reimbursed (reimbursable) and Salary
 Some expenses (e.g. business trips) are paid by the user and later reimbursed by the

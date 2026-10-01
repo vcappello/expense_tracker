@@ -8,6 +8,11 @@ import {
   PlaceCategoryMetadata,
   suggestExpenseTypeForLocation,
 } from '../utils/locationCategories';
+import {
+  Coordinates,
+  isWithinHomeRadius,
+  loadHomeLocation,
+} from '../utils/homeLocation';
 import { useNavigateBack } from '../utils/navigation';
 import TitleBar, { TitleBarAction } from '../components/TitleBar';
 import { CheckIcon, TrashIcon, LocateIcon } from '../components/icons';
@@ -132,6 +137,7 @@ export default function CreateExpensePage() {
   const gpsWatchIdRef = useRef<number | null>(null);
   const gpsRequestIdRef = useRef(0);
   const reverseGeocodeControllerRef = useRef<AbortController | null>(null);
+  const homeLocationRef = useRef<Coordinates | null>(null);
   const categorySelectionOriginRef = useRef<'manual' | 'location' | null>(
     expenseId ? 'manual' : null
   );
@@ -288,6 +294,16 @@ export default function CreateExpensePage() {
       toastTimerRef.current = null;
     }, 2500);
   };
+
+  useEffect(() => {
+    try {
+      const savedHomeLocation = loadHomeLocation();
+      homeLocationRef.current = savedHomeLocation;
+    } catch (err) {
+      console.error('Failed to load home location:', err);
+      showToast('Posizione casa salvata non valida; puoi impostarla di nuovo', '⚠️');
+    }
+  }, []);
 
   // Clear the toast timer on unmount
   useEffect(() => {
@@ -456,12 +472,25 @@ export default function CreateExpensePage() {
           gpsWatchIdRef.current = null;
         }
 
+        const coordinates = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
+        if (
+          homeLocationRef.current &&
+          isWithinHomeRadius(coordinates, homeLocationRef.current)
+        ) {
+          setLocation(ONLINE_LOCATION_VALUE);
+          setLocationSearchQuery('');
+          showToast('Casa rilevata: acquisto online selezionato');
+          setIsLocating(false);
+          return;
+        }
         const controller = new AbortController();
         reverseGeocodeControllerRef.current = controller;
-        const { latitude, longitude } = position.coords;
         try {
           const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&accept-language=it`,
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${coordinates.latitude}&lon=${coordinates.longitude}&zoom=18&accept-language=it`,
             { signal: controller.signal }
           );
           if (!response.ok) {
