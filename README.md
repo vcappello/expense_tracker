@@ -54,7 +54,7 @@ online fai **Ripristina backup**. Da quel momento i dati restano nel browser usa
 - Interfaccia in **italiano** ottimizzata per smartphone
 - **Installabile** e **offline** (PWA: manifest, icone, service worker)
 - Registrazione di **Spese** ed **Entrate** con data e ora (hh:mm:ss)
-- Required **Luogo** field near the start of expense entry, with Photon search, GPS autofill, and an explicit online/no-place option; category suggestions from place type or confirmed local history
+- Required **Luogo** field near the start of expense entry, with Photon search, automatic GPS detection on creation, an online/no-place checkbox, and automatic editable category selection from place type or confirmed local history
 - **Movimenti ricorrenti e programmati** (spese ed entrate, anche una tantum): vengono proposti come **"Movimenti previsti"** finché non confermati; nella pagina **Ricorrenti** (menu Azioni) si creano, modificano, mettono in pausa o si interrompono
 - La conferma di una spesa ricorrente propone **Online / nessun luogo** se il modello non ha un luogo, modificabile per la singola spesa
 - **Rimborsi in attesa**: dal menu Azioni si consulta l'elenco delle spese rimborsabili successive all'ultimo stipendio, con totale e accesso alla modifica

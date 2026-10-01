@@ -121,6 +121,7 @@ export default function CreateExpensePage() {
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+  const [expenseHistoryLoaded, setExpenseHistoryLoaded] = useState(false);
   const [locationSearchQuery, setLocationSearchQuery] = useState('');
   const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
   const [locationSearchStatus, setLocationSearchStatus] =
@@ -128,6 +129,12 @@ export default function CreateExpensePage() {
   const [activeLocationSuggestion, setActiveLocationSuggestion] = useState(-1);
   const [locationMetadata, setLocationMetadata] =
     useState<PlaceCategoryMetadata>({});
+  const gpsWatchIdRef = useRef<number | null>(null);
+  const gpsRequestIdRef = useRef(0);
+  const reverseGeocodeControllerRef = useRef<AbortController | null>(null);
+  const categorySelectionOriginRef = useRef<'manual' | 'location' | null>(
+    expenseId ? 'manual' : null
+  );
   const locationSuggestionsOpen =
     locationSearchQuery.trim().length >= 3 && locationSearchStatus !== 'idle';
   const isOnlineLocation = formData.location === ONLINE_LOCATION_VALUE;
@@ -144,7 +151,13 @@ export default function CreateExpensePage() {
   );
 
   useEffect(() => {
-    void loadExpenses();
+    let active = true;
+    loadExpenses().finally(() => {
+      if (active) setExpenseHistoryLoaded(true);
+    });
+    return () => {
+      active = false;
+    };
   }, [loadExpenses]);
 
   useEffect(() => {
@@ -198,6 +211,7 @@ export default function CreateExpensePage() {
         try {
           const expense = await getExpense(expenseId);
           if (expense) {
+            categorySelectionOriginRef.current = 'manual';
             // Pre-fill the coin-split fields (if any) from the linked group:
             // the internal income is the positive Cashflow with the same
             // routingPairId and no routingAccountId.
@@ -327,17 +341,34 @@ export default function CreateExpensePage() {
   };
 
   const handleLocationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    cancelLocationDetection();
     setLocationSearchQuery(e.target.value);
     setActiveLocationSuggestion(-1);
     setLocationMetadata({});
-    setFormData((prev) => ({
-      ...prev,
-      location: e.target.value,
-    }));
+    const clearInferredCategory =
+      categorySelectionOriginRef.current === 'location';
+    if (clearInferredCategory) categorySelectionOriginRef.current = null;
+    setFormData((prev) => {
+      return {
+        ...prev,
+        location: e.target.value,
+        ...(clearInferredCategory ? { expenseTypeId: '' } : {}),
+      };
+    });
   };
 
   const setLocation = (label: string, metadata: PlaceCategoryMetadata = {}) => {
-    setFormData((prev) => ({ ...prev, location: label }));
+    const clearInferredCategory =
+      formData.location !== label &&
+      categorySelectionOriginRef.current === 'location';
+    if (clearInferredCategory) categorySelectionOriginRef.current = null;
+    setFormData((prev) => {
+      return {
+        ...prev,
+        location: label,
+        ...(clearInferredCategory ? { expenseTypeId: '' } : {}),
+      };
+    });
     setLocationMetadata(metadata);
     setLocationSearchQuery('');
     setLocationSuggestions([]);
@@ -346,18 +377,19 @@ export default function CreateExpensePage() {
   };
 
   const handleLocationSuggestionSelect = (suggestion: LocationSuggestion) => {
+    cancelLocationDetection();
     setLocation(suggestion.label, {
       category: suggestion.category,
       type: suggestion.type,
     });
   };
 
-  const handleOnlineLocationToggle = () => {
-    if (isOnlineLocation) {
-      setLocation('');
-    } else {
-      setLocation(ONLINE_LOCATION_VALUE);
-    }
+  const handleOnlineLocationToggle = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    cancelLocationDetection();
+    setLocationSearchQuery('');
+    setLocation(e.target.checked ? ONLINE_LOCATION_VALUE : '');
   };
 
   const handleLocationKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -385,6 +417,17 @@ export default function CreateExpensePage() {
     }
   };
 
+  const cancelLocationDetection = (updateState = true) => {
+    gpsRequestIdRef.current += 1;
+    if (gpsWatchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(gpsWatchIdRef.current);
+      gpsWatchIdRef.current = null;
+    }
+    reverseGeocodeControllerRef.current?.abort();
+    reverseGeocodeControllerRef.current = null;
+    if (updateState) setIsLocating(false);
+  };
+
   const handleReimbursableChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({
       ...prev,
@@ -392,32 +435,40 @@ export default function CreateExpensePage() {
     }));
   };
 
-  /**
-   * Fill the Location field from the current GPS position via the online
-   * Nominatim reverse geocoding service. This lookup only happens when the
-   * button is pressed. Geolocation requires a secure context (HTTPS/localhost);
-   * failures never block saving the Expense (the location is optional).
-   */
-  const handleUseCurrentLocation = () => {
+  const startLocationDetection = () => {
+    cancelLocationDetection();
     setLocationSearchQuery('');
     setLocationSuggestions([]);
     setLocationSearchStatus('idle');
     if (!('geolocation' in navigator)) {
+      setIsLocating(false);
       showToast('Geolocalizzazione non supportata dal dispositivo', '⚠️');
       return;
     }
+
+    const requestId = gpsRequestIdRef.current;
     setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
+    gpsWatchIdRef.current = navigator.geolocation.watchPosition(
       async (position) => {
+        if (requestId !== gpsRequestIdRef.current) return;
+        if (gpsWatchIdRef.current !== null) {
+          navigator.geolocation.clearWatch(gpsWatchIdRef.current);
+          gpsWatchIdRef.current = null;
+        }
+
+        const controller = new AbortController();
+        reverseGeocodeControllerRef.current = controller;
         const { latitude, longitude } = position.coords;
         try {
           const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&accept-language=it`
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&accept-language=it`,
+            { signal: controller.signal }
           );
           if (!response.ok) {
             throw new Error('network');
           }
           const data: unknown = await response.json();
+          if (requestId !== gpsRequestIdRef.current) return;
           if (!isRecord(data)) throw new Error('Invalid reverse geocoding response');
           const placeName =
             typeof data.display_name === 'string' ? data.display_name : '';
@@ -432,13 +483,22 @@ export default function CreateExpensePage() {
             showToast('Nessun luogo trovato per la posizione', '⚠️');
           }
         } catch (err) {
+          if (controller.signal.aborted) return;
           console.error('Reverse geocoding failed:', err);
           showToast('Errore di rete nel rilevare il luogo', '⚠️');
         } finally {
-          setIsLocating(false);
+          if (requestId === gpsRequestIdRef.current) {
+            reverseGeocodeControllerRef.current = null;
+            setIsLocating(false);
+          }
         }
       },
       (error) => {
+        if (requestId !== gpsRequestIdRef.current) return;
+        if (gpsWatchIdRef.current !== null) {
+          navigator.geolocation.clearWatch(gpsWatchIdRef.current);
+        }
+        gpsWatchIdRef.current = null;
         setIsLocating(false);
         const message =
           error.code === 1
@@ -448,9 +508,40 @@ export default function CreateExpensePage() {
               : 'Tempo scaduto nel rilevare la posizione';
         showToast(message, '⚠️');
       },
-      { timeout: 10000, maximumAge: 60000 }
+      { timeout: 12000, maximumAge: 60000, enableHighAccuracy: true }
     );
   };
+
+  useEffect(() => {
+    if (expenseId) return;
+    startLocationDetection();
+    return () => cancelLocationDetection(false);
+  }, [expenseId]);
+
+  useEffect(() => {
+    if (!expenseHistoryLoaded || !suggestedExpenseType) return;
+    if (categorySelectionOriginRef.current === 'manual') return;
+    if (formData.expenseTypeId === suggestedExpenseType.expenseTypeId) return;
+
+    const suggestedType = expenseTypes.find(
+      (type) => type.id === suggestedExpenseType.expenseTypeId
+    );
+    if (!suggestedType) return;
+
+    categorySelectionOriginRef.current = 'location';
+    setFormData((prev) => ({
+      ...prev,
+      expenseTypeId: suggestedExpenseType.expenseTypeId,
+    }));
+    setExpenseTypeSearch('');
+    setShowTypeDropdown(false);
+    showToast(`Categoria "${suggestedType.name}" individuata dal luogo`);
+  }, [
+    expenseHistoryLoaded,
+    expenseTypes,
+    formData.expenseTypeId,
+    suggestedExpenseType,
+  ]);
 
   const handleCoinsAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -470,6 +561,14 @@ export default function CreateExpensePage() {
   };
 
   const handleExpenseTypeSearch = (value: string) => {
+    if (value.trim()) {
+      const clearInferredCategory =
+        categorySelectionOriginRef.current === 'location';
+      categorySelectionOriginRef.current = 'manual';
+      if (clearInferredCategory) {
+        setFormData((prev) => ({ ...prev, expenseTypeId: '' }));
+      }
+    }
     setExpenseTypeSearch(value);
     setShowTypeDropdown(true);
   };
@@ -479,6 +578,7 @@ export default function CreateExpensePage() {
   );
 
   const selectExpenseType = (typeId: string) => {
+    categorySelectionOriginRef.current = 'manual';
     setFormData((prev) => ({
       ...prev,
       expenseTypeId: typeId,
@@ -651,24 +751,24 @@ export default function CreateExpensePage() {
       </div>
     </div>
   );
-  const suggestedType = suggestedExpenseType
-    ? expenseTypes.find(
-        (type) => type.id === suggestedExpenseType.expenseTypeId
-      )
-    : undefined;
   const locationField = (
     <div className="form-group">
       <label htmlFor={isOnlineLocation ? undefined : 'location'}>Luogo *</label>
+      <label
+        className="checkbox-label location-online-checkbox"
+        htmlFor="onlineLocation"
+      >
+        <input
+          type="checkbox"
+          id="onlineLocation"
+          checked={isOnlineLocation}
+          onChange={handleOnlineLocationToggle}
+        />
+        Acquisto online / nessun luogo
+      </label>
       {isOnlineLocation ? (
         <div className="location-online-selected">
           <span>{ONLINE_LOCATION_VALUE}</span>
-          <button
-            type="button"
-            className="location-mode-button"
-            onClick={handleOnlineLocationToggle}
-          >
-            Inserisci un luogo
-          </button>
         </div>
       ) : (
         <>
@@ -677,7 +777,9 @@ export default function CreateExpensePage() {
               <input
                 type="text"
                 id="location"
-                placeholder="Es. Via Roma 1, Milano"
+                placeholder={
+                  isLocating ? 'Caricamento posizione…' : 'Es. Via Roma 1, Milano'
+                }
                 value={formData.location}
                 onChange={handleLocationChange}
                 onKeyDown={handleLocationKeyDown}
@@ -701,7 +803,7 @@ export default function CreateExpensePage() {
               <button
                 type="button"
                 className="location-button"
-                onClick={handleUseCurrentLocation}
+                onClick={startLocationDetection}
                 disabled={isLocating}
                 title={
                   isLocating
@@ -713,6 +815,12 @@ export default function CreateExpensePage() {
                 {isLocating ? <span className="locating-dot" /> : <LocateIcon />}
               </button>
             </div>
+            {isLocating && (
+              <div className="location-gps-status" role="status">
+                <span className="locating-dot" />
+                Caricamento posizione…
+              </div>
+            )}
             {locationSuggestionsOpen && (
               <div className="location-suggestions">
                 {locationSearchStatus === 'results' ? (
@@ -775,34 +883,8 @@ export default function CreateExpensePage() {
                 Digita almeno 3 caratteri per cercare.
               </p>
             )}
-          <button
-            type="button"
-            className="location-mode-button"
-            onClick={handleOnlineLocationToggle}
-          >
-            Acquisto online / nessun luogo
-          </button>
         </>
       )}
-      {suggestedType &&
-        formData.expenseTypeId !== suggestedExpenseType?.expenseTypeId && (
-          <div className="category-suggestion">
-            <span>
-              Categoria suggerita: <strong>{suggestedType.name}</strong>
-              <small>
-                {suggestedExpenseType?.source === 'history'
-                  ? 'Basata su una spesa precedente in questo luogo'
-                  : 'Basata sul tipo di attività del luogo'}
-              </small>
-            </span>
-            <button
-              type="button"
-              onClick={() => selectExpenseType(suggestedType.id)}
-            >
-              Usa
-            </button>
-          </div>
-        )}
     </div>
   );
 

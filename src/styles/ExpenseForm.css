@@ -279,26 +279,15 @@
   text-underline-offset: 2px;
 }
 
-.location-mode-button {
+.location-online-checkbox {
   align-self: flex-start;
-  padding: 6px 0;
-  border: 0;
-  background: transparent;
-  color: #5eead4;
-  font: inherit;
-  font-size: 0.85rem;
-  text-align: left;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
+  margin: 2px 0 4px;
 }
 
 .location-online-selected {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px 16px;
+  min-height: 44px;
   padding: 10px 12px;
   border: 1px solid rgba(45, 212, 191, 0.35);
   border-radius: 8px;
@@ -306,51 +295,17 @@
   color: #ccfbf1;
 }
 
-.category-suggestion {
+.location-gps-status {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  border: 1px solid rgba(45, 212, 191, 0.3);
-  border-radius: 8px;
-  background: rgba(20, 184, 166, 0.08);
-  color: #cbd5e1;
-  font-size: 0.9rem;
-}
-
-.category-suggestion span {
-  display: grid;
-  gap: 3px;
-}
-
-.category-suggestion strong {
-  color: #5eead4;
-}
-
-.category-suggestion small {
+  gap: 8px;
+  margin-top: 8px;
   color: #94a3b8;
   font-size: 0.78rem;
 }
 
-.category-suggestion button {
-  flex: 0 0 auto;
-  padding: 7px 12px;
-  border: 1px solid rgba(45, 212, 191, 0.45);
-  border-radius: 7px;
-  background: rgba(20, 184, 166, 0.15);
-  color: #99f6e4;
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.category-suggestion button:hover {
-  background: rgba(20, 184, 166, 0.25);
-}
-
-/* Small spinner shown inside the location button while geolocating */
 .locating-dot {
+  display: inline-block;
   width: 16px;
   height: 16px;
   border-radius: 50%;

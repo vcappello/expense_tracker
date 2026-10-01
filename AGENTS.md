@@ -94,24 +94,30 @@
   debounce; annullare la richiesta obsoleta, supportare tastiera/tocco e attribuire Photon +
   OpenStreetMap. La query digitata è inviata al servizio esterno; errori/offline lasciano
   utilizzabile il campo manuale. Il luogo è obbligatorio nel form Spesa ed è tra i primi
-  campi; "Online / nessun luogo" è il valore esplicito per acquisti senza posto fisico.
-  Dopo un luogo Photon/GPS (o l'inserimento esatto di un luogo già usato), `utils/locationCategories.ts`
-  suggerisce la categoria più frequente già associata localmente allo stesso luogo; altrimenti
-  usa una mappatura conservativa tipo OSM → nome categoria (ristorazione, negozi, carburante,
-  pedaggi). Non assegnare automaticamente: l'utente deve premere "Usa"; in caso di parità,
-  categoria mancante o luogo online non suggerire. Non inviare mai lo storico spese al servizio.
+  campi; "Online / nessun luogo" è una checkbox e il valore esplicito salvato per gli acquisti
+  senza posto fisico. In creazione, avviare automaticamente `watchPosition`; fermarlo al
+  primo fix, quando l'utente digita/seleziona Online o all'unmount, e annullare anche il
+  reverse-geocoding obsoleto. In modifica il GPS non parte automaticamente. Errori GPS/rete
+  mostrano un `Toast` ⚠️ e lasciano disponibili digitazione e scelta Online. Dopo un luogo
+  Photon/GPS (o l'inserimento esatto di un luogo già usato), `utils/locationCategories.ts`
+  identifica la categoria più frequente già associata localmente allo stesso luogo;
+  altrimenti usa una mappatura conservativa tipo OSM → nome categoria (ristorazione, negozi,
+  carburante, pedaggi). Se la categoria è identificata, selezionarla automaticamente e
+  informare con un toast; non sovrascrivere mai una categoria scelta manualmente. In caso di
+  parità, categoria mancante o luogo online non assegnare una categoria. Non inviare mai lo
+  storico spese al servizio.
   Nelle conferme delle spese ricorrenti, se il template non ha un luogo usare
   `Online / nessun luogo` come default modificabile per la singola occorrenza; la conferma
-  in blocco usa lo stesso default per i template senza luogo.
-  Il bottone 📍 separato usa
-  `navigator.geolocation.getCurrentPosition` + **Nominatim** online
+  in blocco usa lo stesso default per i template senza luogo. Il bottone 📍 permette di
+  ripetere il rilevamento manualmente; usa `navigator.geolocation.watchPosition` +
+  **Nominatim** online
   (`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=..&lon=..&zoom=18&accept-language=it`).
-  Nominatim è solo reverse geocoding su pressione esplicita (la sua API pubblica vieta
-  autocomplete lato client).
+  Nominatim è usato solo per reverse geocoding dopo il fix GPS; la sua API pubblica vieta
+  autocomplete lato client.
   Geolocation richiede **secure context** (HTTPS o localhost; NON su HTTP su IP di rete).
   Gestire errore/permesso negato/timeout/offline con `Toast` ⚠️ e lasciare il campo
-  manuale: non bloccare MAI il salvataggio (luogo facoltativo). Errore GPS: codice 1 =
-  permesso negato, 2 = posizione non disponibile, 3 = timeout.
+  modificabile; l'utente può inserire il luogo o scegliere Online senza attendere il GPS.
+  Errore GPS: codice 1 = permesso negato, 2 = posizione non disponibile, 3 = timeout.
 - **Main view — lista per giorno (righe senza data/ora)**: la lista è raggruppata per giorno
   in TUTTI i filtri; le righe mostrano **solo i dettagli** (mai data/ora; l'ora conta solo
   per l'ordinamento): Spesa = "💸 Categoria · Conto" (+ 📍 Luogo su seconda riga se

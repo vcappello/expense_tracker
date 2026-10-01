@@ -239,19 +239,24 @@ Both fields are entered in the Create/Edit Expense page and pre-populated when e
 existing Expense. They do not affect Analytics or the account balances.
 
 ### Suggest an ExpenseType from a place
-After the user chooses a place suggestion or fills the location using GPS, the form may
-suggest a category. The suggestion is never applied automatically: the user must choose
-"Usa" or select another category manually.
+After the user chooses a place suggestion, types a known place, or fills the location using
+GPS, the form may identify a category and select it automatically. The category remains
+editable; a category explicitly chosen by the user is never overwritten by a later location
+lookup.
 
 - First, use the most frequent category on previous expenses with the same normalized place
   label. If the prior category counts are tied, no history-based suggestion is made.
 - Otherwise, map a supported OpenStreetMap place type (food businesses, shops, fuel, toll
   booths) to a unique matching user category using known Italian/English category names.
   Unknown or ambiguous types/categories produce no suggestion.
-- The `Online / nessun luogo` choice never produces a place-based suggestion.
+- The `Online / nessun luogo` choice never produces a place-based category.
+- When a category is identified, the form selects it and displays a transient toast naming
+  the category; there is no separate "Usa" confirmation button. Ambiguous or missing matches
+  leave the current category unchanged.
 - Place name/type and local expense history are processed in the browser. No expense history
-  is transmitted to Photon or Nominatim; GPS coordinates are sent only to the existing
-  reverse-geocoding request after the user explicitly presses the GPS button.
+  is transmitted to Photon or Nominatim. When creating a new expense, the form starts GPS
+  detection automatically; coordinates are sent to Nominatim for reverse geocoding after a
+  location fix. The user can stop GPS by typing or selecting the online/no-place checkbox.
 - Suggestions are advisory because GPS can identify a nearby place that was not the source
   of the expense.
 
@@ -273,9 +278,11 @@ Enter, Escape). The selected label remains editable and is saved as the existing
   reverse lookup remain available if it is unavailable.
 
 ### Fill location from GPS (reverse geocoding)
-In the Create/Edit Expense page a "use current position" button next to the Location field:
-1. Requests the current position with the **Geolocation API**
-   (`navigator.geolocation.getCurrentPosition`).
+In the Create Expense page, GPS detection starts automatically and shows a loading state next
+to the Location field. The user can also retry with the "use current position" button:
+1. Requests a position with the **Geolocation API**
+    (`navigator.geolocation.watchPosition`); stops watching after the first fix, when the user
+    types/selects online, or when the page is left.
 2. Reverse-geocodes the coordinates to a human-readable place name/address using the
    **online Nominatim** service of OpenStreetMap
    (`https://nominatim.openstreetmap.org/reverse?...`).
@@ -283,17 +290,18 @@ In the Create/Edit Expense page a "use current position" button next to the Loca
 
 Constraints and fallbacks:
 - Geolocation works only on a **secure context** (HTTPS or localhost). It is available on
-  GitHub Pages (HTTPS) and on the localhost dev server, but not on plain HTTP over the LAN
-  IP.
-- Reverse geocoding **requires a network connection** and happens only when the button is
-  pressed, never automatically. Place suggestions are a separate user-initiated Photon
-  lookup as described above.
+   GitHub Pages (HTTPS) and on the localhost dev server, but not on plain HTTP over the LAN
+   IP.
+- GPS starts only when creating a new expense, never when editing an existing expense.
+   Reverse geocoding **requires a network connection**. Typing a location cancels GPS and any
+   obsolete reverse-geocoding request so a late response cannot overwrite user input. Place
+   suggestions are a separate user-initiated Photon lookup as described above.
 - On denied permission, GPS error or missing network the app shows a transient warning
-  (Toast) and leaves the field available for manual entry; the user can also explicitly
-  choose "Online / nessun luogo" and save the Expense.
-- Nominatim is used only for reverse lookup on explicit GPS-button press; it is not used for
-  autocomplete. The result is stored only in the local field (nothing is saved server-side
-  beyond the geocoding request).
+   (Toast) and leaves the field available for manual entry; the user can also explicitly
+   choose "Online / nessun luogo".
+- Nominatim is used only for reverse lookup after a GPS fix; it is not used for autocomplete.
+   The result is stored only in the local field (nothing is saved server-side beyond the
+   geocoding request).
 
 ## Expenses to be reimbursed (reimbursable) and Salary
 Some expenses (e.g. business trips) are paid by the user and later reimbursed by the

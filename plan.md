@@ -711,32 +711,44 @@ Decisioni utente (27/09/2026):
 ### Suggerimento della categoria dalla posizione GPS — implementata il 27/09/2026
 
 Obiettivo: velocizzare l'inserimento della spesa usando la posizione come indizio per
-proporre una categoria, senza assegnarla automaticamente. La vicinanza a un'attività non
-garantisce che la spesa sia stata fatta lì: la categoria resta sempre modificabile e va
-confermata dall'utente. Decisione utente: il luogo è obbligatorio nei form di spesa e va
-spostato prima degli altri campi; per spese senza luogo fisico usare "Online / nessun luogo".
+selezionare una categoria probabile. La vicinanza a un'attività non garantisce che la spesa
+sia stata fatta lì: la categoria resta sempre modificabile e una scelta manuale non viene
+sovrascritta. Decisione utente: il luogo è obbligatorio nei form di spesa e va spostato prima
+degli altri campi; per spese senza luogo fisico usare la checkbox "Online / nessun luogo".
 Le spese ricorrenti senza luogo vengono proposte come Online alla conferma e il valore può
 essere cambiato per la singola occorrenza.
 
 Comportamento implementato:
-- dopo il rilevamento esplicito della posizione, ricavare una categoria probabile dal tipo
-  OSM restituito dal reverse geocoding; usare anche i metadati OSM dei luoghi scelti dalla
-  ricerca testuale;
+- ricavare una categoria probabile dal tipo OSM restituito dal reverse geocoding; usare anche
+  i metadati OSM dei luoghi scelti dalla ricerca testuale;
 - dare priorità alle associazioni luogo → categoria già confermate dall'utente in spese
   precedenti; usare il tipo di attività come fallback;
-- se ci sono più candidati o il risultato è incerto, mostrare il suggerimento senza
-  preselezionarlo o chiedere conferma; non impedire mai l'inserimento manuale;
-- spiegare quale posizione viene inviata al servizio esterno e chiedere/ottenere il consenso
-  secondo il flusso GPS esplicito già presente.
+- se il risultato è univoco, selezionare la categoria e informare con un toast; l'utente può
+  sempre modificarla manualmente;
+- il browser chiede il permesso GPS all'apertura della creazione spesa; coordinate inviate a
+  Nominatim soltanto dopo un fix, con digitazione/checkbox Online che interrompono il GPS.
 
 - [x] **Ricerca e classificazione**: usare il tipo OSM del luogo restituito da GPS/Photon e
       associare i tipi di attività alle categorie configurate dall'utente.
 - [x] **Apprendimento locale**: riutilizzare le corrispondenze luogo/categoria confermate
       nelle spese precedenti, senza inviare lo storico spese a servizi esterni.
-- [x] **Interazione sicura**: mostrare la categoria come suggerimento modificabile, gestire
-      più luoghi/risultati ambigui e mantenere sempre la scelta manuale.
+- [x] **Interazione sicura**: selezionare automaticamente solo la categoria univoca,
+      informare con un toast, gestire ambiguità e mantenere sempre la scelta manuale.
 - [x] **Privacy e verifica**: documentare servizio, dati trasmessi e attribuzione; verificare
       permessi GPS, risultati ambigui, fallback offline e casi senza categoria compatibile.
+
+### Rifiniture UI GPS e categoria nel form spesa — completate
+
+- [x] **GPS automatico**: avviare il rilevamento solo nella creazione spesa; mostrare lo stato
+      di caricamento, fermare watch e reverse lookup quando l'utente digita/seleziona Online
+      o lascia la pagina; nessuna risposta tardiva deve sovrascrivere il testo digitato.
+- [x] **Acquisto online**: sostituire i link testuali per cambiare modalità con una checkbox,
+      mantenendo `Online / nessun luogo` come valore persistito e compatibile con le
+      ricorrenze.
+- [x] **Categoria automatica**: selezionare il match univoco dal luogo e mostrare un toast;
+      mantenere una selezione manuale e non assegnare nulla per risultati ambigui/online.
+- [x] **Documentazione e verifica**: aggiornare spec, README e istruzioni agenti; verificare
+      build e comportamento di creazione/modifica, annullamento GPS e fallback manuale.
 
 ### Entrate programmate / ricorrenti (stipendio, una tantum) — implementata il 19/09/2026
 
