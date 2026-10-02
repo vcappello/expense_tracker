@@ -412,6 +412,64 @@
   color: #64748b;
 }
 
+.historical-summary-status {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.historical-summary {
+  width: min(100%, 560px);
+  margin-top: 12px;
+  padding: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.55);
+  text-align: left;
+}
+
+.historical-summary h2 {
+  margin: 0 0 14px;
+  color: #cbd5e1;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.historical-summary-values {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.historical-summary-values > div {
+  min-width: 0;
+}
+
+.historical-summary-values dt {
+  margin-bottom: 4px;
+  color: #94a3b8;
+  font-size: 0.78rem;
+}
+
+.historical-summary-values dd {
+  margin: 0;
+  color: #e2e8f0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.historical-summary-income dd,
+.historical-summary-values dd.historical-summary-positive {
+  color: #4ade80;
+}
+
+.historical-summary-expenses dd,
+.historical-summary-values dd.historical-summary-negative {
+  color: #f87171;
+}
+
 .load-more {
   text-align: center;
   padding: 24px 16px;

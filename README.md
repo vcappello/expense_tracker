@@ -56,6 +56,9 @@ online fai **Ripristina backup**. Da quel momento i dati restano nel browser usa
 - Registrazione di **Spese** ed **Entrate** con data e ora (hh:mm:ss)
 - Required **Luogo** field near the start of expense entry, with Photon search, automatic GPS detection on creation, an online/no-place checkbox, automatic editable category selection, and optional home-location recognition configured from Main view → Actions
 - **Movimenti ricorrenti e programmati** (spese ed entrate, anche una tantum): vengono proposti come **"Movimenti previsti"** finché non confermati; nella pagina **Ricorrenti** (menu Azioni) si creano, modificano, mettono in pausa o si interrompono
+- Quando il mese corrente è vuoto, la Main view indica chiaramente il periodo e mostra il
+  riepilogo di entrate, spese e saldo dell'ultimo mese precedente con movimenti effettivi,
+  se disponibile
 - La conferma di una spesa ricorrente propone **Online / nessun luogo** se il modello non ha un luogo, modificabile per la singola spesa
 - **Rimborsi in attesa**: dal menu Azioni si consulta l'elenco delle spese rimborsabili successive all'ultimo stipendio, con totale e accesso alla modifica
 - Gestione **Conti** e **Categorie** (anche gerarchiche) con eliminazione in cascata; creazione/modifica in **pagine dedicate**

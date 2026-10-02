@@ -11,6 +11,10 @@ import {
   getReimbursableSummary as computeReimbursableSummary,
   ReimbursableSummary,
 } from '../utils/reimbursements';
+import {
+  getLatestMovementMonthSummary as computeLatestMovementMonthSummary,
+  MovementMonthSummary,
+} from '../utils/movementSummary';
 import { BackupData } from '../utils/backup';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -150,6 +154,9 @@ interface AppContextType {
   // Movements (combined Expense + Cashflow)
   movements: Movement[];
   loadMovements: (filters: MovementFilters) => Promise<void>;
+  getLatestMovementMonthSummary: (
+    beforeDate: Date
+  ) => Promise<MovementMonthSummary | null>;
 
   // Recurring expenses (templates; see spec.md → "Recurring expenses")
   recurringExpenses: RecurringExpense[];
@@ -1026,6 +1033,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     []
   );
 
+  const getLatestMovementMonthSummary = useCallback(
+    async (beforeDate: Date) => {
+      const [allExpenses, allCashflows] = await Promise.all([
+        db.getExpenses(),
+        db.getCashflows(),
+      ]);
+      return computeLatestMovementMonthSummary(
+        allExpenses,
+        allCashflows,
+        beforeDate
+      );
+    },
+    []
+  );
+
   // ============ REIMBURSABLE SUMMARY ============
   const getReimbursableSummary = useCallback(async (referenceDate: Date) => {
     try {
@@ -1125,6 +1147,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Movements
     movements,
     loadMovements,
+    getLatestMovementMonthSummary,
 
     // Recurring expenses
     recurringExpenses,

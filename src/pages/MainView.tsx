@@ -2,9 +2,17 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Movement, MovementFilters, DateRange } from '../types';
-import { formatDayHeader, formatMonthYear, abbreviateAmount, isToday, formatDate } from '../utils/formatting';
+import {
+  formatDayHeader,
+  formatMonthYear,
+  abbreviateAmount,
+  formatCurrency,
+  isToday,
+  formatDate,
+} from '../utils/formatting';
 import { routingCounterpartIds } from '../utils/routing';
 import { ExpectedOccurrence, getExpectedOccurrences, getFrequencyLabel } from '../utils/recurrence';
+import { MovementMonthSummary } from '../utils/movementSummary';
 import { exportDatabase, readBackupFile, BackupData } from '../utils/backup';
 import TitleBar from '../components/TitleBar';
 import ActionMenu from '../components/ActionMenu';
@@ -20,7 +28,24 @@ import '../styles/RecurringPage.css';
 
 export default function MainView() {
   const navigate = useNavigate();
-  const { movements, loadMovements, isLoading, movementsLoaded, accounts, expenseTypes, loadAccounts, loadExpenseTypes, restoreBackup, recurringExpenses, loadRecurringExpenses, confirmRecurringOccurrences, lastRecurringConfirmation, undoLastRecurringConfirmation, clearLastRecurringConfirmation } = useApp();
+  const {
+    movements,
+    loadMovements,
+    getLatestMovementMonthSummary,
+    isLoading,
+    movementsLoaded,
+    accounts,
+    expenseTypes,
+    loadAccounts,
+    loadExpenseTypes,
+    restoreBackup,
+    recurringExpenses,
+    loadRecurringExpenses,
+    confirmRecurringOccurrences,
+    lastRecurringConfirmation,
+    undoLastRecurringConfirmation,
+    clearLastRecurringConfirmation,
+  } = useApp();
   const [filters, setFilters] = useState<MovementFilters>({
     dateRange: 'current-month',
   });
@@ -28,6 +53,11 @@ export default function MainView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showExpectedReminder, setShowExpectedReminder] = useState(false);
   const [showHomeLocationSettings, setShowHomeLocationSettings] = useState(false);
+  const [historicalSummary, setHistoricalSummary] = useState<
+    MovementMonthSummary | null | undefined
+  >(undefined);
+  const [isLoadingHistoricalSummary, setIsLoadingHistoricalSummary] =
+    useState(false);
   const ITEMS_PER_PAGE = 20;
 
   // Backup / Restore state
@@ -256,6 +286,49 @@ export default function MainView() {
       ].some((value) => value.toLocaleLowerCase().includes(normalizedSearch));
     });
   }, [accounts, expenseTypes, expectedOccurrences, normalizedSearch]);
+
+  const shouldLoadHistoricalSummary =
+    filters.dateRange === 'current-month' &&
+    !normalizedSearch &&
+    !isLoading &&
+    movementsLoaded &&
+    displayMovements.length === 0 &&
+    filteredExpectedOccurrences.length === 0;
+
+  useEffect(() => {
+    if (!shouldLoadHistoricalSummary) {
+      setHistoricalSummary(undefined);
+      setIsLoadingHistoricalSummary(false);
+      return;
+    }
+
+    let cancelled = false;
+    const now = new Date();
+    setHistoricalSummary(undefined);
+    setIsLoadingHistoricalSummary(true);
+    getLatestMovementMonthSummary(
+      new Date(now.getFullYear(), now.getMonth(), 1)
+    )
+      .then((summary) => {
+        if (!cancelled) setHistoricalSummary(summary);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setImportError(
+            err instanceof Error
+              ? err.message
+              : 'Errore durante il caricamento del riepilogo storico'
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingHistoricalSummary(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [getLatestMovementMonthSummary, shouldLoadHistoricalSummary]);
 
   useEffect(() => {
     if (expectedOccurrences.length === 0) return;
@@ -649,8 +722,54 @@ export default function MainView() {
           </div>
         ) : displayMovements.length === 0 && filteredExpectedOccurrences.length === 0 ? (
           <div className="empty-state">
-            <p>Nessun movimento</p>
-            <p className="subtitle">Clicca "Nuova spesa" per iniziare</p>
+            {filters.dateRange === 'current-month' && !normalizedSearch ? (
+              <>
+                <p>
+                  Nessun movimento a{' '}
+                  {formatMonthYear(new Date()).toLocaleLowerCase('it-IT')}
+                </p>
+                <p className="subtitle">
+                  Il mese corrente è ancora vuoto. Clicca "Nuova spesa" per iniziare.
+                </p>
+                {isLoadingHistoricalSummary && (
+                  <p className="historical-summary-status" role="status">
+                    Cerco l'ultimo mese con movimenti...
+                  </p>
+                )}
+                {historicalSummary && (
+                  <section className="historical-summary">
+                    <h2>Riepilogo di {formatMonthYear(historicalSummary.month)}</h2>
+                    <dl className="historical-summary-values">
+                      <div className="historical-summary-income">
+                        <dt>Entrate</dt>
+                        <dd>{formatCurrency(historicalSummary.totalCashflow)}</dd>
+                      </div>
+                      <div className="historical-summary-expenses">
+                        <dt>Spese</dt>
+                        <dd>{formatCurrency(historicalSummary.totalExpenses)}</dd>
+                      </div>
+                      <div>
+                        <dt>Saldo</dt>
+                        <dd
+                          className={
+                            historicalSummary.netBalance < 0
+                              ? 'historical-summary-negative'
+                              : 'historical-summary-positive'
+                          }
+                        >
+                          {formatCurrency(historicalSummary.netBalance)}
+                        </dd>
+                      </div>
+                    </dl>
+                  </section>
+                )}
+              </>
+            ) : (
+              <>
+                <p>Nessun movimento</p>
+                <p className="subtitle">Clicca "Nuova spesa" per iniziare</p>
+              </>
+            )}
           </div>
         ) : (
           <div ref={listRef} className="movements-list-container" onScroll={handleScroll}>

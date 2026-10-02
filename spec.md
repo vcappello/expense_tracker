@@ -99,6 +99,17 @@ before the older days (display order: today, expected, older days): expected exp
 the ranges that contain today (Mese corrente, Quest'anno, Tutti) and is **never paginated**:
 it stays always visible at the top of the list, outside the day-group pagination.
 
+When the **current-month** range has no displayed movements or expected occurrences and no
+search query is active, the empty state identifies the current month as empty. If there are
+older real movements, it also shows the income, expense and net totals for the most recent
+past calendar month containing eligible movements (not necessarily the immediately preceding
+month). The summary is loaded separately and must not replace or otherwise modify the
+currently filtered movement list. It excludes expected occurrences and routing cashflows,
+while retaining internal coin-split income as Analytics does; expenses are subtracted from
+cashflows for the net. If no eligible historical month exists, only the current-month empty
+state is shown. A history lookup failure must be reported rather than presented as an empty
+history result.
+
 Every expected row shows a **frequency badge**: a small pill next to the recurrence name
 carrying the recurrence type in Italian — **"Giornaliera"**, **"Settimanale"**,
 **"Mensile"**, **"Annuale"**, **"Una sola volta"** (with the 🔁 icon, e.g. "🔁 Mensile"),

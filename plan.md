@@ -768,6 +768,21 @@ Decisioni utente:
 - [x] **Documentazione e verifica**: aggiornare README, spec e istruzioni; verificare formula
       di distanza, attivazione automatica, raggio esterno e assenza di chiamata Nominatim.
 
+### Riepilogo storico nel mese corrente vuoto — implementato il 02/10/2026
+
+Decisioni utente:
+- lasciare esplicito che il mese corrente non contiene movimenti;
+- se esistono movimenti precedenti, mostrare entrate, spese e saldo dell'ultimo mese con
+  movimenti effettivi, anche quando il mese precedente è vuoto;
+- non includere le occorrenze previste nel riepilogo.
+
+- [x] **Riepilogo dati**: individuare l'ultimo mese passato con movimenti effettivi e calcolare
+      entrate, spese e saldo senza alterare la lista filtrata della Main view.
+- [x] **Empty state Main view**: mostrare il mese corrente vuoto e, quando disponibile, il
+      riepilogo storico; mantenere il messaggio vuoto se non esiste storico.
+- [x] **Documentazione e verifica**: aggiornati spec/README/AGENTS; verificati mese senza
+      storico, mese attivo più recente non consecutivo, esclusione routing/previsioni e build.
+
 ### Entrate programmate / ricorrenti (stipendio, una tantum) — implementata il 19/09/2026
 
 > Richiesta utente (19/09/2026): estendere le **Ricorrenze** alle **entrate**, così lo
@@ -886,5 +901,5 @@ stato risolto — vedi il bullet in ✅ Completati.)*
       coperte da uno stipendio, riusando `utils/reimbursements.ts`.
 - [ ] **Foto allegata alla spesa**: salvare la foto dello scontrino nella spesa e includerla
       nel backup; feature collegata a "Create from photo" e con gestione dello storage.
-- [ ] **Statistiche di tendenza**: medie per categoria, andamento degli ultimi mesi e
+- [x] **Statistiche di tendenza**: medie per categoria, andamento degli ultimi mesi e
       riepilogo "dove vanno i miei soldi".
