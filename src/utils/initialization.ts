@@ -7,6 +7,22 @@ import * as db from '../db/database';
 let initializationPromise: Promise<void> | null = null;
 
 /**
+ * Default untracked stash account ("Coins"): always available as the
+ * secondary-account source of an Expense, preferred so that it is the default
+ * of that selector. It is never a duplicating account: the backfill below only
+ * creates it when the database has no stash and no account with the same name.
+ */
+const buildDefaultCoinsAccount = (): Account => ({
+  id: 'acc-coins',
+  name: 'Coins',
+  initialBalance: 0,
+  isPreferred: true,
+  isCoinAccount: true,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+});
+
+/**
  * Initialize default data if the database is empty.
  * Idempotent and concurrency-safe: multiple calls return the same promise.
  */
@@ -46,6 +62,7 @@ const doInitializeDefaultData = async () => {
 
       await db.createAccount(cashAccount);
       await db.createAccount(bankAccount);
+      await db.createAccount(buildDefaultCoinsAccount());
 
       // Create default expense types
       const defaultTypes: ExpenseType[] = [
@@ -84,6 +101,18 @@ const doInitializeDefaultData = async () => {
       }
 
       console.log('✅ Default data initialized');
+      return;
+    }
+
+    // Databases created before the untracked stash (or where it was deleted)
+    // would have an empty "Conto secondario" selector: provide the default
+    // Coins account, without duplicating an account with the same name and
+    // without changing the type of the existing accounts.
+    const hasStash = accounts.some((account) => account.isCoinAccount === true);
+    const hasCoinsName = accounts.some((account) => account.name === 'Coins');
+    if (!hasStash && !hasCoinsName) {
+      await db.createAccount(buildDefaultCoinsAccount());
+      console.log('✅ Default coins account initialized');
     }
   } catch (error) {
     console.error('❌ Failed to initialize default data:', error);

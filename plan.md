@@ -14,7 +14,7 @@ i# Plan — Expense Tracker AI
 
 - [x] **Setup progetto**: React + TypeScript + Vite, struttura a componenti e routing
 - [x] **Database locale (IndexedDB)**: store per `Account`, `ExpenseType`, `Expense`, `Cashflow`
-- [x] **Dati iniziali**: Account (Cash, Bank account), ExpenseType (Dinner, Shopping, Fuel, Tolls)
+- [x] **Dati iniziali**: Account (Cash, Bank account, Coins — stash non tracciato preferito), ExpenseType (Dinner, Shopping, Fuel, Tolls). Il conto **Coins** viene creato anche sui database già esistenti privi di stash (backfill idempotente all'avvio, salta se esiste già uno stash o un conto chiamato "Coins")
 - [x] **Main view**: lista movimenti con importi colorati (rosso spese, verde cashflow, giallo routing), pulsanti Edit/Delete, ordinamento data/ora discendente, paginazione con scroll infinito
 - [x] **Filtri data range** in Main view (mese corrente, mese precedente, anno corrente, tutti)
 - [x] **Create/Edit Expense**: form con data, importo, dropdown Account, dropdown ExpenseType con creazione inline (badge "new")
@@ -670,6 +670,30 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 > implementate, poi marcate `[x]` e riepilogate in ✅ Completati.
 > ⚠️ **Prima del `git push` chiedere sempre conferma all'utente**: il push fa partire il
 > deploy automatico su GitHub Pages e pubblica subito la nuova versione.
+
+### Conto stash "Coins" di default (seed + backfill) — implementato il 03/10/2026
+
+> Richiesta utente (03/10/2026): con il nuovo tipo di conto stash non esiste più il conto
+> monete "implicito", quindi l'app deve avere un conto monete **di default**, visibile e
+> usabile subito all'apertura, anche su un database già in uso (senza che l'utente lo abbia
+> definito); un eventuale conto monete già usato in precedenza resta valido (il flag
+> `isCoinAccount` è conservato).
+> Decisioni utente (03/10/2026):
+> - nome del conto seed: **Coins** (coerente con Cash / Bank account; non è un'etichetta UI).
+
+- [x] **Seed + backfill** (`src/utils/initialization.ts`): il conto `Coins` (id `acc-coins`,
+      `isCoinAccount: true`, `isPreferred: true`, giacenza 0) è creato nel seed del database
+      vuoto insieme a Cash e Bank account; sui database già esistenti un backfill idempotente
+      lo crea all'avvio se non esiste **nessuno** stash e nessun conto chiamato "Coins" (mai
+      duplicati, mai cambi di tipo ai conti esistenti). Essendo la funzione attesa prima della
+      lettura dei conti all'avvio, il conto è già presente alla prima apertura.
+- [x] **Documentazione**: `spec.md` (valori iniziali Account + regola di backfill), `AGENTS.md`
+      (dati seed, valori iniziali) e `plan.md` aggiornati.
+- [x] **Verifica E2E**: database nuovo → Cash, Bank account e Coins presenti con Coins
+      preferito e preselezionato come conto secondario; database con conti esistenti senza
+      stash → Coins creato al reload; database con stash esistente (es. conto monete legacy) →
+      nessun duplicato; build OK.
+
 
 ### Saldo previsto nel grafico Andamento — implementato il 26/09/2026
 

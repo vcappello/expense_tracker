@@ -44,6 +44,13 @@ creates an `Expense` for an expense template and a `Cashflow` for an income temp
 Default initial values for Account:
 - Cash
 - Bank account
+- Coins (untracked stash, preferred: the default of the Expense secondary-account selector)
+
+A database that already contains accounts (e.g. one created before the untracked stash
+existed) gets the same default **Coins** account on startup, so the "Conto secondario"
+selector is never empty; the backfill skips the creation when a stash account already exists
+or when an account named "Coins" is already present, and it never changes the type of the
+existing accounts. Deleting the default stash makes it reappear at the next app start.
 
 Default initial values for ExpenseType:
 - Dinner
