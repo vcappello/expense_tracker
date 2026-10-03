@@ -693,6 +693,8 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
         (aggiornamento), `GET /gists/{id}` (ripristino); gist **secret** (non elencato), un solo
         file `expense-tracker-backup.json`. Attenzione al limite dell'API: **1 MB per file**
         (oltre, il campo `truncated` è `true` e serve `raw_url`) — il DB attuale è molto sotto.
+        ⚠️ Un gist secret **non è privato** (docs GitHub: chiunque abbia l'URL lo legge) → con
+        questa scelta la cifratura del payload è obbligatoria, vedi step dedicato.
       - **WebDAV / Nextcloud**: la più privacy-friendly, ma serve un server dell'utente.
       - **Google Drive** (`appDataFolder`): comoda per l'utente, ma serve un progetto Google
         Cloud + OAuth client ID e il flusso OAuth con refresh token (più attrito).
@@ -707,11 +709,19 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 - [ ] **Credenziali**: token/passphrase in `localStorage` (NON in IndexedDB, così non finiscono
       mai nei file di backup), mai nel bundle né nei log; pagina di configurazione con
       "Prova connessione" e "Scollega" (cancella le credenziali dal dispositivo).
-- [ ] **Cifratura opzionale ma consigliata** (proposta come **attiva di default** nella
-      configurazione, disattivabile con avviso): WebCrypto **AES-GCM** con chiave derivata via
-      **PBKDF2** da una passphrase dell'utente, applicata prima dell'upload (sul cloud il
-      contenuto è illeggibile — un gist secret è solo "non elencato", chi ha l'URL lo legge);
-      salt/IV nella busta del payload. Avviso esplicito: **passphrase persa = dati persi**.
+- [ ] **Cifratura: OBBLIGATORIA con il gist** (WebCrypto **AES-GCM** con chiave derivata via
+      **PBKDF2** da una passphrase dell'utente, applicata prima dell'upload; salt/IV nella busta
+      del payload). Motivo (docs GitHub): "**Secret gists aren't private**" — un gist secret non
+      è elencato né ricercabile, ma **chiunque abbia l'URL lo legge senza autenticarsi**; il
+      gist id è casuale e lungo, quindi di fatto non indovinabile, ma è sicurezza per oscurità
+      (il link finisce in cronologia/appunti/screenshot) e non è accettabile per dati
+      finanziari. Con la cifratura il cloud contiene solo testo cifrato: la passphrase non lascia
+      mai il dispositivo. Restano visibili solo i **metadati** (esistenza del gist, username,
+      date di aggiornamento, dimensione), non il contenuto. Avviso esplicito:
+      **passphrase persa = dati persi**; nessuna password di recupero.
+      Variante con controllo d'accesso reale (da valutare con l'utente): **repository privato
+      dedicato** (es. `expense-tracker-backup`) con token limitato a quel repo e permesso
+      "Contents: read and write" — lì la cifratura potrebbe restare opzionale.
 - [ ] **Auto-backup**: salvataggio automatico con debounce (~30 s) dopo le modifiche e al
       `visibilitychange`, più "Salva ora" manuale; stato "ultimo backup: data/ora" ben visibile
       e promemoria (banner una volta al giorno / `Toast` ⚠️) se l'ultimo backup è più vecchio
