@@ -113,6 +113,21 @@ const doInitializeDefaultData = async () => {
     if (!hasStash && !hasCoinsName) {
       await db.createAccount(buildDefaultCoinsAccount());
       console.log('✅ Default coins account initialized');
+      return;
+    }
+
+    // A single stash is always the default of the secondary selector, but
+    // marking it as preferred (★) keeps that default stable when other stashes
+    // are created later (otherwise the first one by name would win). With
+    // several stashes and no preferred one the choice is left to the user.
+    const stashes = accounts.filter((account) => account.isCoinAccount === true);
+    if (stashes.length === 1 && stashes[0].isPreferred !== true) {
+      await db.updateAccount({
+        ...stashes[0],
+        isPreferred: true,
+        updatedAt: new Date(),
+      });
+      console.log('✅ Default stash marked as preferred');
     }
   } catch (error) {
     console.error('❌ Failed to initialize default data:', error);

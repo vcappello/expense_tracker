@@ -52,6 +52,12 @@ selector is never empty; the backfill skips the creation when a stash account al
 or when an account named "Coins" is already present, and it never changes the type of the
 existing accounts. Deleting the default stash makes it reappear at the next app start.
 
+When the database has exactly **one** stash and it is not preferred, the app marks it as
+preferred on startup, so it stays the default of the secondary selector even if other stashes
+are created later (otherwise the first one by name would be used). With several stashes and
+no preferred one the app does not choose: the user sets the preferred stash in account
+management.
+
 Default initial values for ExpenseType:
 - Dinner
 - Shopping

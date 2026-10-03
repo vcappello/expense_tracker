@@ -693,6 +693,14 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
       preferito e preselezionato come conto secondario; database con conti esistenti senza
       stash → Coins creato al reload; database con stash esistente (es. conto monete legacy) →
       nessun duplicato; build OK.
+- [x] **Stash singolo marcato preferito** (rifinitura richiesta dall'utente, 03/10/2026): se il
+      database ha **un solo** stash e non è preferito, all'avvio l'app lo imposta come
+      preferito. Motivo: il default del conto secondario è "stash preferito, altrimenti il
+      **primo in ordine alfabetico**", quindi senza ★ un nuovo stash con nome precedente (es.
+      "A…") scavalcherebbe il conto monete esistente. Con più stash e nessun preferito l'app
+      non sceglie (lo decide l'utente). Verificato: stash unico legacy → ★ automatico e
+      preselezione stabile anche aggiungendo un nuovo stash; due stash senza preferito →
+      nessuna modifica.
 
 
 ### Saldo previsto nel grafico Andamento — implementato il 26/09/2026
