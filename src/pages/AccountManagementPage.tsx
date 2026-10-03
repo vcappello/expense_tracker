@@ -5,6 +5,7 @@ import { Account } from '../types';
 import TitleBar from '../components/TitleBar';
 import { abbreviateAmount, toDateTime } from '../utils/formatting';
 import { sortAccountsPreferred } from '../utils/accounts';
+import { getAccountBalance } from '../utils/accountBalance';
 import '../styles/ManagementPage.css';
 
 export default function AccountManagementPage() {
@@ -55,23 +56,17 @@ export default function AccountManagementPage() {
     )[0];
   };
 
-  // Current balance = initial balance + net cashflows - expenses
-  const getBalance = (account: Account): number => {
-    const netCashflow = account.isCoinAccount
-      ? 0
-      : cashflows
-          .filter((c) => c.accountId === account.id)
-          .reduce((sum, c) => sum + c.amount, 0);
-    const totalExpenses = account.isCoinAccount
-      ? 0
-      : expenses
-          .filter((e) => e.accountId === account.id)
-          .reduce((sum, e) => sum + e.amount, 0);
-    const adjustmentTotal = accountBalanceAdjustments
-      .filter((adjustment) => adjustment.accountId === account.id)
-      .reduce((sum, adjustment) => sum + adjustment.amount, 0);
-    return (account.initialBalance || 0) + netCashflow - totalExpenses + adjustmentTotal;
-  };
+  // Current balance = initial balance + net cashflows - expenses + adjustments
+  // (shared formula, so the stash rule and the adjustments cannot diverge)
+  const getBalance = (account: Account): number =>
+    getAccountBalance(
+      account,
+      expenses.filter((expense) => expense.accountId === account.id),
+      cashflows.filter((cashflow) => cashflow.accountId === account.id),
+      accountBalanceAdjustments.filter(
+        (adjustment) => adjustment.accountId === account.id
+      )
+    );
 
   return (
     <div className="management-page">

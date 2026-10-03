@@ -305,7 +305,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const deleteAccount = useCallback(async (id: string) => {
     try {
       clearError();
+      // Keep the adjustment store consistent even for a plain account delete
+      await db.deleteAccountBalanceAdjustmentsByAccount(id);
       await db.deleteAccount(id);
+      setAccountBalanceAdjustments((prev) =>
+        prev.filter((adjustment) => adjustment.accountId !== id)
+      );
       setAccounts((prev) => prev.filter((a) => a.id !== id));
     } catch (err) {
       throw err;

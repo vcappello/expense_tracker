@@ -75,6 +75,7 @@ export default function CreateAccountPage() {
   const [pendingAdjustmentDelete, setPendingAdjustmentDelete] =
     useState<AccountBalanceAdjustment | null>(null);
   const [currentBalance, setCurrentBalance] = useState<number | null>(null);
+  const [balanceUnavailable, setBalanceUnavailable] = useState(false);
 
   // Pre-populate form when editing an existing account
   useEffect(() => {
@@ -99,23 +100,28 @@ export default function CreateAccountPage() {
   }, [accountId, getAccount]);
 
   useEffect(() => {
-    if (!accountId) return;
-    loadAccountBalanceAdjustments(accountId).catch((err) => {
+    // Load every adjustment (not only this account's) so the shared state never
+    // holds a partial list; the history below is filtered by account id.
+    loadAccountBalanceAdjustments().catch((err) => {
       console.error('Failed to load account balance adjustments:', err);
       setAlertMessage('Errore durante il caricamento dello storico rettifiche');
     });
-  }, [accountId, loadAccountBalanceAdjustments]);
+  }, [loadAccountBalanceAdjustments]);
 
   useEffect(() => {
     if (!accountId) return;
     let cancelled = false;
     getAccountBalanceAtDate(accountId, new Date())
       .then((balance) => {
-        if (!cancelled) setCurrentBalance(balance);
+        if (cancelled) return;
+        setCurrentBalance(balance);
+        setBalanceUnavailable(false);
       })
       .catch((err) => {
         if (!cancelled) {
           console.error('Failed to load current account balance:', err);
+          setCurrentBalance(null);
+          setBalanceUnavailable(true);
         }
       });
     return () => {
@@ -451,9 +457,11 @@ export default function CreateAccountPage() {
                 <p>
                   Saldo attuale:{' '}
                   <strong>
-                    {currentBalance === null
-                      ? 'Caricamento...'
-                      : formatCurrency(currentBalance)}
+                    {currentBalance !== null
+                      ? formatCurrency(currentBalance)
+                      : balanceUnavailable
+                        ? 'n/d'
+                        : 'Caricamento...'}
                   </strong>
                 </p>
               </div>
