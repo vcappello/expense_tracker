@@ -664,43 +664,52 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 
 ## ⏳ Da fare
 
-> Le attività recenti sono conservate qui con gli step completati; al **03/10/2026** l'unico
-> lavoro pianificato e non ancora iniziato è il **backup/ripristino da cloud** (primo blocco
-> qui sotto; provider scelto: **GitHub Gist**). Le altre feature candidate sono in
-> **🔮 Prossime release**.
+> Le attività recenti sono conservate qui con gli step completati; al **03/10/2026** non ci
+> sono lavori in corso. L'unica feature pianificata e non iniziata è il **backup/ripristino da
+> cloud** (primo blocco qui sotto), a **priorità bassa** per decisione dell'utente. Le altre
+> feature candidate sono in **🔮 Prossime release**.
 > Le nuove richieste vanno pianificate qui come blocchi di step `[ ]` prima di essere
 > implementate, poi marcate `[x]` e riepilogate in ✅ Completati.
 > ⚠️ **Prima del `git push` chiedere sempre conferma all'utente**: il push fa partire il
 > deploy automatico su GitHub Pages e pubblica subito la nuova versione.
 
-### Backup e ripristino da cloud — pianificata il 03/10/2026 (da fare)
+### Backup e ripristino da cloud — pianificata il 03/10/2026, **priorità bassa** (in pausa)
 
 > Richiesta utente (03/10/2026): salvare il backup del database **nel cloud**, non solo come
 > file locale, così i dati non dipendono dal dispositivo né dall'origine (reinstallazione
 > della PWA, cambio di telefono, passaggio GitHub Pages ↔ server locale).
+> **Priorità: bassa** (decisione utente del 03/10/2026): la feature resta pianificata ma non va
+> iniziata adesso — nel frattempo l'esigenza è coperta dal backup su file (Esporta/Ripristina).
+> Il blocco è pronto per essere ripreso: restano da implementare gli step `[ ]` qui sotto.
 > Vincoli del progetto: l'app è **statica su GitHub Pages, senza backend**; nessuna dipendenza
-> esterna; i dati sono finanziari e personali → il salvataggio remoto deve essere **esplicito
-> e cifrato**, e le credenziali non devono mai finire nel repo né nei file di backup.
+> esterna; i dati sono finanziari e personali → il salvataggio remoto deve essere **esplicito**,
+> e le credenziali non devono mai finire nel repo né nei file di backup.
 > Nota: è un **backup a istantanee**, non una sincronizzazione multi-dispositivo in tempo reale
 > (quella resta una feature separata, molto più complessa).
 
-- [x] **Scelta del provider — decisa con l'utente il 03/10/2026: GitHub Gist**. Le altre opzioni
-      restano possibili in futuro dietro la stessa interfaccia:
-      - **GitHub Gist** ✅ scelto: API REST senza backend, gratuita, con **storico delle
-        revisioni** (`PATCH` = nuovo commit del gist, quindi si può recuperare un backup
-        precedente); token **fine-grained col solo permesso "Gists: Read and write"**, revocabile
-        e incapace di toccare i repository. Endpoint: `POST /gists` (creazione), `PATCH /gists/{id}`
-        (aggiornamento), `GET /gists/{id}` (ripristino); gist **secret** (non elencato), un solo
-        file `expense-tracker-backup.json`. Attenzione al limite dell'API: **1 MB per file**
-        (oltre, il campo `truncated` è `true` e serve `raw_url`) — il DB attuale è molto sotto.
-        ⚠️ Un gist secret **non è privato** (docs GitHub: chiunque abbia l'URL lo legge) → con
-        questa scelta la cifratura del payload è obbligatoria, vedi step dedicato.
-      - **WebDAV / Nextcloud**: la più privacy-friendly, ma serve un server dell'utente.
-      - **Google Drive** (`appDataFolder`): comoda per l'utente, ma serve un progetto Google
-        Cloud + OAuth client ID e il flusso OAuth con refresh token (più attrito).
-      - **Condivisione file (Web Share API)**: zero configurazione — dopo l'export si apre il
-        menu di condivisione del telefono. Non è un cloud automatico, ma un fallback quasi
-        gratis da valutare in aggiunta.
+- [x] **Scelta del provider — decisa con l'utente il 03/10/2026: Google Drive**
+      (`appDataFolder`). Storico delle alternative: la prima scelta era **GitHub Gist secret**,
+      poi scartata perché un gist secret **non è privato** — docs GitHub: "Secret gists aren't
+      private", chiunque abbia l'URL lo legge senza autenticarsi (servirebbe cifratura
+      obbligatoria, col rischio "passphrase persa = dati persi"); valutata e scartata anche la
+      variante **repository privato dedicato** (accesso ristretto, ma meno comoda). Google Drive
+      dà **controllo d'accesso reale** legato all'account Google dell'utente, senza server propri.
+      Dettagli da gestire in implementazione:
+      - **Progetto Google Cloud + OAuth client ID** (l'ID è pubblico, può stare nel repo) con
+        origini JavaScript autorizzate: `https://vcappello.github.io` e `http://localhost:5173`.
+      - **Scope minimo**: `drive.appdata` (file invisibile nell'interfaccia di Drive, non occupa
+        lo spazio "visibile" dell'utente) — variante `drive.file` se si preferisce un file
+        **visibile e ispezionabile** nel Drive.
+      - Il flusso OAuth in una SPA statica di norma usa **Google Identity Services**
+        (`accounts.google.com/gsi/client`): è uno script di terze parti caricato nell'app, da
+        valutare rispetto a un redirect flow con **PKCE** senza script esterno. Le credenziali
+        (access token) restano **solo sul dispositivo**.
+      - ⚠️ **Da verificare presto**: con la schermata di consenso in stato *Testing* i refresh
+        token Google scadono dopo **7 giorni** → da provare con un account reale (eventuale
+        pubblicazione della consent screen) prima di promettere un backup davvero automatico.
+      - Alternative ancora possibili dietro la stessa interfaccia: **WebDAV / Nextcloud**
+        (privacy massima, ma serve un server dell'utente) e **condivisione file (Web Share API)**
+        (zero configurazione: dopo l'export si apre il menu di condivisione del telefono).
 - [ ] **Architettura**: `src/utils/cloudBackup.ts` con l'interfaccia `CloudProvider`
       (`test()`, `save(payload)`, `load()`); refactor di `src/utils/backup.ts` in
       `collectBackupData()` / `serializeBackup()` / `applyBackup(data)`, così file e cloud
@@ -709,19 +718,14 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 - [ ] **Credenziali**: token/passphrase in `localStorage` (NON in IndexedDB, così non finiscono
       mai nei file di backup), mai nel bundle né nei log; pagina di configurazione con
       "Prova connessione" e "Scollega" (cancella le credenziali dal dispositivo).
-- [ ] **Cifratura: OBBLIGATORIA con il gist** (WebCrypto **AES-GCM** con chiave derivata via
-      **PBKDF2** da una passphrase dell'utente, applicata prima dell'upload; salt/IV nella busta
-      del payload). Motivo (docs GitHub): "**Secret gists aren't private**" — un gist secret non
-      è elencato né ricercabile, ma **chiunque abbia l'URL lo legge senza autenticarsi**; il
-      gist id è casuale e lungo, quindi di fatto non indovinabile, ma è sicurezza per oscurità
-      (il link finisce in cronologia/appunti/screenshot) e non è accettabile per dati
-      finanziari. Con la cifratura il cloud contiene solo testo cifrato: la passphrase non lascia
-      mai il dispositivo. Restano visibili solo i **metadati** (esistenza del gist, username,
-      date di aggiornamento, dimensione), non il contenuto. Avviso esplicito:
-      **passphrase persa = dati persi**; nessuna password di recupero.
-      Variante con controllo d'accesso reale (da valutare con l'utente): **repository privato
-      dedicato** (es. `expense-tracker-backup`) con token limitato a quel repo e permesso
-      "Contents: read and write" — lì la cifratura potrebbe restare opzionale.
+- [ ] **Cifratura: consigliata** (WebCrypto **AES-GCM** con chiave derivata via **PBKDF2** da
+      una passphrase dell'utente, applicata prima dell'upload; salt/IV nella busta del payload).
+      Con Google Drive i dati sono già protetti dall'account Google, ma **il provider può
+      leggerli in chiaro**: con la cifratura il cloud contiene solo testo cifrato e la
+      passphrase non lascia mai il dispositivo. Proposta: cifratura **attiva di default**,
+      disattivabile con avviso chiaro ("i tuoi dati saranno leggibili dal provider").
+      Avviso esplicito: **passphrase persa = dati persi**, nessun recupero. (Con la precedente
+      ipotesi GitHub Gist la cifratura sarebbe stata obbligatoria: un gist secret non è privato.)
 - [ ] **Auto-backup**: salvataggio automatico con debounce (~30 s) dopo le modifiche e al
       `visibilitychange`, più "Salva ora" manuale; stato "ultimo backup: data/ora" ben visibile
       e promemoria (banner una volta al giorno / `Toast` ⚠️) se l'ultimo backup è più vecchio
@@ -1053,3 +1057,7 @@ stato risolto — vedi il bullet in ✅ Completati.)*
       nel backup; feature collegata a "Create from photo" e con gestione dello storage.
 - [x] **Statistiche di tendenza**: medie per categoria, andamento degli ultimi mesi e
       riepilogo "dove vanno i miei soldi".
+- [ ] **Backup/ripristino da cloud (priorità bassa — pianificata in `⏳ Da fare`)**: salvataggio
+      delle istantanee del database su Google Drive (`appDataFolder`, OAuth) con cifratura
+      opzionale. Non va implementata ora: dettagli e step nella sezione "Backup e ripristino da
+      cloud" di `⏳ Da fare`. Alternative future: WebDAV/Nextcloud, condivisione file via Web Share.
