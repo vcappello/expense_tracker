@@ -664,12 +664,70 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 
 ## ⏳ Da fare
 
-> Le attività recenti sono conservate qui con gli step completati; al **03/10/2026** non ci
-> sono lavori in corso. Le prossime feature candidate sono in **🔮 Prossime release**.
+> Le attività recenti sono conservate qui con gli step completati; al **03/10/2026** l'unico
+> lavoro pianificato e non ancora iniziato è il **backup/ripristino da cloud** (primo blocco
+> qui sotto, in attesa della scelta del provider). Le altre feature candidate sono in
+> **🔮 Prossime release**.
 > Le nuove richieste vanno pianificate qui come blocchi di step `[ ]` prima di essere
 > implementate, poi marcate `[x]` e riepilogate in ✅ Completati.
 > ⚠️ **Prima del `git push` chiedere sempre conferma all'utente**: il push fa partire il
 > deploy automatico su GitHub Pages e pubblica subito la nuova versione.
+
+### Backup e ripristino da cloud — pianificata il 03/10/2026 (da fare)
+
+> Richiesta utente (03/10/2026): salvare il backup del database **nel cloud**, non solo come
+> file locale, così i dati non dipendono dal dispositivo né dall'origine (reinstallazione
+> della PWA, cambio di telefono, passaggio GitHub Pages ↔ server locale).
+> Vincoli del progetto: l'app è **statica su GitHub Pages, senza backend**; nessuna dipendenza
+> esterna; i dati sono finanziari e personali → il salvataggio remoto deve essere **esplicito
+> e cifrato**, e le credenziali non devono mai finire nel repo né nei file di backup.
+> Nota: è un **backup a istantanee**, non una sincronizzazione multi-dispositivo in tempo reale
+> (quella resta una feature separata, molto più complessa).
+
+- [ ] **Scelta del provider (prima decisione, da confermare con l'utente)**. Opzioni valutate:
+      - **GitHub Gist** (consigliata come primo provider): API REST, nessun backend, gratuita,
+        con **storico delle revisioni**; richiede un token fine-grained (solo scope `gist`)
+        creato dall'utente e incollato nell'app.
+      - **WebDAV / Nextcloud**: la più privacy-friendly, ma serve un server dell'utente.
+      - **Google Drive** (`appDataFolder`): comoda per l'utente, ma serve un progetto Google
+        Cloud + OAuth client ID e il flusso OAuth con refresh token (più attrito).
+      - **Condivisione file (Web Share API)**: zero configurazione — dopo l'export si apre il
+        menu di condivisione del telefono. Non è un cloud automatico, ma un fallback quasi
+        gratis da valutare in aggiunta.
+      In ogni caso il provider va isolato dietro un'interfaccia, così aggiungerne altri è
+      incrementale (partire da uno solo).
+- [ ] **Architettura**: `src/utils/cloudBackup.ts` con l'interfaccia `CloudProvider`
+      (`test()`, `save(payload)`, `load()`); refactor di `src/utils/backup.ts` in
+      `collectBackupData()` / `serializeBackup()` / `applyBackup(data)`, così file e cloud
+      usano **lo stesso formato** (`BACKUP_VERSION`, stessa normalizzazione) e l'import resta
+      quello atomico già esistente (`db.importAllData` + `restoreBackup`).
+- [ ] **Credenziali**: token/passphrase in `localStorage` (NON in IndexedDB, così non finiscono
+      mai nei file di backup), mai nel bundle né nei log; pagina di configurazione con
+      "Prova connessione" e "Scollega" (cancella le credenziali dal dispositivo).
+- [ ] **Cifratura opzionale ma consigliata**: WebCrypto **AES-GCM** con chiave derivata via
+      **PBKDF2** da una passphrase dell'utente, applicata prima dell'upload (sul cloud il
+      contenuto è illeggibile); salt/IV nella busta del payload. Avviso esplicito:
+      **passphrase persa = dati persi**.
+- [ ] **Auto-backup**: salvataggio automatico con debounce (~30 s) dopo le modifiche e al
+      `visibilitychange`, più "Salva ora" manuale; stato "ultimo backup: data/ora" ben visibile
+      e promemoria (banner una volta al giorno / `Toast` ⚠️) se l'ultimo backup è più vecchio
+      di N giorni.
+- [ ] **Ripristino**: lettura dal cloud con anteprima (data, conteggi) e `ConfirmModal` di
+      avviso come per l'import da file; errori gestiti con `AlertModal` (offline, token scaduto,
+      passphrase errata, payload di versione non supportata) — i dati locali non vanno mai
+      toccati finché l'import non riesce.
+- [ ] **Conflitti**: il payload include `deviceId` e `savedAt`; se il remoto è più recente del
+      locale, chiedere all'utente quale versione tenere (nessun merge automatico).
+- [ ] **UI**: nuova view `/backup` (raggiungibile da Azioni nella Main view) con stato,
+      configurazione, Salva ora / Ripristina / Scollega; etichette in italiano e componenti
+      condivisi (`TitleBar`/`ActionMenu`/`Modal`/`Toast`); niente modali native.
+- [ ] **Test**: unit per i pezzi puri (serializzazione, cifratura/decifratura, normalizzazione);
+      E2E con **route interception** di Playwright per simulare l'API del provider (nessun token
+      reale nei test) e round-trip completo (salva → svuota IndexedDB → ripristina) su
+      un'origine di prova; `npm run build` OK.
+- [ ] **Documentazione**: `spec.md` (sezione Backup/Ripristino + nota sulle chiamate di rete,
+      che restano solo su azione dell'utente), `AGENTS.md` (bullet + "Problemi risolti" quando
+      sarà implementata), `README` se serve.
 
 ### Icona dell'app — nuovo design "scontrino" — implementata il 03/10/2026
 
