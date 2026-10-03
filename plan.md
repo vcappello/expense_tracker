@@ -666,7 +666,7 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 
 > Le attività recenti sono conservate qui con gli step completati; al **03/10/2026** l'unico
 > lavoro pianificato e non ancora iniziato è il **backup/ripristino da cloud** (primo blocco
-> qui sotto, in attesa della scelta del provider). Le altre feature candidate sono in
+> qui sotto; provider scelto: **GitHub Gist**). Le altre feature candidate sono in
 > **🔮 Prossime release**.
 > Le nuove richieste vanno pianificate qui come blocchi di step `[ ]` prima di essere
 > implementate, poi marcate `[x]` e riepilogate in ✅ Completati.
@@ -684,18 +684,21 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 > Nota: è un **backup a istantanee**, non una sincronizzazione multi-dispositivo in tempo reale
 > (quella resta una feature separata, molto più complessa).
 
-- [ ] **Scelta del provider (prima decisione, da confermare con l'utente)**. Opzioni valutate:
-      - **GitHub Gist** (consigliata come primo provider): API REST, nessun backend, gratuita,
-        con **storico delle revisioni**; richiede un token fine-grained (solo scope `gist`)
-        creato dall'utente e incollato nell'app.
+- [x] **Scelta del provider — decisa con l'utente il 03/10/2026: GitHub Gist**. Le altre opzioni
+      restano possibili in futuro dietro la stessa interfaccia:
+      - **GitHub Gist** ✅ scelto: API REST senza backend, gratuita, con **storico delle
+        revisioni** (`PATCH` = nuovo commit del gist, quindi si può recuperare un backup
+        precedente); token **fine-grained col solo permesso "Gists: Read and write"**, revocabile
+        e incapace di toccare i repository. Endpoint: `POST /gists` (creazione), `PATCH /gists/{id}`
+        (aggiornamento), `GET /gists/{id}` (ripristino); gist **secret** (non elencato), un solo
+        file `expense-tracker-backup.json`. Attenzione al limite dell'API: **1 MB per file**
+        (oltre, il campo `truncated` è `true` e serve `raw_url`) — il DB attuale è molto sotto.
       - **WebDAV / Nextcloud**: la più privacy-friendly, ma serve un server dell'utente.
       - **Google Drive** (`appDataFolder`): comoda per l'utente, ma serve un progetto Google
         Cloud + OAuth client ID e il flusso OAuth con refresh token (più attrito).
       - **Condivisione file (Web Share API)**: zero configurazione — dopo l'export si apre il
         menu di condivisione del telefono. Non è un cloud automatico, ma un fallback quasi
         gratis da valutare in aggiunta.
-      In ogni caso il provider va isolato dietro un'interfaccia, così aggiungerne altri è
-      incrementale (partire da uno solo).
 - [ ] **Architettura**: `src/utils/cloudBackup.ts` con l'interfaccia `CloudProvider`
       (`test()`, `save(payload)`, `load()`); refactor di `src/utils/backup.ts` in
       `collectBackupData()` / `serializeBackup()` / `applyBackup(data)`, così file e cloud
@@ -704,10 +707,11 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 - [ ] **Credenziali**: token/passphrase in `localStorage` (NON in IndexedDB, così non finiscono
       mai nei file di backup), mai nel bundle né nei log; pagina di configurazione con
       "Prova connessione" e "Scollega" (cancella le credenziali dal dispositivo).
-- [ ] **Cifratura opzionale ma consigliata**: WebCrypto **AES-GCM** con chiave derivata via
+- [ ] **Cifratura opzionale ma consigliata** (proposta come **attiva di default** nella
+      configurazione, disattivabile con avviso): WebCrypto **AES-GCM** con chiave derivata via
       **PBKDF2** da una passphrase dell'utente, applicata prima dell'upload (sul cloud il
-      contenuto è illeggibile); salt/IV nella busta del payload. Avviso esplicito:
-      **passphrase persa = dati persi**.
+      contenuto è illeggibile — un gist secret è solo "non elencato", chi ha l'URL lo legge);
+      salt/IV nella busta del payload. Avviso esplicito: **passphrase persa = dati persi**.
 - [ ] **Auto-backup**: salvataggio automatico con debounce (~30 s) dopo le modifiche e al
       `visibilitychange`, più "Salva ora" manuale; stato "ultimo backup: data/ora" ben visibile
       e promemoria (banner una volta al giorno / `Toast` ⚠️) se l'ultimo backup è più vecchio
