@@ -9,7 +9,10 @@ import ConfirmModal from '../components/ConfirmModal';
 import AlertModal from '../components/AlertModal';
 import Toast from '../components/Toast';
 import { formatDate } from '../utils/formatting';
-import { sortAccountsPreferred } from '../utils/accounts';
+import {
+  getDefaultPrimaryAccount,
+  sortAccountsPreferred,
+} from '../utils/accounts';
 import { FREQUENCY_OPTIONS, getNextDueDate } from '../utils/recurrence';
 import { useNavigateBack } from '../utils/navigation';
 import '../styles/EntityForm.css';
@@ -84,12 +87,12 @@ export default function CreateRecurringPage() {
     };
   }, []);
 
-  // Defaults: first preferred account, first category
+  // Defaults: default primary account, first category
   useEffect(() => {
     if (recurringId || loaded) return;
     setFormData((prev) => ({
       ...prev,
-      accountId: prev.accountId || sortAccountsPreferred(accounts)[0]?.id || '',
+      accountId: prev.accountId || getDefaultPrimaryAccount(accounts)?.id || '',
       expenseTypeId: prev.expenseTypeId || expenseTypes[0]?.id || '',
     }));
   }, [accounts, expenseTypes, recurringId, loaded]);

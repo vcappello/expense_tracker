@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Expense, ExpenseType } from '../types';
-import { sortAccountsPreferred } from '../utils/accounts';
+import { sortAccountsPreferred, getDefaultPrimaryAccount } from '../utils/accounts';
 import {
   ONLINE_LOCATION_VALUE,
   PlaceCategoryMetadata,
@@ -101,6 +101,10 @@ export default function CreateExpensePage() {
   } = useApp();
   const sortedAccounts = sortAccountsPreferred(accounts);
   const coinAccounts = sortedAccounts.filter((a) => a.isCoinAccount);
+  const preferredPrimaryAccount = getDefaultPrimaryAccount(accounts);
+  const defaultSecondaryAccount = coinAccounts.find(
+    (account) => account.id !== preferredPrimaryAccount?.id
+  );
 
   const now = new Date();
   const [formData, setFormData] = useState({
@@ -108,8 +112,8 @@ export default function CreateExpensePage() {
     time: formatTimeToHHMMSS(now),
     amount: '',
     expenseTypeId: '',
-    accountId: sortedAccounts[0]?.id || '',
-    coinsAccountId: '',
+    accountId: preferredPrimaryAccount?.id || '',
+    coinsAccountId: defaultSecondaryAccount?.id || '',
     coinsAmount: '',
     notes: '',
     location: '',
@@ -263,10 +267,24 @@ export default function CreateExpensePage() {
     if (!formData.accountId && accounts.length > 0) {
       setFormData((prev) => ({
         ...prev,
-        accountId: sortedAccounts[0].id,
+        accountId: preferredPrimaryAccount?.id || '',
       }));
     }
   }, [accounts]);
+
+  useEffect(() => {
+    const mainAccountId = formData.accountId || preferredPrimaryAccount?.id;
+    const secondaryAccount = coinAccounts.find(
+      (account) => account.id !== mainAccountId
+    );
+    if (!expenseId && !formData.coinsAccountId && secondaryAccount) {
+      setFormData((prev) =>
+        prev.coinsAccountId
+          ? prev
+          : { ...prev, coinsAccountId: secondaryAccount.id }
+      );
+    }
+  }, [accounts, expenseId]);
 
   // Handle outside click
   useEffect(() => {
@@ -343,9 +361,10 @@ export default function CreateExpensePage() {
     setFormData((prev) => ({
       ...prev,
       accountId,
-      // if the main account becomes the coins account, clear it
       coinsAccountId:
-        prev.coinsAccountId === accountId ? '' : prev.coinsAccountId,
+        prev.coinsAccountId === accountId || !prev.coinsAccountId
+          ? coinAccounts.find((account) => account.id !== accountId)?.id || ''
+          : prev.coinsAccountId,
     }));
   };
 
@@ -655,22 +674,26 @@ export default function CreateExpensePage() {
     }
 
     const total = parseFloat(formData.amount);
-    const coinsAmount = formData.coinsAmount
-      ? parseFloat(formData.coinsAmount)
-      : 0;
+    const coinsAmountText = formData.coinsAmount.trim();
+    const coinsAmount = coinsAmountText ? parseFloat(coinsAmountText) : 0;
     const coinsAccountSelected = formData.coinsAccountId !== '';
-    const hasCoins = coinsAccountSelected && coinsAmount > 0;
+    // The secondary account is preselected (default stash), so the split only
+    // applies when an amount is entered: an empty amount is a plain expense.
+    const hasCoins = coinsAmount > 0;
 
-    if (coinsAmount > 0 && !coinsAccountSelected) {
-      showToast('Seleziona il conto delle monete', '⚠️');
+    if (coinsAmountText && Number.isNaN(coinsAmount)) {
+      showToast('Inserisci un importo valido dal conto secondario', '⚠️');
       return;
     }
-    if (coinsAccountSelected && coinsAmount <= 0) {
-      showToast('Inserisci l\'importo in monete', '⚠️');
+    if (hasCoins && !coinsAccountSelected) {
+      showToast('Seleziona il conto secondario', '⚠️');
       return;
     }
     if (hasCoins && coinsAmount > total) {
-      showToast('L\'importo in monete non può superare l\'importo totale', '⚠️');
+      showToast(
+        'L\'importo dal conto secondario non può superare l\'importo totale',
+        '⚠️'
+      );
       return;
     }
 
@@ -921,6 +944,9 @@ export default function CreateExpensePage() {
     formData.coinsAccountId !== '' && parseFloat(formData.coinsAmount) > 0;
   const mainAccountName =
     accounts.find((a) => a.id === formData.accountId)?.name || '?';
+  const mainAccountIsUntracked = accounts.some(
+    (account) => account.id === formData.accountId && account.isCoinAccount
+  );
   const coinsAccountName =
     accounts.find((a) => a.id === formData.coinsAccountId)?.name || '?';
 
@@ -994,6 +1020,11 @@ export default function CreateExpensePage() {
                 </option>
               ))}
             </select>
+            {mainAccountIsUntracked && (
+              <p className="field-hint">
+                Le spese imputate a questo stash non modificano il saldo del conto.
+              </p>
+            )}
           </div>
 
           {/* Reimbursable flag: the expense will be reimbursed (e.g. with the salary) */}
@@ -1027,13 +1058,13 @@ export default function CreateExpensePage() {
             </div>
           </div>
 
-          {/* Coin split (optional): paid partly from a second account */}
+          {/* Optional untracked secondary-account share */}
           <div className="form-section">
             <div className="form-section-title">
-              Pagato in parte con monete (opzionale)
+              Pagata in parte da un conto secondario (opzionale)
             </div>
             <div className="form-group">
-              <label htmlFor="coinsAmount">Importo in monete (€)</label>
+              <label htmlFor="coinsAmount">Importo dal conto secondario (€)</label>
               <input
                 type="text"
                 inputMode="decimal"
@@ -1045,7 +1076,7 @@ export default function CreateExpensePage() {
               />
             </div>
             <div className="form-group">
-              <label htmlFor="coinsAccount">Conto monete</label>
+              <label htmlFor="coinsAccount">Conto secondario</label>
               <select
                 id="coinsAccount"
                 value={formData.coinsAccountId}
@@ -1062,7 +1093,7 @@ export default function CreateExpensePage() {
                     {account.name}
                   </option>
                 ))}
-                {/* keep a legacy selection even if the coin flag was removed */}
+                {/* Keep an existing selection if the account is no longer enabled. */}
                 {formData.coinsAccountId &&
                   !coinAccounts.some((a) => a.id === formData.coinsAccountId) && (
                     <option value={formData.coinsAccountId}>
@@ -1073,19 +1104,19 @@ export default function CreateExpensePage() {
               </select>
               {coinAccounts.length === 0 && (
                 <p className="field-hint">
-                  Nessun conto monete: crealo dalla gestione Conti.
+                  Nessun conto disponibile come secondario. Modifica il tipo di conto nella
+                  gestione Conti.
                 </p>
               )}
             </div>
             {coinsActive && (
               <div className="form-info">
                 <p className="info-text">
-                  💡 Verranno creati 3 movimenti:
-                  <br />• Spesa −{formData.amount || '0.00'}€ su{' '}
-                  {mainAccountName}
-                  <br />• Entrata +{formData.coinsAmount || '0.00'}€ su{' '}
-                  {coinsAccountName}
-                  <br />• 🔄 {coinsAccountName} → {mainAccountName}
+                  💡 La spesa totale resta in Analisi.{' '}
+                  {mainAccountIsUntracked
+                    ? `Il saldo dello stash ${mainAccountName} non cambia.`
+                    : `Dal conto principale (${mainAccountName}) viene scalata solo la quota restante.`}{' '}
+                  Il saldo del conto secondario ({coinsAccountName}) non cambia.
                 </p>
               </div>
             )}

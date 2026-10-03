@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Cashflow } from '../types';
-import { sortAccountsPreferred } from '../utils/accounts';
+import { sortAccountsPreferred, getDefaultPrimaryAccount } from '../utils/accounts';
 import { abbreviateAmount } from '../utils/formatting';
 import { useNavigateBack } from '../utils/navigation';
 import TitleBar, { TitleBarAction } from '../components/TitleBar';
@@ -77,7 +77,7 @@ export default function CreateCashflowPage() {
     if (!formData.accountId && accounts.length > 0) {
       setFormData((prev) => ({
         ...prev,
-        accountId: sortedAccounts[0].id,
+        accountId: getDefaultPrimaryAccount(accounts)?.id || '',
       }));
     }
   }, [accounts, formData.accountId]);

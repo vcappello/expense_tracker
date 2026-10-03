@@ -18,6 +18,7 @@ export interface ScheduledBalanceMovement {
   kind: 'expense' | 'income';
   name: string;
   amount: number;
+  accountId: string;
 }
 
 export interface BalancePoint {
@@ -93,6 +94,7 @@ const getScheduledMovements = (
         kind: template.kind,
         name: template.name,
         amount: template.amount,
+        accountId: template.accountId,
       },
     });
   };
@@ -151,12 +153,16 @@ export const buildBalanceTrend = ({
   const forecastEnd = getForecastEnd(dateRange, range.end, today);
   const accountIds = selectedAccountIds.length > 0 ? new Set(selectedAccountIds) : null;
   const inAccountScope = (accountId: string) => !accountIds || accountIds.has(accountId);
+  const accountsById = new Map(accounts.map((account) => [account.id, account]));
   const countsMovement = (movement: Movement) =>
     movement.type === 'cashflow' ||
     expenseTypeIds.size === 0 ||
     expenseTypeIds.has(movement.expenseTypeId);
-  const contribution = (movement: Movement) =>
-    movement.type === 'expense' ? -movement.amount : movement.amount;
+  const contribution = (movement: Movement) => {
+    if (accountsById.get(movement.accountId)?.isCoinAccount) return 0;
+    if (movement.type === 'cashflow') return movement.amount;
+    return -movement.amount;
+  };
 
   const relevant = movements.filter(
     (movement) => inAccountScope(movement.accountId) && countsMovement(movement)
@@ -188,7 +194,11 @@ export const buildBalanceTrend = ({
   const scheduledByDay = new Map<string, ScheduledBalanceMovement[]>();
   scheduled.forEach(({ date, movement }) => {
     const key = dayKey(date);
-    const delta = movement.kind === 'expense' ? -movement.amount : movement.amount;
+    const delta = accountsById.get(movement.accountId)?.isCoinAccount
+      ? 0
+      : movement.kind === 'expense'
+        ? -movement.amount
+        : movement.amount;
     plannedDeltasByDay.set(key, (plannedDeltasByDay.get(key) || 0) + delta);
     scheduledByDay.set(key, [...(scheduledByDay.get(key) || []), movement]);
   });

@@ -17,12 +17,16 @@ export const getAccountBalanceAtDate = (
   endOfDate.setHours(23, 59, 59, 999);
   const endTime = endOfDate.getTime();
 
-  const cashflowTotal = cashflows
-    .filter((cashflow) => new Date(cashflow.date).getTime() <= endTime)
-    .reduce((sum, cashflow) => sum + cashflow.amount, 0);
-  const expenseTotal = expenses
-    .filter((expense) => new Date(expense.date).getTime() <= endTime)
-    .reduce((sum, expense) => sum + expense.amount, 0);
+  const cashflowTotal = account.isCoinAccount
+    ? 0
+    : cashflows
+        .filter((cashflow) => new Date(cashflow.date).getTime() <= endTime)
+        .reduce((sum, cashflow) => sum + cashflow.amount, 0);
+  const expenseTotal = account.isCoinAccount
+    ? 0
+    : expenses
+        .filter((expense) => new Date(expense.date).getTime() <= endTime)
+        .reduce((sum, expense) => sum + expense.amount, 0);
   const adjustmentTotal = adjustments
     .filter(
       (adjustment) =>

@@ -544,7 +544,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           coinsAmount > 0;
         if (coins && coinsAmount > input.amount) {
           throw new Error(
-            'L\'importo in monete non può superare l\'importo totale della spesa'
+            'L\'importo dal conto secondario non può superare l\'importo totale della spesa'
           );
         }
         const now = new Date();

@@ -50,35 +50,44 @@ i# Plan — Expense Tracker AI
 - [x] **Main view — allineamento lista movimenti**: fix del conflitto CSS (la classe `.movement-info` di `AnalyticsPage.css` sovrascriveva quella della Main view rendendola colonna centrata); ora data, ora e descrizione sono **allineati a sinistra** (`.movement-info` esplicito in riga); classe Analytics rinominata in `.movement-detail-info`
 - [x] **Edit Expense — larghezza campo Categoria (ExpenseType)**: aggiunto `width: 100%` a `.form-input`/`.form-select` in `ExpenseForm.css` e `CashflowForm.css`; il campo categoria ora è largo come gli altri campi del form
 - [x] **Distanziare i pulsanti Delete e Save in tutte le view**: aggiunto `margin-right: 18px` al pulsante danger (Elimina) nella `TitleBar`; distanza tra Elimina e Conferma ~26px (prima ~8px) per evitare pressioni accidentali
-- [x] **Giacenza iniziale conti (`initialBalance`)**: nuovo campo `initialBalance` sull'`Account` (default 0, normalizzato in lettura per i conti esistenti); campo **"Giacenza iniziale (€)"** in creazione/modifica conto; nella **gestione Conti** mostrato il **saldo corrente** (`initialBalance + cashflows − expenses + rettifiche`, abbreviato e colorato per segno) accanto al conto; Analytics invariati (la giacenza non è un movimento, nessuno skew al primo mese); `spec.md` aggiornata
+- [x] **Giacenza iniziale conti (`initialBalance`)**: nuovo campo `initialBalance` sull'`Account` (default 0, normalizzato in lettura per i conti esistenti); campo **"Giacenza iniziale (€)"** in creazione/modifica conto; nella **gestione Conti** mostrato il **saldo corrente** (`initialBalance + cashflows − expenses + rettifiche` sui conti normali; i movimenti sugli stash non modificano il loro saldo), abbreviato e colorato per segno; Analytics invariati (la giacenza non è un movimento, nessuno skew al primo mese); `spec.md` aggiornata
 - [x] **Rettifiche di saldo unificate per conto**: `AccountBalanceAdjustment` datate per conti Cash e bancari; saldo osservato con anteprima differenza, storico modificabile/eliminabile e cancellazione in cascata; saldi conto e Andamento aggiornati dalla data, senza impatto su entrate/spese, report o CSV; database e backup v3 retrocompatibili con backup v1/v2; spec, README e AGENTS aggiornati.
-- [x] **Conto preferito (`isPreferred`)**: nuovo flag `isPreferred` sull'`Account` (default false, normalizzato in lettura); checkbox **"Conto preferito"** in creazione/modifica conto; i conti preferiti vengono mostrati **per primi** nei dropdown di inserimento Spese/Entrate (il primo preferito è il default, es. Bank account nel seed) e nella lista Conti con ★; nuovo util `src/utils/accounts.ts` (`sortAccountsPreferred`); `spec.md` aggiornata
+- [x] **Conto preferito (`isPreferred`)**: nuovo flag `isPreferred` sull'`Account` (default false, normalizzato in lettura); checkbox in creazione/modifica conto; i conti preferiti vengono mostrati per primi e marcati con ★. In Spesa, il preferito normale diventa il principale default e il preferito stash il secondario default; `spec.md` aggiornata
 - [x] **Fix navigazione dopo save/delete (Back button)**: dopo aver salvato o eliminato da una view create/edit la navigazione usava `navigate('/...')` (push) che inquinava lo stack del browser e rompeva il Back (es. main → conti → crea conto → salva → al secondo Back si tornava alla form invece che a main). Ora save/delete usano `navigate(-1)` per tornare alla view di origine preservando lo stack; nuovo helper `src/utils/navigation.ts` (`useNavigateBack`) con fallback alla route canonica quando non c'è storia precedente (reload/accesso diretto). Applicato a create/edit di Account, ExpenseType, Expense e Cashflow. Verificato nel browser: main → conti → crea conto → salva → Back → main; main → categorie → crea categoria → salva → Back → main; `spec.md` aggiornata
 - [x] **Sostituite le modali native con modali custom (componenti shared)**: eliminati `window.confirm` (delete Spesa/Entrata) e tutte le `alert()` (validazione/errori) dai 4 form create/edit. Nuovo componente base **`Modal`** (`src/components/Modal.tsx` + `src/styles/Modal.css`: overlay + titolo + contenuto + azioni, chiusura su backdrop/ESC, `aria-modal`); **`ConfirmModal`** ora è un wrapper sopra `Modal` (2 bottoni) usato per delete di Account, ExpenseType, **Spesa ed Entrata**; nuovo **`AlertModal`** (1 bottone OK) per gli errori (salvataggio/caricamento/eliminazione); le validazioni campi obbligatori usano il **`Toast`** (nuova prop `icon`, ⚠️ per i warning); eliminato `ConfirmModal.css` (stili spostati in `Modal.css`); `spec.md` aggiornata
 - [x] **Importo con tastiera numerica su smartphone**: aggiunto `inputMode="decimal"` al campo **Importo (€)** dei form Spesa (`CreateExpensePage`) ed Entrata (`CreateCashflowPage`), come nel campo "Giacenza iniziale (€)" dei conti — su smartphone si apre la tastiera numerica
 - [x] **Backup/Ripristino database (Export/Import JSON)**: nuove voci "Esporta backup" / "Ripristina backup" nel menu Azioni della Main view. **Export**: scarica un file JSON (`expense-tracker-backup-YYYY-MM-DD.json`) con tutti e 4 gli store (Account, ExpenseType, Expense, Cashflow), date ISO, indipendente dall'origine. **Import**: selezione file → `ConfirmModal` di avviso ("sostituirà tutti i dati") con conteggi → sostituzione **atomica** (clear + insert nella stessa transazione IndexedDB, `db.importAllData`) → reload dello stato (conti, categorie, spese, entrate, movimenti) via `restoreBackup` in `AppContext`; file non validi → `AlertModal`; successo → `Toast`. Nuovo `src/utils/backup.ts` (`exportDatabase`, `readBackupFile` con normalizzazione di `initialBalance`/`isPreferred`/`parentId`/`routingAccountId` e riconversione date ISO → `Date`). Necessario perché IndexedDB è legato all'origine: al passaggio a HTTPS i dati non vengono ereditati. Verificato in browser (:5173, round-trip con gerarchia categorie, routing, conto preferito e giacenza; file invalido rifiutato senza toccare i dati). `spec.md` aggiornata
 
-- [x] **Spesa pagata in parte con monete (secondo conto — coin split)**: nuova feature per
-      registrare la spesa TOTALE vera facendo scalare al conto principale solo la parte
-      non-monete (un conto "Monete" resta sempre a 0, stash non tracciato). Implementazione:
+- [x] **Spesa pagata in parte da un conto secondario non tracciato**: registra la spesa
+      TOTALE vera facendo scalare al conto principale solo la parte non coperta dal secondario
+      (il cui saldo resta invariato). Implementazione:
       campo `routingPairId` su `Expense`/`Cashflow` con **link esplicito** (fallback
       euristico per dati legacy, niente bump `DB_VERSION`); `routing.ts` basato sul link;
       operazioni atomiche del gruppo (`createExpenseGroup`/`updateExpenseGroup`/
       `deleteExpenseGroup`); `saveExpenseWithCoins` in AppContext + `buildCoinSplitCashflows`
-      (`src/utils/coins.ts`); campi "Pagato in parte con monete" nel form spesa (preview,
+      (`src/utils/coins.ts`); campi per importo e conto secondario nel form spesa (preview,
       validazioni); click riga gialla → modifica spesa; **Analytics opzione A** (l'entrata
       interna conta: `movements` del context = TUTTI i movimenti, filtraggio display per-view
       in MainView/Analytics, mai in `loadMovements`); delete a cascata conti/categorie senza
       leg orfani; backup normalizzato. Verificato E2E nel browser. Spec in `spec.md`
-      (sezione "Expense paid partly from a second account (coin split)"), regole in
+      (sezione "Expense paid partly from an untracked secondary account"), regole in
       `AGENTS.md`.
 
-- [x] **Conto monete (flag `isCoinAccount`)**: nuovo flag su `Account` (default false,
-      normalizzato in lettura/import) per marcare il conto "monete"; checkbox "Conto monete"
-      nell'anagrafica conto; badge 🪙 nella gestione Conti; nel form spesa il dropdown
-      "Conto monete" elenca **solo** i conti con il flag (niente più elenco di tutti i conti),
+- [x] **Stash secondario non tracciato (`isCoinAccount`)**: flag su `Account` (default false,
+      normalizzato in lettura/import) per abilitare un conto come fonte secondaria non
+      tracciata; nel form spesa il dropdown "Conto secondario" elenca **solo** i conti abilitati,
       con hint quando non ce ne sono e opzione di ripiego per selezioni legacy. Verificato E2E
       nel browser. Spec in `spec.md`, attività in `AGENTS.md`.
+- [x] **Tipo conto stash non tracciato e default per tipo**: sostituiti i riferimenti UI alle
+      monete con "Tipo di conto" (Conto normale / Stash secondario non tracciato) e "Pagata in
+      parte da un conto secondario"; ogni conto resta selezionabile come principale, gli stash
+      sono anche nel selettore secondario. Uno stash non modifica il saldo con spese/entrate,
+      anche se è il conto principale; Analytics conserva l'intero importo. `isPreferred`
+      indipendente ma contestuale nel form Spesa (normale = default principale, stash =
+      default secondario); il default principale di Spesa/Entrata/Ricorrenze è sempre il primo
+      conto **normale** preferito (`getDefaultPrimaryAccount` in `src/utils/accounts.ts`), mai
+      uno stash. Badge generico "2°"; dati `isCoinAccount` conservati senza bump DB.
+      Spec, plan, README e AGENTS aggiornati.
 - [x] **Pubblicazione su GitHub Pages (HTTPS)**: deploy automatico con GitHub Actions
       (`.github/workflows/deploy.yml`: build con `BASE_URL=/expense_tracker/` e
       pubblicazione di `dist/` su `gh-pages`, Pages → Source: GitHub Actions); base path
@@ -325,6 +334,19 @@ i# Plan — Expense Tracker AI
 - [x] **Test E2E** nel browser: senza conti flaggati dropdown vuoto + hint; conto Monete con
       flag → badge 🪙 in Conti e dropdown monete con solo "Monete"; spesa con monete creata
       (Main view 2 righe); build OK
+
+### Generalizzazione UI conto secondario non tracciato — completata il 03/10/2026
+
+- [x] **Spec e compatibilità**: definite le etichette e il comportamento di stash non
+      tracciato; conservato `isCoinAccount` e i dati esistenti senza migrazione IndexedDB.
+- [x] **Tipo conto e descrizioni**: dropdown "Tipo di conto" con conto normale e stash
+      secondario non tracciato; Conto preferito rimane indipendente; aiuto UI esplicita che
+      movimenti assegnati allo stash non modificano il saldo.
+- [x] **Form Spesa e indicatori**: aggiornati sezione, importo, selettore, hint, messaggi di
+      validazione e anteprima; tutti i conti restano disponibili come principali, gli stash
+      sono anche secondari; default contestuale per tipo, badge generico al posto della moneta.
+- [x] **Verifica e documentazione**: build e controlli diff superati; schermate di modifica
+      conto e creazione spesa verificate senza salvare dati di test; README e AGENTS aggiornati.
 
 ### Spesa pagata in parte con monete (secondo conto) — completata il 24/08/2026
 

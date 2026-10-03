@@ -12,8 +12,8 @@ Tables:
 - AccountBalanceAdjustment (planned; see "Account balance adjustments")
 
 The `Expense` and `Cashflow` records support an optional `routingPairId` used to link the
-movements of a routing transfer or of a coin-split expense (see "Expense paid partly from a
-second account (coin split)").
+movements of a routing transfer or of an expense paid partly using an untracked secondary
+account (see "Expense paid partly from an untracked secondary account").
 
 The `Expense` record also carries two free-text fields, `notes` and `location` (a note and
 a place), both defaulting to an empty string for older records (see "Notes and location on
@@ -80,7 +80,7 @@ day header; the time is used only for the ordering). For each item need to displ
 - for Cashflow: the account; the amount displayed in green (Note: if the Cashflow was
   created using a routing account only one movement must be displayed with color yellow,
   showing the source → target accounts)
-- for an Expense paid partly from a second account (coin split): two movements are
+- for an Expense paid partly from an untracked secondary account: two movements are
   displayed — the Expense (red) and the routing receiving movement (yellow, source →
   target); the internal income on the second account is hidden
 Row layout: each movement row is a **two-column grid** — the left column shows the
@@ -111,7 +111,7 @@ older real movements, it also shows the income, expense and net totals for the m
 past calendar month containing eligible movements (not necessarily the immediately preceding
 month). The summary is loaded separately and must not replace or otherwise modify the
 currently filtered movement list. It excludes expected occurrences and routing cashflows,
-while retaining internal coin-split income as Analytics does; expenses are subtracted from
+while retaining the internal secondary-account income as Analytics does; expenses are subtracted from
 cashflows for the net. If no eligible historical month exists, only the current-month empty
 state is shown. A history lookup failure must be reported rather than presented as an empty
 history result.
@@ -177,17 +177,31 @@ Actions:
 - Confirm: create the Expense and store it in the local database
 - Cancel: go back without save any data (this does not save also any new expese type created)
 
-## Expense paid partly from a second account (coin split)
+## Expense paid partly from an untracked secondary account
 
-When paying a cash expense partly with coins (an untracked stash of coins), the user can
-enter, in addition to the normal fields, an optional **second amount** (the coin portion,
-between 0 and the total amount) and pick the **coins account** from the "Conto monete"
-dropdown, which lists **only the accounts flagged as coin accounts** (`isCoinAccount`, set
-in the account management). This records the true total spend in Analytics while keeping
-the main account (banknotes) decreased only by the non-coin portion. When no coin account
-exists, a hint in the form suggests creating one.
+In addition to the normal fields, an Expense can be marked **"Pagata in parte da un conto
+secondario"**. The user enters a second amount (from 0 up to the total expense) and selects
+an account from the **"Conto secondario"** dropdown. Only accounts enabled for this use in
+account management are offered.
 
-Example: a €10.50 expense paid with €10 from "Cash" (banknotes) and €0.50 in coins creates
+In the account form, **"Tipo di conto"** is a dropdown with **"Conto normale"** and
+**"Stash secondario non tracciato"**. All accounts remain selectable as the primary Expense
+account; stashes are also offered in the secondary-account selector. A stash can therefore
+be used alone to record an expense paid entirely from the untracked reserve. Expenses and
+Cashflows assigned to a stash do not change its calculated balance, whether it is selected
+as primary or secondary. A normal primary account decreases only by the part not covered by
+the secondary amount, while Analytics records the full Expense. The flag does not enable an
+ordinary tracked two-account expense split. When no eligible stash exists, the form suggests
+changing an account's type in account management.
+
+The separate **"Conto preferito"** setting remains independent of account type. In Expense
+entry, the preferred normal account is the default primary account and the preferred stash
+is the default secondary account. If a type has no preferred account, the first account of
+that type is used as the default. All accounts, including stashes, remain available in the
+primary-account selector.
+
+Example: a €10.50 expense paid with €10 from "Cash" (tracked banknotes) and €0.50 from
+"Coins" (untracked stash) creates
 the following records:
 
 | Record | Type | Account | Amount |
@@ -204,33 +218,34 @@ Resulting balances:
 
 ### Routing link (`routingPairId`)
 - Every Cashflow that is a routing leg (the negative leg on the source account and the
-  positive receiving leg) and every record of a coin-split group (Expense, internal income
+  positive receiving leg) and every record of a secondary-account expense group (Expense, internal income
   and the two routing legs) share the same **`routingPairId`**. Plain Expenses and plain
   Cashflows have `routingPairId = null`.
 - The date/time/amount heuristic in `src/utils/routing.ts` is replaced by the explicit
   link (kept only as fallback for pre-existing records, optionally backfilled in a DB v2
   migration). Routing detection: a Cashflow is a routing leg when it has `routingPairId`
   AND (`routingAccountId` is set OR `amount < 0`). A positive Cashflow with
-  `routingPairId` but no `routingAccountId` is the internal income of a coin split.
+  `routingPairId` but no `routingAccountId` is the internal income of a secondary-account expense.
 
 ### Main view
-- A coin-split expense is displayed as **two movements**: the Expense (red) and the routing
+- A secondary-account expense is displayed as **two movements**: the Expense (red) and the routing
   receiving movement (yellow, source → target). The internal income on the second account
   is **hidden** (bookkeeping artifact).
-- Clicking the yellow routing row of a coin split navigates to the **edit of the Expense**
+- Clicking the yellow routing row of a secondary-account expense navigates to the **edit of the Expense**
   (the Expense is the real object).
 
 ### Analytics
 - Total Expenses include the full expense amount (the true total).
-- Total Cashflow includes the internal coin income (**option A**, chosen): this keeps the
+- Total Cashflow includes the internal secondary-account income (**option A**, chosen): this keeps the
   Net Balance consistent with the sum of the account balances. The two routing legs are
   excluded as usual.
 
 ### Edit / Delete
-- Editing an Expense with coins loads the whole group via `routingPairId` and recreates it
-  on save when date/time/amount/coins change; removing the coins deletes the group and
-  clears the link; adding coins to a plain Expense creates the group.
-- Deleting an Expense with coins deletes the Expense and its linked group (internal income
+- Editing an Expense with a secondary amount loads the whole group via `routingPairId` and
+  recreates it on save when date/time/amount/secondary account or amount change; removing the
+  secondary amount deletes the group and clears the link; adding it to a plain Expense
+  creates the group.
+- Deleting an Expense with a secondary amount deletes the Expense and its linked group (internal income
   + routing pair) atomically.
 - The Account cascade delete must also clean up the linked group cashflows of the deleted
   account to avoid orphan routing legs, and clear the link on the affected Expenses.
@@ -361,7 +376,7 @@ Implementation notes:
 - window-only approach (no "reimbursed" state on the expenses): editing, deleting or
   unchecking a salary only changes the reference used by the following ones; nothing else
   needs to be reconciled.
-- for a coin-split expense the flag is stored on the main Expense record only (not on the
+- for a secondary-account expense the flag is stored on the main Expense record only (not on the
   generated Cashflows).
 
 ### "Rimborsi in attesa" view
@@ -550,7 +565,7 @@ confirmation time), with these differences:
   remembers the kind together with the created ids);
 - **Conferma tutte** confirms both kinds at once (each template produces its own record
   type);
-- coin-split, routing and `reimbursable` do not apply to income templates.
+- secondary-account expense splitting, routing and `reimbursable` do not apply to income templates.
 
 ### Reimbursable summary
 When the template is an income with `isSalary` enabled, the create/edit form and the
@@ -625,11 +640,12 @@ When the user click Account management button a new page is displayed.
 In the account management the list of created account is displayed, for each account is displayed:
 - the account name
 - the current balance *abbreviated*: initialBalance + cashflows − expenses + balance
-  adjustments, displayed with color based on sign (green if positive, red if negative)
+  adjustments for normal accounts; assigned Expenses and Cashflows do not change an
+  untracked stash balance. Values are colored by sign (green if positive, red if negative)
 - last cash flow movement with date, time and amount *abbreviated*
 - Edit and Delete buttons on the right side
 - preferred accounts (isPreferred flag) are displayed first, with a star indicator
-- coin accounts (isCoinAccount flag) are marked with a coin badge (🪙)
+- accounts enabled for secondary-account expenses are marked with a secondary-account badge
 
 Actions:
 - Create: a new page is displayed to create the Account, when the user confirm the Account list need to refresh
@@ -643,8 +659,14 @@ When the user click create or edit Account a new page is displayed.
 The user can enter:
 - (mandatory) the Account name
 - (optional, default 0) the Account initial balance (giacenza iniziale): the opening amount from when account tracking starts; it is not a movement, so it does not affect period Analytics and must not be changed to perform later balance corrections
-- (optional) the preferred flag (isPreferred): when set, the Account is shown first in the account lists during Expense/Cashflow insertion (default account) and in the account management list
-- (optional) the coin account flag (isCoinAccount): when set, the Account is a "coins" account (untracked coin stash) and it is the only account offered in the "Conto monete" dropdown of the Expense form (see "Expense paid partly from a second account (coin split)"); in the account management list it is marked with a 🪙 badge
+- (optional) the preferred flag (`isPreferred`): in Expense entry, a normal account is
+  preferred/default in the primary selector and a stash is preferred/default in the
+  secondary selector. The default of the primary selector in the Expense, Cashflow and
+  Recurring forms is the first preferred **normal** account (fallback: the first normal
+  account, then the first account), so a preferred stash never becomes the default primary
+  account. The flag is independent of account type.
+- (optional) **"Tipo di conto"** dropdown: "Conto normale" (default) or "Stash secondario non tracciato". All accounts remain available in the primary Expense selector; stashes are also available in the "Conto secondario" selector (see "Expense paid partly from an untracked secondary account"), and their badge appears in the management list. Expenses and Cashflows assigned to a stash do not change its calculated balance, whether it is selected as primary or secondary. The separate `isPreferred` checkbox remains independent and determines the default within each type in Expense entry.
+- The UI terminology change retains the existing `isCoinAccount` field and stored values for compatibility with existing databases and backups; no migration or DB version bump is required.
 
 Actions:
 - Confirm: create or update the Account and go back
@@ -674,8 +696,10 @@ adjustment excluded, then replace it with the newly calculated difference; this 
 observed target balance correct and avoids applying the same correction twice. The history
 shows date, note, and signed difference; entries can be edited or deleted.
 
-Account balance is calculated as
-`initialBalance + cashflows − expenses + account balance adjustments`.
+For normal Accounts, balance is calculated as
+`initialBalance + cashflows − expenses + account balance adjustments`. For untracked stashes,
+assigned Expenses and Cashflows do not affect the calculated balance; initial balance and
+explicit balance adjustments still apply.
 Adjustments are balance-only records: they are not Expenses or Cashflows, do not appear in
 the Main movement list, and do not affect Analytics income/expense totals, category
 statistics, reimbursements, or CSV exports. They do affect the Account balance and the real
@@ -722,7 +746,7 @@ unconfirmed recurring movements and cashflows.
 ### Report
 Display a summary card with the following metrics calculated from filtered movements:
 - Total Expenses: sum of all Expense amounts in the selected period, displayed in red with negative sign and *abbreviated*
-- Total Cashflow: sum of all Cashflow amounts (excluding routing), displayed in green and *abbreviated* (Note: the internal income of a coin-split expense IS counted — option A — keeping the Net consistent with the account balances)
+- Total Cashflow: sum of all Cashflow amounts (excluding routing), displayed in green and *abbreviated* (Note: the internal income of a secondary-account expense IS counted — option A — keeping the Net consistent with the account balances)
 - Net Balance: Total Cashflow - Total Expenses, displayed with color based on sign (green if positive, red if negative) and *abbreviated*
 - Average Daily Expense: Total Expenses / number of days in selected period, displayed in red and *abbreviated*
 - Top 3 Categories: list of the 3 ExpenseType with highest spending in the period, for each show the category name and the total amount *abbreviated* in red
@@ -794,16 +818,18 @@ real nor projected movements, the view shows the usual "Nessun movimento nel per
 selezionato" empty state.
 
 **Opening balance** (the value the real line starts from, before the first day shown): the
-sum of the `initialBalance` of the accounts in scope plus **all the movements and balance
-adjustments before the first day shown**, using the same formula as "Gestione Conti"
-(`initialBalance + cashflows − expenses + adjustments`; expenses are stored as positive
-amounts and are subtracted). The full movements dataset is used, so both legs of a routing
-transfer and the internal income of a coin-split expense are counted. A point is drawn for
-every day, including days without movements (flat segment). Future-dated real movements
-affect only the projection, not the solid real-balance line.
+sum of the `initialBalance` of the accounts in scope plus the balance contributions and
+balance adjustments before the first day shown, using the same formula as "Gestione Conti"
+(`initialBalance + cashflows − expenses + adjustments` for normal accounts; expenses are
+stored as positive amounts and are subtracted). Movements assigned to untracked stashes do
+not affect their balance. The full movements dataset is used, so both legs of a routing
+transfer and the internal income of a secondary-account expense are counted for normal
+accounts. A point is drawn for every day, including days without movements (flat segment).
+Future-dated real movements affect only the projection, not the solid real-balance line.
 
 **Projection.** Pending recurring expenses and incomes (daily, weekly, monthly, yearly and
-one-off) are projected at their due dates through the selected future range. An occurrence
+one-off) are projected at their due dates through the selected future range; movements
+assigned to an untracked stash do not change its projected balance. An occurrence
 already due but not confirmed is applied from today in the projection, never retroactively to
 the real balance. Future-dated real movements already recorded are also included. Paused
 templates, confirmed periods and skipped periods are excluded. Projection is informational
@@ -998,8 +1024,8 @@ when switching to the HTTPS server (or any other origin change).
 - Desired changes:
   - The create button is in the title bar, right aligned (see Shared components).
   - In the list no Edit/Delete buttons are displayed: each item is clickable and navigates to the Edit Account view (like the Main view movement list). Delete is only available from the Edit Account view.
-  - Each account displays the current balance (initialBalance + cashflows − expenses), *abbreviated* and colored by sign.
-  - Preferred accounts (isPreferred) are shown first in the account dropdowns during Expense/Cashflow insertion (the first preferred account is the default) and in the account management list, with a star indicator.
+  - Each account displays its current balance *abbreviated* and colored by sign; movements assigned to an untracked stash do not affect its balance.
+  - Preferred accounts (isPreferred) are shown first in account dropdowns and in the account management list, with a star indicator. The default primary account of the Expense, Cashflow and Recurring forms is the first preferred normal account; in Expense entry the preferred stash defaults as the secondary.
   - The Create/Edit Account view includes a "Giacenza iniziale (€)" field (optional, default 0) and a "Conto preferito" checkbox (isPreferred): they are stored on the Account (not movements), so the period Analytics stay clean.
   - Edit Account view title bar: no "Cancel" button (the Back button cancels the modifications and goes back). Right aligned: Confirm (checkmark icon) and Delete (trash icon) buttons (see Shared components).
   - Create Account view: no "Delete" button, only Confirm (checkmark icon) right aligned; Back cancels and goes back (see Shared components).

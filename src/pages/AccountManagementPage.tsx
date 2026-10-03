@@ -57,12 +57,16 @@ export default function AccountManagementPage() {
 
   // Current balance = initial balance + net cashflows - expenses
   const getBalance = (account: Account): number => {
-    const netCashflow = cashflows
-      .filter((c) => c.accountId === account.id)
-      .reduce((sum, c) => sum + c.amount, 0);
-    const totalExpenses = expenses
-      .filter((e) => e.accountId === account.id)
-      .reduce((sum, e) => sum + e.amount, 0);
+    const netCashflow = account.isCoinAccount
+      ? 0
+      : cashflows
+          .filter((c) => c.accountId === account.id)
+          .reduce((sum, c) => sum + c.amount, 0);
+    const totalExpenses = account.isCoinAccount
+      ? 0
+      : expenses
+          .filter((e) => e.accountId === account.id)
+          .reduce((sum, e) => sum + e.amount, 0);
     const adjustmentTotal = accountBalanceAdjustments
       .filter((adjustment) => adjustment.accountId === account.id)
       .reduce((sum, adjustment) => sum + adjustment.amount, 0);
@@ -106,13 +110,23 @@ export default function AccountManagementPage() {
                   <div className="item-main">
                     <div className="item-name">
                       {account.isPreferred && (
-                        <span className="preferred-star" title="Conto preferito">
+                        <span
+                          className="preferred-star"
+                          title={
+                            account.isCoinAccount
+                              ? 'Conto secondario predefinito'
+                              : 'Conto principale predefinito'
+                          }
+                        >
                           ★{' '}
                         </span>
                       )}
                       {account.isCoinAccount && (
-                        <span className="coin-badge" title="Conto monete">
-                          🪙{' '}
+                        <span
+                          className="secondary-account-badge"
+                          title="Stash secondario non tracciato"
+                        >
+                          2°
                         </span>
                       )}
                       {account.name}

@@ -62,6 +62,7 @@ online fai **Ripristina backup**. Da quel momento i dati restano nel browser usa
 - La conferma di una spesa ricorrente propone **Online / nessun luogo** se il modello non ha un luogo, modificabile per la singola spesa
 - **Rimborsi in attesa**: dal menu Azioni si consulta l'elenco delle spese rimborsabili successive all'ultimo stipendio, con totale e accesso alla modifica
 - Gestione **Conti** e **Categorie** (anche gerarchiche) con eliminazione in cascata; creazione/modifica in **pagine dedicate**
+- Tipo di conto **Stash secondario non tracciato**: è selezionabile sia come conto principale sia come secondario nelle spese; i movimenti assegnati allo stash non ne cambiano il saldo. La spesa completa resta registrata in Analisi; il conto preferito è indipendente e preseleziona il conto nel ruolo corrispondente.
 - **Riallineamento saldi** per contanti e conti bancari, con rettifiche datate e storico; aggiornano il saldo e il grafico Andamento senza alterare entrate o spese
 - **Analisi** con riepilogo (totale spese/entrate, saldo, media, top categorie) e **esportazione CSV** (formato Excel italiano)
 - **Grafici** in Analisi: **Report**, **Grafico** (barre per giorno o per categoria/conto), **Andamento** (saldo reale continuo e previsione tratteggiata con spese/entrate programmate evidenziate) e **Tendenze** (spese mensili degli ultimi 12 mesi, media e categorie in crescita/calo)

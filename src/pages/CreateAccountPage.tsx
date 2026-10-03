@@ -114,7 +114,9 @@ export default function CreateAccountPage() {
         if (!cancelled) setCurrentBalance(balance);
       })
       .catch((err) => {
-        console.error('Failed to load current account balance:', err);
+        if (!cancelled) {
+          console.error('Failed to load current account balance:', err);
+        }
       });
     return () => {
       cancelled = true;
@@ -408,22 +410,34 @@ export default function CreateAccountPage() {
                   setFormData((prev) => ({ ...prev, isPreferred: e.target.checked }))
                 }
               />
-              Conto preferito (visualizzato per primo nell'inserimento spese)
+              Preferito per questo tipo di conto
             </label>
+            <p className="account-type-hint">
+              Viene preselezionato nel campo corrispondente: conto principale o secondario.
+            </p>
           </div>
 
-          <div className="form-group checkbox-group">
-            <label className="checkbox-label" htmlFor="isCoinAccount">
-              <input
-                type="checkbox"
-                id="isCoinAccount"
-                checked={formData.isCoinAccount}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, isCoinAccount: e.target.checked }))
-                }
-              />
-              Conto monete (usato come conto per le monete nelle spese)
-            </label>
+          <div className="form-group">
+            <label htmlFor="accountType">Tipo di conto</label>
+            <select
+              id="accountType"
+              className="form-input"
+              value={formData.isCoinAccount ? 'untracked-secondary' : 'standard'}
+              onChange={(event) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  isCoinAccount: event.target.value === 'untracked-secondary',
+                }))
+              }
+            >
+              <option value="standard">Conto normale</option>
+              <option value="untracked-secondary">
+                Stash secondario non tracciato
+              </option>
+            </select>
+            <p className="account-type-hint">
+              I movimenti assegnati a questo stash non modificano il saldo del conto.
+            </p>
           </div>
 
           <button type="submit" className="sr-only" tabIndex={-1} aria-hidden="true" />
