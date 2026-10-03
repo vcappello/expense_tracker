@@ -1,10 +1,15 @@
 // Generatore di icone PNG per la PWA (nessuna dipendenza esterna).
 // Uso: npm run icons
 // Produce: public/icons/icon-192.png, icon-512.png, icon-maskable-512.png, icon-180.png
+//
+// Design: scontrino stilizzato con bordo inferiore a zig-zag su quadrato smeraldo,
+// glifo "€" in peso regular preso dalla maschera in scripts/euro-glyph.mjs
+// (Node non ha un rasterizzatore di font: la maschera e' estratta una volta dal font).
 import { deflateSync } from 'node:zlib';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { EURO_GLYPH } from './euro-glyph.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT = join(__dirname, '..', 'public', 'icons');
@@ -52,7 +57,7 @@ function encodePNG(width, height, rgba) {
   return Buffer.concat([sig, chunk('IHDR', ihdr), chunk('IDAT', idat), chunk('IEND', Buffer.alloc(0))]);
 }
 
-// ------------------------------------------------------------------- disegno
+// ------------------------------------------------------------------- helpers
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 
@@ -70,74 +75,188 @@ function roundedRectSDF(x, y, cx, cy, hw, hh, r) {
   return Math.hypot(ax, ay) + Math.min(Math.max(qx, qy), 0) - r;
 }
 
-// Glifo "€" su griglia 13x13 (x = tratto). Due barre orizzontali + spina
-// verticale centrale + curva "C" aperta a destra.
-const GLYPH_W = 13;
-const GLYPH_H = 13;
-const BAR_ROWS = new Set([4, 8]);
-function glyphAt(col, row) {
-  if (col === 1) return true; // spina sinistra della C
-  if (col === 6) return true; // barra verticale centrale
-  if (BAR_ROWS.has(row)) return col >= 1 && col <= 11; // barre orizzontali
-  if (col === 11 && (row === 0 || row === 1 || row === 11 || row === 12)) return true; // estremità C
-  return false;
+const cover = (d) => clamp(0.5 - d, 0, 1);
+
+// Composizione "source over" con alpha straight.
+function over(dst, rgb, alpha) {
+  const a = alpha + dst[3] * (1 - alpha);
+  if (a <= 0) return [0, 0, 0, 0];
+  const mix = (i) => (rgb[i] * alpha + dst[i] * dst[3] * (1 - alpha)) / a;
+  return [mix(0), mix(1), mix(2), a];
+}
+
+const COLORS = {
+  bgTop: hexToRgb('#10b981'),
+  bgBottom: hexToRgb('#065f46'),
+  paperTop: hexToRgb('#ffffff'),
+  paperBottom: hexToRgb('#e2e8f0'),
+  paperLine: hexToRgb('#cbd5e1'),
+  ink: hexToRgb('#047857'),
+};
+
+// --------------------------------------------------------------- glifo €
+const GLYPH = (() => {
+  const { width, height, bits } = EURO_GLYPH;
+  const buf = Buffer.from(bits, 'base64');
+  const bit = (x, y) => {
+    if (x < 0 || y < 0 || x >= width || y >= height) return 0;
+    const i = y * width + x;
+    return (buf[i >> 3] >> (7 - (i & 7))) & 1;
+  };
+  return { width, height, bit };
+})();
+
+// Copertura del glifo disegnato nel rettangolo [gx, gy, gw, gh] (campione bilineare).
+function glyphCover(x, y, gx, gy, gw, gh) {
+  const mx = ((x - gx) / gw) * GLYPH.width;
+  const my = ((y - gy) / gh) * GLYPH.height;
+  if (mx < -1 || my < -1 || mx > GLYPH.width || my > GLYPH.height) return 0;
+  const x0 = Math.floor(mx);
+  const y0 = Math.floor(my);
+  const tx = mx - x0;
+  const ty = my - y0;
+  const top = lerp(GLYPH.bit(x0, y0), GLYPH.bit(x0 + 1, y0), tx);
+  const bottom = lerp(GLYPH.bit(x0, y0 + 1), GLYPH.bit(x0 + 1, y0 + 1), tx);
+  return clamp(lerp(top, bottom, ty), 0, 1);
+}
+
+// ------------------------------------------------------------------- disegno
+// Scontrino: punte dello zig-zag in numero dispari, cosi' una punta cade al centro
+// (piu' spazio sotto la €) e i due estremi del bordo sono alla stessa quota.
+const TIPS = 3;
+const GLYPH_HEIGHT_RATIO = 0.34; // altezza della € rispetto al lato del design
+const GLYPH_CENTER_RATIO = 0.58;
+
+function makeScene(size, maskable) {
+  const L = maskable ? size * 0.82 : size; // maskable: contenuto nella zona sicura
+  const off = (size - L) / 2;
+  const cx = size / 2;
+
+  const pad = maskable ? 0 : size * 0.04;
+  const radius = maskable ? 0 : size * 0.22;
+
+  const hw = 0.29 * L;
+  const left = cx - hw;
+  const right = cx + hw;
+  const top = off + 0.12 * L;
+  const base = off + 0.88 * L;
+  const amp = 0.05 * L;
+  const bot = base - amp;
+  const cornerR = 0.05 * L;
+  const half = TIPS * 2;
+  const period = (2 * hw) / half;
+
+  // Vertici del bordo inferiore (stessa costruzione del design approvato).
+  const bottomVerts = [{ x: right, y: bot }];
+  for (let k = half - 1; k >= 0; k--) {
+    bottomVerts.push({ x: left + k * period, y: k % 2 === 1 ? bot : bot - amp });
+  }
+  bottomVerts.reverse();
+
+  const boundaryY = (x) => {
+    if (x <= bottomVerts[0].x) return bottomVerts[0].y;
+    for (let i = 1; i < bottomVerts.length; i++) {
+      if (x <= bottomVerts[i].x) {
+        const a = bottomVerts[i - 1];
+        const b = bottomVerts[i];
+        const t = b.x === a.x ? 0 : (x - a.x) / (b.x - a.x);
+        return lerp(a.y, b.y, t);
+      }
+    }
+    return bottomVerts[bottomVerts.length - 1].y;
+  };
+
+  const inReceipt = (x, y) => {
+    if (x < left || x > right || y < top) return false;
+    if (y <= top + cornerR) {
+      if (x < left + cornerR) {
+        return Math.hypot(x - (left + cornerR), y - (top + cornerR)) <= cornerR;
+      }
+      if (x > right - cornerR) {
+        return Math.hypot(x - (right - cornerR), y - (top + cornerR)) <= cornerR;
+      }
+    }
+    return y <= boundaryY(x);
+  };
+
+  const lineHW = 0.14 * L;
+  const lineHH = 0.014 * L;
+  const lines = [off + 0.25 * L, off + 0.35 * L];
+
+  const euroH = GLYPH_HEIGHT_RATIO * L;
+  const euroW = euroH * (GLYPH.width / GLYPH.height);
+  const euroX = cx - euroW / 2;
+  const euroY = off + GLYPH_CENTER_RATIO * L - euroH / 2;
+
+  return (x, y) => {
+    const bgCov = cover(
+      roundedRectSDF(x, y, size / 2, size / 2, size / 2 - pad, size / 2 - pad, radius)
+    );
+    if (bgCov <= 0) return [0, 0, 0, 0];
+
+    const t = clamp(y / size, 0, 1);
+    let c = over(
+      [0, 0, 0, 0],
+      [
+        lerp(COLORS.bgTop[0], COLORS.bgBottom[0], t),
+        lerp(COLORS.bgTop[1], COLORS.bgBottom[1], t),
+        lerp(COLORS.bgTop[2], COLORS.bgBottom[2], t),
+      ],
+      bgCov
+    );
+
+    if (!inReceipt(x, y)) return c;
+
+    c = over(
+      c,
+      [
+        lerp(COLORS.paperTop[0], COLORS.paperBottom[0], t),
+        lerp(COLORS.paperTop[1], COLORS.paperBottom[1], t),
+        lerp(COLORS.paperTop[2], COLORS.paperBottom[2], t),
+      ],
+      1
+    );
+
+    const lineCov = lines.reduce(
+      (acc, ly) => Math.max(acc, cover(roundedRectSDF(x, y, cx, ly + lineHH, lineHW, lineHH, lineHH))),
+      0
+    );
+    if (lineCov > 0) c = over(c, COLORS.paperLine, lineCov);
+
+    const euroCov = glyphCover(x, y, euroX, euroY, euroW, euroH);
+    if (euroCov > 0) c = over(c, COLORS.ink, euroCov);
+
+    return c;
+  };
 }
 
 const SUPERSAMPLE = 4;
 
-function drawIcon(size, maskable) {
+function renderIcon(size, maskable) {
+  const scene = makeScene(size, maskable);
   const px = Buffer.alloc(size * size * 4);
-  const cx = size / 2;
-  const cy = size / 2;
+  const n = SUPERSAMPLE * SUPERSAMPLE;
 
-  // Sfondo: quadrato pieno per maskable, altrimenti quadrato arrotondato con padding.
-  const pad = maskable ? 0 : size * 0.04;
-  const hw = size / 2 - pad;
-  const hh = size / 2 - pad;
-  const r = size * (maskable ? 0.12 : 0.22);
-
-  const top = hexToRgb('#10b981'); // emerald-500
-  const bottom = hexToRgb('#047857'); // emerald-700
-
-  // Dimensione glifo: più piccolo per maskable (zona sicura ~80%).
-  const glyphScale = maskable ? 0.46 : 0.6;
-  const cellW = (size * glyphScale) / GLYPH_W;
-  const cellH = (size * glyphScale) / GLYPH_H;
-  const gx0 = (size - cellW * GLYPH_W) / 2;
-  const gy0 = (size - cellH * GLYPH_H) / 2;
-
-  const ss = SUPERSAMPLE;
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      // Copertura dello sfondo (anti-alias su 1px).
-      const bgCover = clamp(0.5 - roundedRectSDF(x + 0.5, y + 0.5, cx, cy, hw, hh, r), 0, 1);
-      if (bgCover <= 0) continue;
-
-      const t = clamp((y + 0.5) / size, 0, 1);
-      const rBg = lerp(top[0], bottom[0], t);
-      const gBg = lerp(top[1], bottom[1], t);
-      const bBg = lerp(top[2], bottom[2], t);
-
-      // Copertura del glifo (supersampling per bordi morbidi).
-      let glyphHits = 0;
-      for (let sy = 0; sy < ss; sy++) {
-        for (let sx = 0; sx < ss; sx++) {
-          const gx = x + (sx + 0.5) / ss;
-          const gy = y + (sy + 0.5) / ss;
-          const col = Math.floor((gx - gx0) / cellW);
-          const row = Math.floor((gy - gy0) / cellH);
-          if (col >= 0 && col < GLYPH_W && row >= 0 && row < GLYPH_H && glyphAt(col, row)) {
-            glyphHits++;
-          }
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      let a = 0;
+      for (let sy = 0; sy < SUPERSAMPLE; sy++) {
+        for (let sx = 0; sx < SUPERSAMPLE; sx++) {
+          const c = scene(x + (sx + 0.5) / SUPERSAMPLE, y + (sy + 0.5) / SUPERSAMPLE);
+          r += c[0] * c[3];
+          g += c[1] * c[3];
+          b += c[2] * c[3];
+          a += c[3];
         }
       }
-      const glyphCover = glyphHits / (ss * ss);
-
       const i = (y * size + x) * 4;
-      px[i] = Math.round(lerp(rBg, 255, glyphCover));
-      px[i + 1] = Math.round(lerp(gBg, 255, glyphCover));
-      px[i + 2] = Math.round(lerp(bBg, 255, glyphCover));
-      px[i + 3] = Math.round(255 * bgCover);
+      px[i] = a > 0 ? Math.round(r / a) : 0;
+      px[i + 1] = a > 0 ? Math.round(g / a) : 0;
+      px[i + 2] = a > 0 ? Math.round(b / a) : 0;
+      px[i + 3] = Math.round((a / n) * 255);
     }
   }
   return encodePNG(size, size, px);
@@ -151,7 +270,7 @@ const targets = [
   { file: 'icon-180.png', size: 180, maskable: false },
 ];
 for (const t of targets) {
-  writeFileSync(join(OUT, t.file), drawIcon(t.size, t.maskable));
+  writeFileSync(join(OUT, t.file), renderIcon(t.size, t.maskable));
   console.log(`Generata ${t.file} (${t.size}x${t.size}${t.maskable ? ', maskable' : ''})`);
 }
 console.log(`Icone salvate in ${OUT}`);

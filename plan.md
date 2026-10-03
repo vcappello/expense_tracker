@@ -671,6 +671,29 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 > ⚠️ **Prima del `git push` chiedere sempre conferma all'utente**: il push fa partire il
 > deploy automatico su GitHub Pages e pubblica subito la nuova versione.
 
+### Icona dell'app — nuovo design "scontrino" — implementata il 03/10/2026
+
+> Richiesta utente (03/10/2026): l'icona precedente (quadrato verde con € "a pixel") non era
+> abbastanza riconoscibile; dopo un confronto su anteprime (moneta con € incisa, moneta con
+> spicchio mancante, scontrino) l'utente ha scelto lo **scontrino con € e bordo a zig-zag**,
+> con la € in **peso regular ingrandita** (non bold) per leggibilità.
+
+- [x] **Anteprime**: generatore di prova in una cartella di sessione (Pillow/FreeType, glifo
+      dal font Liberation Sans) con confronto a 512/96/48 px reali e verifica della leggibilità
+      (conteggio pixel d'inchiostro): regular a 0.28 = 42 px a 48 px (troppo sottile) → regular
+      a 0.34 = 108 px, cioè come il bold a 0.28 (122 px).
+- [x] **Port nel generatore del progetto** (`scripts/generate-icons.mjs`, senza dipendenze):
+      scontrino bianco con bordo a zig-zag a **3 punte simmetriche** (una punta al centro, così
+      la € ha spazio), due righe di testo, € in `#047857`; il glifo arriva dalla maschera 1-bit
+      `scripts/euro-glyph.mjs` (150x192 px, estratta dal font). La versione **maskable** riempie
+      tutto il canvas senza trasparenza, con lo scontrino nella zona sicura.
+- [x] **Verifica**: `npm run icons` + confronto pixel con l'anteprima approvata → differenza
+      media 1.56/255 (solo bordi, per l'antialiasing diverso) e € nello stesso riquadro
+      (129x173 px); maskable senza trasparenza, 192/180 con angoli arrotondati trasparenti;
+      `npm run build` OK.
+- [x] **Documentazione**: `AGENTS.md` e `spec.md` aggiornati con il nuovo design e il file della
+      maschera del glifo.
+
 ### Conto stash "Coins" di default (seed + backfill) — implementato il 03/10/2026
 
 > Richiesta utente (03/10/2026): con il nuovo tipo di conto stash non esiste più il conto
