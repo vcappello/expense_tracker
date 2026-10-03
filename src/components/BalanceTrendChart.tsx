@@ -71,6 +71,9 @@ export default function BalanceTrendChart({
   const hasExpectedIncomes = data.some((point) =>
     point.scheduledMovements.some((movement) => movement.kind === 'income')
   );
+  const hasBalanceAdjustments = data.some(
+    (point) => point.balanceAdjustments.length > 0
+  );
   const indexByKey = new Map(data.map((point, index) => [point.key, index]));
   const values = data.flatMap((point) =>
     point.projectedBalance === undefined
@@ -150,6 +153,11 @@ export default function BalanceTrendChart({
         {hasExpectedIncomes && (
           <span className="legend-item">
             <span className="trend-scheduled-legend income" /> Entrata prevista
+          </span>
+        )}
+        {hasBalanceAdjustments && (
+          <span className="legend-item">
+            <span className="trend-adjustment-legend" /> Rettifica saldo
           </span>
         )}
         <span className="legend-item trend-legend-muted">
@@ -251,6 +259,23 @@ export default function BalanceTrendChart({
             ))
           )}
 
+          {data.flatMap((point, index) =>
+            point.balanceAdjustments.map((adjustment, adjustmentIndex) => (
+              <rect
+                key={`${point.key}-adjustment-${adjustment.id}`}
+                x={xFor(index) - 3}
+                y={
+                  yFor(point.projectedBalance ?? point.balance) -
+                  3 -
+                  adjustmentIndex * 7
+                }
+                width={6}
+                height={6}
+                className="trend-adjustment-marker"
+              />
+            ))
+          )}
+
           {hovered !== null && hoverIndex !== null && (
             <circle
               cx={xFor(hoverIndex)}
@@ -321,6 +346,16 @@ export default function BalanceTrendChart({
                   Variazione reale: {hovered.delta >= 0 ? '+' : '-'}
                   {abbreviateAmount(Math.abs(hovered.delta))}€
                 </div>
+                {hovered.balanceAdjustments.map((adjustment) => (
+                  <div
+                    key={adjustment.id}
+                    className="trend-tooltip-adjustment"
+                  >
+                    Rettifica saldo: {adjustment.amount >= 0 ? '+' : '−'}
+                    {abbreviateAmount(Math.abs(adjustment.amount))}€
+                    {adjustment.notes ? ` · ${adjustment.notes}` : ''}
+                  </div>
+                ))}
               </>
             ) : (
               <>
@@ -347,6 +382,16 @@ export default function BalanceTrendChart({
                     {movement.kind === 'expense' ? 'Spesa' : 'Entrata'} prevista:{' '}
                     {movement.kind === 'expense' ? '−' : '+'}
                     {abbreviateAmount(movement.amount)}€ · {movement.name}
+                  </div>
+                ))}
+                {hovered.balanceAdjustments.map((adjustment) => (
+                  <div
+                    key={adjustment.id}
+                    className="trend-tooltip-adjustment"
+                  >
+                    Rettifica saldo: {adjustment.amount >= 0 ? '+' : '−'}
+                    {abbreviateAmount(Math.abs(adjustment.amount))}€
+                    {adjustment.notes ? ` · ${adjustment.notes}` : ''}
                   </div>
                 ))}
               </>

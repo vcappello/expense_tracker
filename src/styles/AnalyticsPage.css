@@ -363,6 +363,14 @@
   border-top: 2px dashed #a78bfa;
 }
 
+.trend-adjustment-legend {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: #fbbf24;
+  transform: rotate(45deg);
+}
+
 .trend-scheduled-legend {
   display: inline-block;
   width: 8px;
@@ -414,6 +422,12 @@
   fill: #22c55e;
 }
 
+.trend-adjustment-marker {
+  fill: #fbbf24;
+  stroke: #0f172a;
+  stroke-width: 1.5;
+}
+
 .trend-tooltip {
   position: absolute;
   top: 4px;
@@ -462,6 +476,10 @@
 
 .trend-tooltip-movement.income {
   color: #4ade80;
+}
+
+.trend-tooltip-adjustment {
+  color: #fbbf24;
 }
 
 @media (max-width: 600px) {

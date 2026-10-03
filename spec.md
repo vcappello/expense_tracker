@@ -9,6 +9,7 @@ Tables:
 - Cashflow
 - ExpenseType
 - Account
+- AccountBalanceAdjustment (planned; see "Account balance adjustments")
 
 The `Expense` and `Cashflow` records support an optional `routingPairId` used to link the
 movements of a routing transfer or of a coin-split expense (see "Expense paid partly from a
@@ -28,6 +29,11 @@ A fifth store, `recurringExpenses`, holds the **RecurringExpense** templates (se
 `DB_VERSION` bump (1 → 2): the upgrade only creates the missing stores, the existing data is
 left untouched. A template is either an **expense** or an **income** (`kind` field, default
 `expense`): one store and one occurrences engine serve both.
+
+The `accountBalanceAdjustments` store holds dated balance corrections for any Account,
+including Cash and bank accounts (see "Account balance adjustments"). It was added with the
+`DB_VERSION` bump from 2 to 3; the upgrade creates only the missing store and preserves
+existing data.
 
 The `Expense` and the `Cashflow` records carry two optional recurring link fields,
 `recurringId` (the template id) and `recurringPeriod` (the period key the confirmation
@@ -594,7 +600,7 @@ In the ExpenseType management view a tree with all generated ExpenseType with nu
 For each ExpenseType the user can view:
 - ExpenseType name: the name of the ExpenseType
 - the total amount *abbreviated* of inserted Expense, in the selected period (filter by date range), including all Expense with ExpenseType in the same hierarchy at any level
-- Edit and Delete buttons on the right side
+- each account row is clickable and opens its edit/detail view; Delete is available there
 In the same view, when the user click an ExpenseType, the tree node must expand and display also all children ExpenseType with the selected parent.
 
 Actions:
@@ -618,7 +624,8 @@ Actions:
 When the user click Account management button a new page is displayed.
 In the account management the list of created account is displayed, for each account is displayed:
 - the account name
-- the current balance *abbreviated*: initialBalance + cashflows − expenses, displayed with color based on sign (green if positive, red if negative)
+- the current balance *abbreviated*: initialBalance + cashflows − expenses + balance
+  adjustments, displayed with color based on sign (green if positive, red if negative)
 - last cash flow movement with date, time and amount *abbreviated*
 - Edit and Delete buttons on the right side
 - preferred accounts (isPreferred flag) are displayed first, with a star indicator
@@ -635,13 +642,50 @@ Actions:
 When the user click create or edit Account a new page is displayed.
 The user can enter:
 - (mandatory) the Account name
-- (optional, default 0) the Account initial balance (giacenza iniziale): the amount the account had when created; it is not a movement, so it does not affect the period Analytics
+- (optional, default 0) the Account initial balance (giacenza iniziale): the opening amount from when account tracking starts; it is not a movement, so it does not affect period Analytics and must not be changed to perform later balance corrections
 - (optional) the preferred flag (isPreferred): when set, the Account is shown first in the account lists during Expense/Cashflow insertion (default account) and in the account management list
 - (optional) the coin account flag (isCoinAccount): when set, the Account is a "coins" account (untracked coin stash) and it is the only account offered in the "Conto monete" dropdown of the Expense form (see "Expense paid partly from a second account (coin split)"); in the account management list it is marked with a 🪙 badge
 
 Actions:
 - Confirm: create or update the Account and go back
 - Cancel: go back without save any data
+
+### Account balance adjustments
+
+The same balance-reconciliation feature is available for every account, including Cash and
+bank accounts. `initialBalance` remains the opening balance (giacenza iniziale); it is not
+changed by a later reconciliation, so historical balances before the correction remain
+unchanged.
+
+The Account edit/detail view shows the current calculated balance and a **"Riallinea saldo"**
+action, followed by that account's adjustment history. The action opens a form with:
+- the reconciliation date (default: today; a past date is allowed);
+- the actual balance observed for the selected account on that date;
+- the app's calculated balance for that account at the selected date;
+- the signed difference to apply, calculated and previewed before saving;
+- an optional note describing the reason/source (e.g. "Verifica estratto conto").
+
+The user enters the observed balance, not a signed delta. On save, persist an
+`AccountBalanceAdjustment` with `id`, `accountId`, `date`, signed `amount` (observed balance
+minus the app balance before this adjustment), optional `notes`, `createdAt`, and
+`updatedAt`. Its amount is applied to the account balance on the selected date and every
+date after it. For editing an existing adjustment, calculate the preview with that
+adjustment excluded, then replace it with the newly calculated difference; this keeps the
+observed target balance correct and avoids applying the same correction twice. The history
+shows date, note, and signed difference; entries can be edited or deleted.
+
+Account balance is calculated as
+`initialBalance + cashflows − expenses + account balance adjustments`.
+Adjustments are balance-only records: they are not Expenses or Cashflows, do not appear in
+the Main movement list, and do not affect Analytics income/expense totals, category
+statistics, reimbursements, or CSV exports. They do affect the Account balance and the real
+balance line in Analytics Andamento from the adjustment date onward. The projected line
+starts from the corrected real balance and carries dated adjustments into its timeline.
+When filtering Andamento by accounts, only adjustments belonging to the selected accounts
+are included.
+
+Deleting an Account also deletes its balance adjustments. The account deletion confirmation
+includes the number of adjustments that will be removed.
 
 ## Analytics
 
@@ -750,26 +794,28 @@ real nor projected movements, the view shows the usual "Nessun movimento nel per
 selezionato" empty state.
 
 **Opening balance** (the value the real line starts from, before the first day shown): the
-sum of the `initialBalance` of the accounts in scope plus **all the movements before the
-first day shown**, using the same formula as "Gestione Conti"
-(`initialBalance + cashflows − expenses`; expenses are stored as positive amounts and are
-subtracted). The full movements dataset is used, so both legs of a routing transfer and the
-internal income of a coin-split expense are counted. A point is drawn for every day,
-including days without movements (flat segment). Future-dated real movements affect only
-the projection, not the solid real-balance line.
+sum of the `initialBalance` of the accounts in scope plus **all the movements and balance
+adjustments before the first day shown**, using the same formula as "Gestione Conti"
+(`initialBalance + cashflows − expenses + adjustments`; expenses are stored as positive
+amounts and are subtracted). The full movements dataset is used, so both legs of a routing
+transfer and the internal income of a coin-split expense are counted. A point is drawn for
+every day, including days without movements (flat segment). Future-dated real movements
+affect only the projection, not the solid real-balance line.
 
 **Projection.** Pending recurring expenses and incomes (daily, weekly, monthly, yearly and
 one-off) are projected at their due dates through the selected future range. An occurrence
 already due but not confirmed is applied from today in the projection, never retroactively to
 the real balance. Future-dated real movements already recorded are also included. Paused
 templates, confirmed periods and skipped periods are excluded. Projection is informational
-only: it does not create movements or affect account balances.
+only: it does not create movements or affect account balances. Balance adjustments are
+included at their effective dates in the real balance and, when future-dated, in the
+projection.
 
 **Filters.**
-- *Conto*: selects the accounts in scope → their `initialBalance` and their movements are
-  part of the balance (empty selection = all accounts). With a single account selected the
-  line is exactly that account's balance; the routing counterpart sitting on another
-  account is correctly excluded.
+- *Conto*: selects the accounts in scope → their `initialBalance`, movements, and balance
+  adjustments are part of the balance (empty selection = all accounts). With a single
+  account selected the line is exactly that account's balance; the routing counterpart
+  sitting on another account is correctly excluded.
 - *Categoria*: only the expenses of the selected categories (descendants included) are
   subtracted from the balance; the initial balances and the cashflows are unaffected,
   because cashflows have no category. The line is therefore a "hypothetical" balance that
@@ -808,11 +854,12 @@ data on the old origin: the new origin starts with an empty database (and the de
 again). To preserve the data across origins the app provides a JSON backup:
 
 - **Esporta backup**: downloads a single JSON file (`expense-tracker-backup-YYYY-MM-DD.json`) containing
-  all five stores (`accounts`, `expenseTypes`, `expenses`, `cashflows`, `recurringExpenses`). Dates are serialized as ISO
+  all six stores (`accounts`, `expenseTypes`, `expenses`, `cashflows`, `recurringExpenses`,
+  `accountBalanceAdjustments`). Dates are serialized as ISO
   strings (JSON standard). The export is origin-independent and can be re-imported on any origin.
-  The backup file carries its own `version` (currently 2). On import a **version 1 file (without the
-  `recurringExpenses` field) is still accepted**: the missing field defaults to an empty list (no
-  recurring expenses), so old backups keep working.
+  The backup file carries its own `version` (currently 3). On import, version 1 files without
+  `recurringExpenses` default that field to an empty list; version 1/2 files without
+  `accountBalanceAdjustments` default that field to an empty list, so old backups keep working.
 - **Ripristina backup**: the user selects a backup JSON file; a `ConfirmModal` warns that the import
   will replace all existing data. On confirm, the database is cleared and rewritten with the imported
   records in a single atomic IndexedDB transaction (all-or-nothing: a failure leaves the current data
@@ -822,7 +869,7 @@ again). To preserve the data across origins the app provides a JSON backup:
   `notes` and `location` default to '' on Expense records; `reimbursable`/`isSalary` default to
   false; `recurringId`/`recurringPeriod` default to null on Expense **and Cashflow** records;
   `kind` defaults to `expense` on the recurring templates; missing
-  `recurringExpenses` → empty list.
+  `recurringExpenses`/`accountBalanceAdjustments` → empty lists as appropriate for the file version.
 
 Both actions are available in the Main view "Azioni" menu. This is the recommended way to move the data
 when switching to the HTTPS server (or any other origin change).

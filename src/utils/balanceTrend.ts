@@ -1,4 +1,10 @@
-import { Account, DateRange, Movement, RecurringExpense } from '../types';
+import {
+  Account,
+  AccountBalanceAdjustment,
+  DateRange,
+  Movement,
+  RecurringExpense,
+} from '../types';
 import { formatDate, getDateRange } from './formatting';
 import {
   getExpectedOccurrence,
@@ -22,6 +28,7 @@ export interface BalancePoint {
   projectedBalance?: number;
   projectedDelta?: number;
   scheduledMovements: ScheduledBalanceMovement[];
+  balanceAdjustments: AccountBalanceAdjustment[];
 }
 
 export interface BalanceTrend {
@@ -31,6 +38,7 @@ export interface BalanceTrend {
 
 interface BuildBalanceTrendOptions {
   movements: Movement[];
+  balanceAdjustments: AccountBalanceAdjustment[];
   accounts: Account[];
   recurringExpenses: RecurringExpense[];
   dateRange: DateRange;
@@ -128,6 +136,7 @@ const getScheduledMovements = (
 
 export const buildBalanceTrend = ({
   movements,
+  balanceAdjustments,
   accounts,
   recurringExpenses,
   dateRange,
@@ -152,9 +161,16 @@ export const buildBalanceTrend = ({
   const relevant = movements.filter(
     (movement) => inAccountScope(movement.accountId) && countsMovement(movement)
   );
+  const relevantAdjustments = balanceAdjustments.filter((adjustment) =>
+    inAccountScope(adjustment.accountId)
+  );
   const plottedRangeEnd = includesToday ? forecastEnd : range.end;
   const inRange = relevant.filter((movement) => {
     const time = new Date(movement.date).getTime();
+    return time >= range.start.getTime() && time <= plottedRangeEnd.getTime();
+  });
+  const inRangeAdjustments = relevantAdjustments.filter((adjustment) => {
+    const time = new Date(adjustment.date).getTime();
     return time >= range.start.getTime() && time <= plottedRangeEnd.getTime();
   });
   const scheduled = includesToday
@@ -191,8 +207,28 @@ export const buildBalanceTrend = ({
     );
   });
 
-  const hasForecast = includesToday && (scheduled.length > 0 || futureMovements.length > 0);
-  if (inRange.length === 0 && !hasForecast) return { points: [], openingBalance: 0 };
+  const futureAdjustments = includesToday
+    ? relevantAdjustments.filter((adjustment) => {
+        const time = new Date(adjustment.date).getTime();
+        return time > todayEnd.getTime() && time <= forecastEnd.getTime();
+      })
+    : [];
+  futureAdjustments.forEach((adjustment) => {
+    const key = dayKey(new Date(adjustment.date));
+    plannedDeltasByDay.set(
+      key,
+      (plannedDeltasByDay.get(key) || 0) + adjustment.amount
+    );
+  });
+
+  const hasForecast =
+    includesToday &&
+    (scheduled.length > 0 ||
+      futureMovements.length > 0 ||
+      futureAdjustments.length > 0);
+  if (inRange.length === 0 && inRangeAdjustments.length === 0 && !hasForecast) {
+    return { points: [], openingBalance: 0 };
+  }
 
   const historicalMovements = inRange.filter(
     (movement) => new Date(movement.date).getTime() <= todayEnd.getTime()
@@ -201,12 +237,37 @@ export const buildBalanceTrend = ({
     const time = startOfDay(new Date(movement.date)).getTime();
     return first === null || time < first ? time : first;
   }, null);
-  const firstInRange = inRange.reduce<number | null>((first, movement) => {
+  const firstHistoricalAdjustment = inRangeAdjustments
+    .filter((adjustment) => new Date(adjustment.date).getTime() <= todayEnd.getTime())
+    .reduce<number | null>((first, adjustment) => {
+      const time = startOfDay(new Date(adjustment.date)).getTime();
+      return first === null || time < first ? time : first;
+    }, null);
+  const firstHistoricalTime =
+    firstHistorical === null
+      ? firstHistoricalAdjustment
+      : firstHistoricalAdjustment === null
+        ? firstHistorical
+        : Math.min(firstHistorical, firstHistoricalAdjustment);
+  const firstMovementInRange = inRange.reduce<number | null>((first, movement) => {
     const time = startOfDay(new Date(movement.date)).getTime();
     return first === null || time < first ? time : first;
   }, null);
+  const firstAdjustmentInRange = inRangeAdjustments.reduce<number | null>(
+    (first, adjustment) => {
+      const time = startOfDay(new Date(adjustment.date)).getTime();
+      return first === null || time < first ? time : first;
+    },
+    null
+  );
+  const firstInRange =
+    firstMovementInRange === null
+      ? firstAdjustmentInRange
+      : firstAdjustmentInRange === null
+        ? firstMovementInRange
+        : Math.min(firstMovementInRange, firstAdjustmentInRange);
 
-  let startTime = firstHistorical ?? (hasForecast ? today.getTime() : firstInRange);
+  let startTime = firstHistoricalTime ?? (hasForecast ? today.getTime() : firstInRange);
   if (startTime === null) return { points: [], openingBalance: 0 };
   startTime = Math.max(startTime, startOfDay(range.start).getTime());
   if (hasForecast) startTime = Math.min(startTime, today.getTime());
@@ -215,6 +276,9 @@ export const buildBalanceTrend = ({
     Math.min(range.end.getTime(), todayEnd.getTime()),
     ...inRange
       .map((movement) => new Date(movement.date).getTime())
+      .filter((time) => time <= todayEnd.getTime()),
+    ...inRangeAdjustments
+      .map((adjustment) => new Date(adjustment.date).getTime())
       .filter((time) => time <= todayEnd.getTime()),
     startTime
   );
@@ -236,6 +300,16 @@ export const buildBalanceTrend = ({
       deltasByDay.set(key, (deltasByDay.get(key) || 0) + value);
     }
   });
+  relevantAdjustments.forEach((adjustment) => {
+    const when = new Date(adjustment.date);
+    const time = when.getTime();
+    if (time < startTime) {
+      openingBalance += adjustment.amount;
+    } else if (time <= todayEnd.getTime() && time <= endTime) {
+      const key = dayKey(when);
+      deltasByDay.set(key, (deltasByDay.get(key) || 0) + adjustment.amount);
+    }
+  });
 
   const points: BalancePoint[] = [];
   let balance = openingBalance;
@@ -244,6 +318,9 @@ export const buildBalanceTrend = ({
   while (cursor.getTime() <= endTime) {
     const key = dayKey(cursor);
     const delta = deltasByDay.get(key) || 0;
+    const dayAdjustments = relevantAdjustments.filter(
+      (adjustment) => dayKey(new Date(adjustment.date)) === key
+    );
     balance += delta;
     const isForecastDay = hasForecast && cursor.getTime() >= today.getTime();
     const projectedDelta = isForecastDay ? plannedDeltasByDay.get(key) || 0 : undefined;
@@ -261,6 +338,7 @@ export const buildBalanceTrend = ({
           }
         : {}),
       scheduledMovements: scheduledByDay.get(key) || [],
+      balanceAdjustments: dayAdjustments,
     });
     cursor.setDate(cursor.getDate() + 1);
   }

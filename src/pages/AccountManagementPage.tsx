@@ -9,7 +9,20 @@ import '../styles/ManagementPage.css';
 
 export default function AccountManagementPage() {
   const navigate = useNavigate();
-  const { accounts, loadAccounts, movements, loadMovements, cashflows, expenses, loadCashflows, loadExpenses, isLoading } = useApp();
+  const {
+    accounts,
+    loadAccounts,
+    movements,
+    loadMovements,
+    cashflows,
+    expenses,
+    loadCashflows,
+    loadExpenses,
+    accountBalanceAdjustments,
+    loadAccountBalanceAdjustments,
+    isLoading,
+  } = useApp();
+  const [adjustmentsLoaded, setAdjustmentsLoaded] = useState(false);
 
   useEffect(() => {
     loadAccounts();
@@ -18,6 +31,9 @@ export default function AccountManagementPage() {
     loadMovements({ dateRange: 'all' });
     loadCashflows();
     loadExpenses();
+    loadAccountBalanceAdjustments()
+      .then(() => setAdjustmentsLoaded(true))
+      .catch((err) => console.error('Failed to load account balance adjustments:', err));
   }, []);
 
   const handleCreate = () => {
@@ -47,7 +63,10 @@ export default function AccountManagementPage() {
     const totalExpenses = expenses
       .filter((e) => e.accountId === account.id)
       .reduce((sum, e) => sum + e.amount, 0);
-    return (account.initialBalance || 0) + netCashflow - totalExpenses;
+    const adjustmentTotal = accountBalanceAdjustments
+      .filter((adjustment) => adjustment.accountId === account.id)
+      .reduce((sum, adjustment) => sum + adjustment.amount, 0);
+    return (account.initialBalance || 0) + netCashflow - totalExpenses + adjustmentTotal;
   };
 
   return (
@@ -58,7 +77,7 @@ export default function AccountManagementPage() {
       />
 
       <main className="page-content">
-        {isLoading && !accounts.length ? (
+        {(isLoading && !accounts.length) || !adjustmentsLoaded ? (
           <div className="loading-state">
             <p>Caricamento conti...</p>
           </div>

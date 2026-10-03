@@ -9,6 +9,16 @@ export interface Account {
   updatedAt: Date;
 }
 
+export interface AccountBalanceAdjustment {
+  id: string;
+  accountId: string;
+  date: Date;
+  amount: number;
+  notes: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface ExpenseType {
   id: string;
   name: string;

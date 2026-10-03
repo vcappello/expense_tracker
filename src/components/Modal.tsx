@@ -4,6 +4,7 @@ import '../styles/Modal.css';
 interface ModalProps {
   open: boolean;
   title: string;
+  className?: string;
   children?: ReactNode;
   actions?: ReactNode;
   onClose?: () => void;
@@ -14,7 +15,14 @@ interface ModalProps {
  * Closes on backdrop click and on ESC. Used as the base for ConfirmModal and
  * AlertModal, so that overlay/CSS/accessibility are not duplicated.
  */
-export default function Modal({ open, title, children, actions, onClose }: ModalProps) {
+export default function Modal({
+  open,
+  title,
+  className,
+  children,
+  actions,
+  onClose,
+}: ModalProps) {
   useEffect(() => {
     if (!open) return;
     const handleKey = (e: KeyboardEvent) => {
@@ -29,7 +37,7 @@ export default function Modal({ open, title, children, actions, onClose }: Modal
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className="modal"
+        className={`modal${className ? ` ${className}` : ''}`}
         role="dialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}

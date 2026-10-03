@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
-import { Account, Expense, ExpenseType, Cashflow, Movement, MovementFilters, RecurringExpense, RecurringKind } from '../types';
+import { Account, AccountBalanceAdjustment, Expense, ExpenseType, Cashflow, Movement, MovementFilters, RecurringExpense, RecurringKind } from '../types';
 import * as db from '../db/database';
 import { getDateRange, toDateTime } from '../utils/formatting';
 import { getOccurrencePeriodKey } from '../utils/recurrence';
@@ -16,6 +16,7 @@ import {
   MovementMonthSummary,
 } from '../utils/movementSummary';
 import { BackupData } from '../utils/backup';
+import { getAccountBalanceAtDate as calculateAccountBalanceAtDate } from '../utils/accountBalance';
 import { v4 as uuidv4 } from 'uuid';
 
 // Impact info for the critical delete confirmation popups
@@ -25,6 +26,7 @@ export interface AccountDeleteInfo {
   expensesCount: number;
   expensesTotal: number;
   recurringCount: number;
+  balanceAdjustmentsCount: number;
 }
 
 export interface ExpenseTypeDeleteInfo {
@@ -118,6 +120,20 @@ interface AppContextType {
   updateAccount: (account: Account) => Promise<Account>;
   deleteAccount: (id: string) => Promise<void>;
   getAccount: (id: string) => Promise<Account | undefined>;
+  accountBalanceAdjustments: AccountBalanceAdjustment[];
+  loadAccountBalanceAdjustments: (accountId?: string) => Promise<void>;
+  getAccountBalanceAtDate: (
+    accountId: string,
+    date: Date,
+    excludedAdjustmentId?: string
+  ) => Promise<number>;
+  createAccountBalanceAdjustment: (
+    adjustment: AccountBalanceAdjustment
+  ) => Promise<AccountBalanceAdjustment>;
+  updateAccountBalanceAdjustment: (
+    adjustment: AccountBalanceAdjustment
+  ) => Promise<AccountBalanceAdjustment>;
+  deleteAccountBalanceAdjustment: (id: string) => Promise<void>;
 
   // ExpenseTypes
   expenseTypes: ExpenseType[];
@@ -200,6 +216,9 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accountBalanceAdjustments, setAccountBalanceAdjustments] = useState<
+    AccountBalanceAdjustment[]
+  >([]);
   const [expenseTypes, setExpenseTypes] = useState<ExpenseType[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [cashflows, setCashflows] = useState<Cashflow[]>([]);
@@ -300,6 +319,69 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch (err) {
       throw err;
     }
+  }, []);
+
+  const loadAccountBalanceAdjustments = useCallback(async (accountId?: string) => {
+    try {
+      beginLoad();
+      clearError();
+      const data = accountId
+        ? await db.getAccountBalanceAdjustmentsByAccount(accountId)
+        : await db.getAccountBalanceAdjustments();
+      setAccountBalanceAdjustments(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load balance adjustments');
+      throw err;
+    } finally {
+      endLoad();
+    }
+  }, [beginLoad, endLoad]);
+
+  const getAccountBalanceAtDate = useCallback(
+    async (accountId: string, date: Date, excludedAdjustmentId?: string) => {
+      const [account, accountExpenses, accountCashflows, adjustments] =
+        await Promise.all([
+          db.getAccount(accountId),
+          db.getExpensesByAccount(accountId),
+          db.getCashflowsByAccount(accountId),
+          db.getAccountBalanceAdjustmentsByAccount(accountId),
+        ]);
+      if (!account) throw new Error('Conto non trovato');
+      return calculateAccountBalanceAtDate(
+        account,
+        accountExpenses,
+        accountCashflows,
+        adjustments,
+        date,
+        excludedAdjustmentId
+      );
+    },
+    []
+  );
+
+  const createAccountBalanceAdjustment = useCallback(
+    async (adjustment: AccountBalanceAdjustment) => {
+      const created = await db.createAccountBalanceAdjustment(adjustment);
+      setAccountBalanceAdjustments((prev) => [...prev, created]);
+      return created;
+    },
+    []
+  );
+
+  const updateAccountBalanceAdjustment = useCallback(
+    async (adjustment: AccountBalanceAdjustment) => {
+      const updated = await db.updateAccountBalanceAdjustment(adjustment);
+      setAccountBalanceAdjustments((prev) =>
+        prev.map((item) => (item.id === updated.id ? updated : item))
+      );
+      return updated;
+    },
+    []
+  );
+
+  const deleteAccountBalanceAdjustment = useCallback(async (id: string) => {
+    await db.deleteAccountBalanceAdjustment(id);
+    setAccountBalanceAdjustments((prev) => prev.filter((item) => item.id !== id));
   }, []);
 
   // ============ EXPENSE TYPES ============
@@ -647,8 +729,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // ============ CASCADING DELETES ============
 
   const getAccountDeleteInfo = useCallback(async (accountId: string) => {
-    const allCashflows = await db.getCashflows();
-    const accountExpenses = await db.getExpensesByAccount(accountId);
+    const [allCashflows, accountExpenses, adjustments] = await Promise.all([
+      db.getCashflows(),
+      db.getExpensesByAccount(accountId),
+      db.getAccountBalanceAdjustmentsByAccount(accountId),
+    ]);
     const cashflowIds = collectAccountCashflowIds(allCashflows, accountId);
     const accountCashflows = allCashflows.filter((c) => cashflowIds.has(c.id));
     return {
@@ -657,6 +742,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       expensesCount: accountExpenses.length,
       expensesTotal: accountExpenses.reduce((sum, e) => sum + e.amount, 0),
       recurringCount: await db.countRecurringByIndex('accountId', accountId),
+      balanceAdjustmentsCount: adjustments.length,
     };
   }, []);
 
@@ -695,6 +781,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Recurring templates bound to the deleted account are deleted too (the
     // Expenses already created from them are kept, their link is cleared).
     await db.deleteRecurringExpensesByAccount(accountId);
+    await db.deleteAccountBalanceAdjustmentsByAccount(accountId);
     await db.deleteAccount(accountId);
 
     setCashflows((prev) => prev.filter((c) => !cashflowIds.has(c.id)));
@@ -704,6 +791,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         .map((e) => unlinkedExpenses.find((u) => u.id === e.id) ?? e)
     );
     setRecurringExpenses((prev) => prev.filter((r) => r.accountId !== accountId));
+    setAccountBalanceAdjustments((prev) =>
+      prev.filter((adjustment) => adjustment.accountId !== accountId)
+    );
     setAccounts((prev) => prev.filter((a) => a.id !== accountId));
   }, []);
 
@@ -1094,13 +1184,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           loadExpenses(),
           loadCashflows(),
           loadRecurringExpenses(),
+          loadAccountBalanceAdjustments(),
         ]);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to restore backup');
         throw err;
       }
     },
-    [loadAccounts, loadExpenseTypes, loadExpenses, loadCashflows, loadRecurringExpenses]
+    [
+      loadAccounts,
+      loadExpenseTypes,
+      loadExpenses,
+      loadCashflows,
+      loadRecurringExpenses,
+      loadAccountBalanceAdjustments,
+    ]
   );
 
   const value: AppContextType = {
@@ -1111,6 +1209,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     updateAccount,
     deleteAccount,
     getAccount,
+    accountBalanceAdjustments,
+    loadAccountBalanceAdjustments,
+    getAccountBalanceAtDate,
+    createAccountBalanceAdjustment,
+    updateAccountBalanceAdjustment,
+    deleteAccountBalanceAdjustment,
 
     // ExpenseTypes
     expenseTypes,

@@ -42,6 +42,8 @@ export default function AnalyticsPage() {
     loadMovements,
     recurringExpenses,
     loadRecurringExpenses,
+    accountBalanceAdjustments,
+    loadAccountBalanceAdjustments,
     isLoading,
     movementsLoaded,
   } = useApp();
@@ -57,7 +59,10 @@ export default function AnalyticsPage() {
   useEffect(() => {
     loadMovements({ dateRange: 'all' });
     loadRecurringExpenses();
-  }, [loadMovements]);
+    loadAccountBalanceAdjustments().catch((err) =>
+      console.error('Failed to load account balance adjustments:', err)
+    );
+  }, [loadMovements, loadRecurringExpenses, loadAccountBalanceAdjustments]);
 
   // Selected categories expanded with their descendants (hierarchy): selecting a
   // parent category also covers its children.
@@ -320,13 +325,22 @@ export default function AnalyticsPage() {
     () =>
       buildBalanceTrend({
         movements,
+        balanceAdjustments: accountBalanceAdjustments,
         accounts,
         recurringExpenses,
         dateRange,
         selectedAccountIds,
         expenseTypeIds: expandedTypeIds,
       }),
-    [movements, accounts, recurringExpenses, dateRange, selectedAccountIds, expandedTypeIds]
+    [
+      movements,
+      accountBalanceAdjustments,
+      accounts,
+      recurringExpenses,
+      dateRange,
+      selectedAccountIds,
+      expandedTypeIds,
+    ]
   );
 
   const expenseTrends = useMemo(

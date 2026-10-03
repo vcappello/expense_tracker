@@ -1,5 +1,6 @@
 import {
   Account,
+  AccountBalanceAdjustment,
   Expense,
   ExpenseType,
   Cashflow,
@@ -8,8 +9,9 @@ import {
 
 const DB_NAME = 'expense-tracker-db';
 // v2: added the `recurringExpenses` store (recurring expense templates).
+// v3: added dated account balance adjustments.
 // The upgrade only creates the missing stores: existing data is preserved.
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 const STORES = {
   ACCOUNTS: 'accounts',
@@ -17,6 +19,7 @@ const STORES = {
   EXPENSES: 'expenses',
   CASHFLOWS: 'cashflows',
   RECURRING_EXPENSES: 'recurringExpenses',
+  ACCOUNT_BALANCE_ADJUSTMENTS: 'accountBalanceAdjustments',
 };
 
 let db: IDBDatabase | null = null;
@@ -91,6 +94,15 @@ export const initDB = (): Promise<IDBDatabase> => {
         recurringStore.createIndex('expenseTypeId', 'expenseTypeId', {
           unique: false,
         });
+      }
+
+      if (!database.objectStoreNames.contains(STORES.ACCOUNT_BALANCE_ADJUSTMENTS)) {
+        const adjustmentStore = database.createObjectStore(
+          STORES.ACCOUNT_BALANCE_ADJUSTMENTS,
+          { keyPath: 'id' }
+        );
+        adjustmentStore.createIndex('accountId', 'accountId', { unique: false });
+        adjustmentStore.createIndex('date', 'date', { unique: false });
       }
     };
   });
@@ -233,6 +245,134 @@ export const deleteAccount = async (id: string): Promise<void> => {
 
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve();
+  });
+};
+
+const normalizeAccountBalanceAdjustment = (
+  adjustment: AccountBalanceAdjustment
+): AccountBalanceAdjustment => ({
+  ...adjustment,
+  date: new Date(adjustment.date),
+  amount: Number(adjustment.amount) || 0,
+  notes: adjustment.notes ?? '',
+});
+
+export const createAccountBalanceAdjustment = async (
+  adjustment: AccountBalanceAdjustment
+): Promise<AccountBalanceAdjustment> => {
+  const database = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(
+      [STORES.ACCOUNT_BALANCE_ADJUSTMENTS],
+      'readwrite'
+    );
+    const request = transaction
+      .objectStore(STORES.ACCOUNT_BALANCE_ADJUSTMENTS)
+      .add(adjustment);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(adjustment);
+  });
+};
+
+export const getAccountBalanceAdjustments = async (): Promise<
+  AccountBalanceAdjustment[]
+> => {
+  const database = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(
+      [STORES.ACCOUNT_BALANCE_ADJUSTMENTS],
+      'readonly'
+    );
+    const request = transaction
+      .objectStore(STORES.ACCOUNT_BALANCE_ADJUSTMENTS)
+      .getAll();
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () =>
+      resolve(
+        (request.result as AccountBalanceAdjustment[]).map(
+          normalizeAccountBalanceAdjustment
+        )
+      );
+  });
+};
+
+export const getAccountBalanceAdjustmentsByAccount = async (
+  accountId: string
+): Promise<AccountBalanceAdjustment[]> => {
+  const database = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(
+      [STORES.ACCOUNT_BALANCE_ADJUSTMENTS],
+      'readonly'
+    );
+    const request = transaction
+      .objectStore(STORES.ACCOUNT_BALANCE_ADJUSTMENTS)
+      .index('accountId')
+      .getAll(accountId);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () =>
+      resolve(
+        (request.result as AccountBalanceAdjustment[]).map(
+          normalizeAccountBalanceAdjustment
+        )
+      );
+  });
+};
+
+export const updateAccountBalanceAdjustment = async (
+  adjustment: AccountBalanceAdjustment
+): Promise<AccountBalanceAdjustment> => {
+  const database = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(
+      [STORES.ACCOUNT_BALANCE_ADJUSTMENTS],
+      'readwrite'
+    );
+    const request = transaction
+      .objectStore(STORES.ACCOUNT_BALANCE_ADJUSTMENTS)
+      .put(adjustment);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(adjustment);
+  });
+};
+
+export const deleteAccountBalanceAdjustment = async (id: string): Promise<void> => {
+  const database = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(
+      [STORES.ACCOUNT_BALANCE_ADJUSTMENTS],
+      'readwrite'
+    );
+    const request = transaction
+      .objectStore(STORES.ACCOUNT_BALANCE_ADJUSTMENTS)
+      .delete(id);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve();
+  });
+};
+
+export const deleteAccountBalanceAdjustmentsByAccount = async (
+  accountId: string
+): Promise<void> => {
+  const database = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(
+      [STORES.ACCOUNT_BALANCE_ADJUSTMENTS],
+      'readwrite'
+    );
+    const store = transaction.objectStore(STORES.ACCOUNT_BALANCE_ADJUSTMENTS);
+    const request = store.index('accountId').openKeyCursor(IDBKeyRange.only(accountId));
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (cursor) {
+        store.delete(cursor.primaryKey);
+        cursor.continue();
+      }
+    };
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error);
   });
 };
 
@@ -840,6 +980,7 @@ export const importAllData = async (data: {
   expenses: Expense[];
   cashflows: Cashflow[];
   recurringExpenses: RecurringExpense[];
+  accountBalanceAdjustments?: AccountBalanceAdjustment[];
 }): Promise<void> => {
   const database = await initDB();
   return new Promise((resolve, reject) => {
@@ -850,6 +991,7 @@ export const importAllData = async (data: {
         STORES.EXPENSES,
         STORES.CASHFLOWS,
         STORES.RECURRING_EXPENSES,
+        STORES.ACCOUNT_BALANCE_ADJUSTMENTS,
       ],
       'readwrite'
     );
@@ -863,17 +1005,24 @@ export const importAllData = async (data: {
     const expenses = transaction.objectStore(STORES.EXPENSES);
     const cashflows = transaction.objectStore(STORES.CASHFLOWS);
     const recurring = transaction.objectStore(STORES.RECURRING_EXPENSES);
+    const adjustments = transaction.objectStore(
+      STORES.ACCOUNT_BALANCE_ADJUSTMENTS
+    );
 
     accounts.clear();
     expenseTypes.clear();
     expenses.clear();
     cashflows.clear();
     recurring.clear();
+    adjustments.clear();
 
     data.accounts.forEach((a) => accounts.put(a));
     data.expenseTypes.forEach((et) => expenseTypes.put(et));
     data.expenses.forEach((e) => expenses.put(e));
     data.cashflows.forEach((c) => cashflows.put(c));
     data.recurringExpenses.forEach((r) => recurring.put(r));
+    (data.accountBalanceAdjustments ?? []).forEach((adjustment) =>
+      adjustments.put(adjustment)
+    );
   });
 };

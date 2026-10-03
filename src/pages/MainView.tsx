@@ -816,6 +816,9 @@ export default function MainView() {
                 <li>
                   {pendingImport.recurringExpenses.length} spese ricorrenti
                 </li>
+                <li>
+                  {pendingImport.accountBalanceAdjustments.length} rettifiche di saldo
+                </li>
               </ul>
             </div>
           ) : null
