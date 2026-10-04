@@ -14,6 +14,7 @@ import {
   loadHomeLocation,
 } from '../utils/homeLocation';
 import { useNavigateBack } from '../utils/navigation';
+import { AMOUNT_INPUT_PATTERN, parseAmountInput } from '../utils/formatting';
 import TitleBar, { TitleBarAction } from '../components/TitleBar';
 import { CheckIcon, TrashIcon, LocateIcon } from '../components/icons';
 import Toast from '../components/Toast';
@@ -123,6 +124,12 @@ export default function CreateExpensePage() {
   const [expenseTypeSearch, setExpenseTypeSearch] = useState('');
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  // Optional fields (date, time, notes, reimbursable, secondary account) start
+  // collapsed on create to keep the form focused on amount + place + category,
+  // and expanded on edit so the stored values are visible right away.
+  const [showDetails, setShowDetails] = useState(Boolean(expenseId));
+  // Mount-time defaults, used to tell whether the user changed date/time.
+  const initialDateTimeRef = useRef({ date: formData.date, time: formData.time });
   const dropdownRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const [toast, setToast] = useState<{ message: string; icon?: string } | null>(null);
@@ -348,7 +355,7 @@ export default function CreateExpensePage() {
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+    if (value === '' || AMOUNT_INPUT_PATTERN.test(value)) {
       setFormData((prev) => ({
         ...prev,
         amount: value,
@@ -593,7 +600,7 @@ export default function CreateExpensePage() {
 
   const handleCoinsAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+    if (value === '' || AMOUNT_INPUT_PATTERN.test(value)) {
       setFormData((prev) => ({
         ...prev,
         coinsAmount: value,
@@ -673,9 +680,13 @@ export default function CreateExpensePage() {
       return;
     }
 
-    const total = parseFloat(formData.amount);
+    const total = parseAmountInput(formData.amount);
+    if (Number.isNaN(total)) {
+      showToast('Inserisci un importo valido', '⚠️');
+      return;
+    }
     const coinsAmountText = formData.coinsAmount.trim();
-    const coinsAmount = coinsAmountText ? parseFloat(coinsAmountText) : 0;
+    const coinsAmount = coinsAmountText ? parseAmountInput(coinsAmountText) : 0;
     const coinsAccountSelected = formData.coinsAccountId !== '';
     // The secondary account is preselected (default stash), so the split only
     // applies when an amount is entered: an empty amount is a plain expense.
@@ -941,7 +952,7 @@ export default function CreateExpensePage() {
   );
 
   const coinsActive =
-    formData.coinsAccountId !== '' && parseFloat(formData.coinsAmount) > 0;
+    formData.coinsAccountId !== '' && parseAmountInput(formData.coinsAmount) > 0;
   const mainAccountName =
     accounts.find((a) => a.id === formData.accountId)?.name || '?';
   const mainAccountIsUntracked = accounts.some(
@@ -949,6 +960,21 @@ export default function CreateExpensePage() {
   );
   const coinsAccountName =
     accounts.find((a) => a.id === formData.coinsAccountId)?.name || '?';
+
+  // Values set in the collapsed section, surfaced under the toggle so nothing
+  // the user entered stays hidden. Date/time are only compared on create,
+  // where the mount-time defaults are the "unchanged" baseline.
+  const detailSummary: string[] = [];
+  if (
+    !expenseId &&
+    (formData.date !== initialDateTimeRef.current.date ||
+      formData.time !== initialDateTimeRef.current.time)
+  ) {
+    detailSummary.push('data e ora');
+  }
+  if (formData.reimbursable) detailSummary.push('da rimborsare');
+  if (formData.notes.trim()) detailSummary.push('note');
+  if (coinsActive) detailSummary.push('conto secondario');
 
   return (
     <div className="expense-page">
@@ -962,33 +988,6 @@ export default function CreateExpensePage() {
           {locationField}
           {categoryField}
 
-          {/* Date Field */}
-          <div className="form-group">
-            <label htmlFor="date">Data *</label>
-            <input
-              type="date"
-              id="date"
-              value={formData.date}
-              onChange={handleDateChange}
-              required
-              className="form-input"
-            />
-          </div>
-
-          {/* Time Field */}
-          <div className="form-group">
-            <label htmlFor="time">Ora (hh:mm:ss) *</label>
-            <input
-              type="time"
-              id="time"
-              step={1}
-              value={formData.time}
-              onChange={handleTimeChange}
-              required
-              className="form-input"
-            />
-          </div>
-
           {/* Amount Field */}
           <div className="form-group">
             <label htmlFor="amount">Importo (€) *</label>
@@ -1000,6 +999,7 @@ export default function CreateExpensePage() {
               value={formData.amount}
               onChange={handleAmountChange}
               required
+              autoFocus={!expenseId}
               className="form-input"
             />
           </div>
@@ -1027,99 +1027,151 @@ export default function CreateExpensePage() {
             )}
           </div>
 
-          {/* Reimbursable flag: the expense will be reimbursed (e.g. with the salary) */}
-          <div className="form-group checkbox-group">
-            <label className="checkbox-label" htmlFor="reimbursable">
-              <input
-                type="checkbox"
-                id="reimbursable"
-                checked={formData.reimbursable}
-                onChange={handleReimbursableChange}
-              />
-              Sarà rimborsata
-            </label>
-          </div>
-
-          {/* Additional info (optional) */}
-          <div className="form-section">
-            <div className="form-section-title">
-              Informazioni aggiuntive (opzionale)
-            </div>
-            <div className="form-group">
-              <label htmlFor="notes">Note</label>
-              <textarea
-                id="notes"
-                rows={2}
-                placeholder="Es. cena con amici, numero fattura…"
-                value={formData.notes}
-                onChange={handleNotesChange}
-                className="form-textarea"
-              />
-            </div>
-          </div>
-
-          {/* Optional untracked secondary-account share */}
-          <div className="form-section">
-            <div className="form-section-title">
-              Pagata in parte da un conto secondario (opzionale)
-            </div>
-            <div className="form-group">
-              <label htmlFor="coinsAmount">Importo dal conto secondario (€)</label>
-              <input
-                type="text"
-                inputMode="decimal"
-                id="coinsAmount"
-                placeholder="0.00"
-                value={formData.coinsAmount}
-                onChange={handleCoinsAmountChange}
-                className="form-input"
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="coinsAccount">Conto secondario</label>
-              <select
-                id="coinsAccount"
-                value={formData.coinsAccountId}
-                onChange={handleCoinsAccountChange}
-                className="form-input"
+          {/* Optional fields, collapsed by default on create */}
+          <div className="form-details">
+            <button
+              type="button"
+              className="form-details-toggle"
+              aria-expanded={showDetails}
+              aria-controls="expense-details"
+              onClick={() => setShowDetails((visible) => !visible)}
+            >
+              <span
+                className={`form-details-chevron${showDetails ? ' open' : ''}`}
+                aria-hidden="true"
               >
-                <option value="">Nessuno</option>
-                {coinAccounts.map((account) => (
-                  <option
-                    key={account.id}
-                    value={account.id}
-                    disabled={account.id === formData.accountId}
-                  >
-                    {account.name}
-                  </option>
-                ))}
-                {/* Keep an existing selection if the account is no longer enabled. */}
-                {formData.coinsAccountId &&
-                  !coinAccounts.some((a) => a.id === formData.coinsAccountId) && (
-                    <option value={formData.coinsAccountId}>
-                      {accounts.find((a) => a.id === formData.coinsAccountId)?.name ||
-                        '?'}
-                    </option>
-                  )}
-              </select>
-              {coinAccounts.length === 0 && (
-                <p className="field-hint">
-                  Nessun conto disponibile come secondario. Modifica il tipo di conto nella
-                  gestione Conti.
-                </p>
-              )}
-            </div>
-            {coinsActive && (
-              <div className="form-info">
-                <p className="info-text">
-                  💡 La spesa totale resta in Analisi.{' '}
-                  {mainAccountIsUntracked
-                    ? `Il saldo dello stash ${mainAccountName} non cambia.`
-                    : `Dal conto principale (${mainAccountName}) viene scalata solo la quota restante.`}{' '}
-                  Il saldo del conto secondario ({coinsAccountName}) non cambia.
-                </p>
-              </div>
+                ▸
+              </span>
+              <span>{showDetails ? 'Nascondi dettagli' : 'Mostra dettagli'}</span>
+            </button>
+            {!showDetails && detailSummary.length > 0 && (
+              <p className="field-hint form-details-summary">
+                Dettagli impostati: {detailSummary.join(', ')}
+              </p>
             )}
+            <div id="expense-details" className="form-details-body" hidden={!showDetails}>
+              {/* Date Field */}
+              <div className="form-group">
+                <label htmlFor="date">Data *</label>
+                <input
+                  type="date"
+                  id="date"
+                  value={formData.date}
+                  onChange={handleDateChange}
+                  required
+                  className="form-input"
+                />
+              </div>
+
+              {/* Time Field */}
+              <div className="form-group">
+                <label htmlFor="time">Ora (hh:mm:ss) *</label>
+                <input
+                  type="time"
+                  id="time"
+                  step={1}
+                  value={formData.time}
+                  onChange={handleTimeChange}
+                  required
+                  className="form-input"
+                />
+              </div>
+
+              {/* Reimbursable flag: the expense will be reimbursed (e.g. with the salary) */}
+              <div className="form-group checkbox-group">
+                <label className="checkbox-label" htmlFor="reimbursable">
+                  <input
+                    type="checkbox"
+                    id="reimbursable"
+                    checked={formData.reimbursable}
+                    onChange={handleReimbursableChange}
+                  />
+                  Sarà rimborsata
+                </label>
+              </div>
+
+              {/* Additional info (optional) */}
+              <div className="form-section">
+                <div className="form-section-title">
+                  Informazioni aggiuntive (opzionale)
+                </div>
+                <div className="form-group">
+                  <label htmlFor="notes">Note</label>
+                  <textarea
+                    id="notes"
+                    rows={2}
+                    placeholder="Es. cena con amici, numero fattura…"
+                    value={formData.notes}
+                    onChange={handleNotesChange}
+                    className="form-textarea"
+                  />
+                </div>
+              </div>
+
+              {/* Optional untracked secondary-account share */}
+              <div className="form-section">
+                <div className="form-section-title">
+                  Pagata in parte da un conto secondario (opzionale)
+                </div>
+                <div className="form-group">
+                  <label htmlFor="coinsAmount">Importo dal conto secondario (€)</label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    id="coinsAmount"
+                    placeholder="0.00"
+                    value={formData.coinsAmount}
+                    onChange={handleCoinsAmountChange}
+                    className="form-input"
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="coinsAccount">Conto secondario</label>
+                  <select
+                    id="coinsAccount"
+                    value={formData.coinsAccountId}
+                    onChange={handleCoinsAccountChange}
+                    className="form-input"
+                  >
+                    <option value="">Nessuno</option>
+                    {coinAccounts.map((account) => (
+                      <option
+                        key={account.id}
+                        value={account.id}
+                        disabled={account.id === formData.accountId}
+                      >
+                        {account.name}
+                      </option>
+                    ))}
+                    {/* Keep an existing selection if the account is no longer enabled. */}
+                    {formData.coinsAccountId &&
+                      !coinAccounts.some((a) => a.id === formData.coinsAccountId) && (
+                        <option value={formData.coinsAccountId}>
+                          {accounts.find((a) => a.id === formData.coinsAccountId)?.name ||
+                            '?'}
+                        </option>
+                      )}
+                  </select>
+                  {coinAccounts.length === 0 && (
+                    <p className="field-hint">
+                      Nessun conto disponibile come secondario. Modifica il tipo di conto nella
+                      gestione Conti.
+                    </p>
+                  )}
+                </div>
+                {coinsActive && (
+                  <div className="form-info">
+                    <p className="info-text">
+                      💡 La spesa totale resta in Analisi.{' '}
+                      {mainAccountIsUntracked
+                        ? `Il saldo dello stash ${mainAccountName} non cambia.`
+                        : `Dal conto principale (${mainAccountName}) viene scalata solo la quota restante.`}{' '}
+                      Il saldo del conto secondario ({coinsAccountName}) non cambia.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Hidden submit button to keep native form submission (e.g. Enter key) */}

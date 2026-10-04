@@ -173,10 +173,17 @@ day, the whole day group is loaded in the following page.
 
 ##  Edit or Create Expense
 When the user click the new Expense button a new page is displayed.
+The form is optimized for the common case ("type only the amount"): the **amount field takes
+the focus automatically on create** (so the numeric keypad is ready at once, while the place
+and the category resolve in the background), and the optional fields — date, time, "Sarà
+rimborsata", note and the secondary account — are grouped in a **"Mostra dettagli" section
+collapsed by default on create** (expanded when editing, so the stored values are visible).
+When that section is collapsed and contains a non-default value, a hint line under the toggle
+summarizes it ("Dettagli impostati: data e ora, note, …"), so nothing entered stays hidden.
 The user can enter:
 - (mandatory) the Expense date, by default the current date, editable by the user
 - (mandatory) the Expense time in format hh:mm:ss, by default the current time, editable by the user
-- (mandatory) the Expense amount in EUR currency (in the future we will manage multiple currency)
+- (mandatory) the Expense amount in EUR currency (in the future we will manage multiple currency). Both "." and "," are accepted as the decimal separator ("12,50" = "12.50"), because `inputMode="decimal"` shows a comma on Italian keyboards
 - (mandatory) the ExpenseType. The user can type any value, when the user type text a dropdown listbox display a list of already created ExpenseType that contains the inserted text and the user can select a value from the list. When the inserted text does not match any existing ExpenseType in the dropdown list the first entry is the inserted value with a badge showing the "new" info, the user can create the ExpenseType inline pressing this item. When the item is pressed a message toast display the correct creation of the ExpenseType. When the ExpenseType is created inline the system create a new ExpenseType with the inserted name and with null parent
 - (mandatory) the Account. This is a dropdown list, the default is the first defined Account (Cash)
 - (optional) the Note: a free-text annotation stored on the Expense (see "Notes and location on an Expense")

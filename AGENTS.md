@@ -61,6 +61,20 @@
   l'assenza di storico.
 - **Toast**: componente `Toast` (messaggio in basso, si auto-nasconde) con stile globale in `styles.css`; usato per confermare la creazione inline della categoria nel form spesa (`showToast` con timer).
 - **Importi abbreviati**: in Analytics (sommario, top categorie, report movimenti) e nelle pagine di gestione (totali categoria, ultimo movimento account) usare `abbreviateAmount` (K >999, M >999.999, 2 decimali). Nella Main view gli importi sono già abbreviati. I totali del popup di conferma delete in `ConfirmModal` restano volutamente precisi (`.toFixed(2)`).
+- **Form Spesa: "solo l'importo" (autofocus + dettagli collassati)**: in creazione il campo
+  **Importo** prende il focus da solo (`autoFocus={!expenseId}`, così su Android appare subito
+  il tastierino `inputMode="decimal"`) e i campi opzionali (Data, Ora, "Sarà rimborsata", Note,
+  conto secondario) stanno in una sezione **richiudibile** (`showDetails`, **chiusa in
+  creazione** e **aperta in modifica**), sempre montata ma con `hidden`. Quando è chiusa e c'è
+  un valore non predefinito, una riga di riepilogo (`detailSummary`) lo segnala. Non rimettere
+  quei campi sempre visibili e non togliere l'autofocus: è la ragione per cui il caso normale
+  richiede solo l'importo. La validazione resta manuale su `formData`, quindi i campi nascosti
+  non bloccano il submit (`noValidate`).
+- **⚠️ Separatore decimale: virgola E punto**: i campi importo usano `inputMode="decimal"`, che
+  su tastiera italiana mostra la **virgola**: accettare solo `.` faceva scartare silenziosamente
+  il separatore (`12,50` → `1250`). Nei form usare `AMOUNT_INPUT_PATTERN` (`/^\d*[.,]?\d*$/`)
+  nell'`onChange` e `parseAmountInput` (in `src/utils/formatting.ts`) per il parsing, mai
+  `parseFloat` diretto.
 - **PWA (nessuna dipendenza esterna)**: manifest in `public/manifest.webmanifest`; icone generate da `scripts/generate-icons.mjs` con `npm run icons` (encoder PNG puro con zlib): **scontrino bianco con bordo a zig-zag** (3 punte, simmetrico) su quadrato smeraldo, con il glifo € in peso regular; il glifo arriva dalla maschera 1-bit `scripts/euro-glyph.mjs` (estratta dal font Liberation Sans Regular, perché Node non ha un rasterizzatore di font) — la versione maskable riempie tutto il canvas (niente trasparenza) con lo scontrino nella zona sicura; service worker `public/sw.js` (navigate network-first + fallback `/index.html`, asset `/assets/`+`/icons/`+manifest cache-first); registrato **solo in produzione** (`import.meta.env.PROD` in `main.tsx`) per evitare cache in dev. Build di produzione: `npm run build` + `npm run preview` (host 0.0.0.0, porta 4173). **Icone versionate (`?v=` = `ICON_VERSION` in `sw.js`)**: vedi il bullet in "Problemi risolti".
 - **Redesign UI (fase 1)**: `Header.tsx`/`Header.css` eliminati e sostituiti da `TitleBar` + `ActionMenu` (componenti condivisi) con icone SVG in `src/components/icons.tsx`. Regole: pulsante creazione sempre nella title bar a destra (Main view, Categorie, Conti); view di modifica → title bar con **Conferma (✓)** ed **Elimina (🗑)**, niente Annulla (il Back annulla e torna indietro); view di creazione → **solo Conferma (✓)**; menu azioni a tre righe per azioni extra (Main view: Analisi/Conti/Categorie; Analytics: Esporta CSV). I form non hanno più pulsanti in fondo: la Conferma in title bar invia con `formRef.current?.requestSubmit()` (in ogni form c'è un bottone submit nascosto `.sr-only` per l'invio con Invio). In MainView le righe movimento sono cliccabili (niente pulsanti edit/delete a destra; la delete è spostata nella view di modifica; le righe mostrano il dettaglio: categoria per Spesa, conto per Entrata, sorgente→destinazione per routing).
 - **Back button**: usa `navigate(-1)` (default della `TitleBar`) per tornare alla view di origine preservando lo stack. NON usare `onBack` che fanno `navigate('/...')` nelle view di create/edit: pushano una nuova entry e rompono lo stack (es. main→conti→edit: al secondo Back si tornava a edit invece che a main). Verificare sempre con il percorso main→lista→edit→Back→Back.

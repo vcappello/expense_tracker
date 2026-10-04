@@ -1,4 +1,18 @@
 /**
+ * Characters accepted while typing an amount: digits plus at most one decimal
+ * separator, either "." or ",". Italian keyboards (and `inputMode="decimal"`)
+ * produce a comma, so rejecting it would silently drop the separator.
+ */
+export const AMOUNT_INPUT_PATTERN = /^\d*[.,]?\d*$/;
+
+/**
+ * Parse an amount typed by the user, accepting both "," and "." as the decimal
+ * separator ("12,50" -> 12.5). Returns NaN for values without any digit.
+ */
+export const parseAmountInput = (value: string): number =>
+  Number(value.trim().replace(',', '.'));
+
+/**
  * Format amount to abbreviated format
  * K for thousands (>999), M for millions (>999,999)
  * with 2 decimal places

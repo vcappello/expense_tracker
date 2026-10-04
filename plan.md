@@ -310,6 +310,14 @@ i# Plan — Expense Tracker AI
       `index.html` e nel manifest, `ICON_VERSION` in `public/sw.js`, precache delle icone
       all'install e cache SW bumpata a `expense-tracker-v3`. Dettagli in "⏳ Da fare" e in
       `AGENTS.md`.
+- [x] **Inserimento spese più rapido: autofocus sull'importo + "Mostra dettagli"** (04/10/2026):
+      in creazione il campo Importo è già a fuoco (tastierino numerico pronto) e i campi
+      opzionali (data, ora, da rimborsare, note, conto secondario) stanno in una sezione
+      richiudibile, chiusa in creazione e aperta in modifica, con una riga di riepilogo quando
+      contiene valori non predefiniti. Durante il test è emerso e stato corretto anche il
+      **bug della virgola decimale** scartata in silenzio (`12,50` → `1250`): nuovi
+      `AMOUNT_INPUT_PATTERN`/`parseAmountInput` in `src/utils/formatting.ts` (per ora applicati
+      al form Spesa; da estendere agli altri form, vedi 🐛 Bug da correggere).
 
 ## �️ Dettaglio dei lavori a più step (tutti completati)
 
@@ -672,12 +680,40 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 
 > Le attività recenti sono conservate qui con gli step completati; al **04/10/2026** non ci
 > sono lavori in corso. L'unica feature pianificata e non iniziata è il **backup/ripristino da
-> cloud** (primo blocco qui sotto), a **priorità bassa** per decisione dell'utente. Le altre
-> feature candidate sono in **🔮 Prossime release**.
+> cloud** (primo blocco qui sotto), a **priorità bassa** per decisione dell'utente. Aperto solo
+> un **bug da correggere** (virgola decimale negli altri form importo, applicata per ora al solo
+> form Spesa). Le altre feature candidate sono in **🔮 Prossime release**.
 > Le nuove richieste vanno pianificate qui come blocchi di step `[ ]` prima di essere
 > implementate, poi marcate `[x]` e riepilogate in ✅ Completati.
 > ⚠️ **Prima del `git push` chiedere sempre conferma all'utente**: il push fa partire il
 > deploy automatico su GitHub Pages e pubblica subito la nuova versione.
+
+### Inserimento spese più rapido: autofocus importo + dettagli opzionali collassati — implementata il 04/10/2026
+
+> Richiesta utente (04/10/2026): l'app ricava già luogo e categoria in autonomia, quindi nel
+> caso migliore va digitato **solo l'importo**. Due rifiniture al form Spesa per avvicinarsi a
+> quel flusso senza cambiare la logica di salvataggio.
+
+- [x] **Autofocus sull'importo (solo in creazione)**: al mount del form il campo Importo prende il
+      focus (`autoFocus={!expenseId}`), così il tastierino numerico (`inputMode="decimal"`) è
+      pronto subito mentre GPS e categoria si risolvono in background; in modifica **nessun**
+      autofocus.
+- [x] **"Mostra dettagli" (progressive disclosure)**: Data, Ora, "Sarà rimborsata", Note e conto
+      secondario in una sezione richiudibile (`showDetails`, sempre montata con `hidden`),
+      **chiusa in creazione** e **aperta in modifica**; restano visibili Importo · Luogo ·
+      Categoria · Conto. Con la sezione chiusa e un valore non predefinito, la riga "Dettagli
+      impostati: …" (`detailSummary`) lo segnala. Validazione e salvataggio invariati.
+- [x] **Bug trovato durante il test — virgola decimale scartata**: i campi importo accettavano
+      solo `.`, ma su tastiera italiana `inputMode="decimal"` mostra la **virgola**: `12,50`
+      diventava `1250` (o `12`) **in silenzio**. Aggiunti `AMOUNT_INPUT_PATTERN` e
+      `parseAmountInput` in `src/utils/formatting.ts` e applicati al form Spesa (importo e
+      importo dal conto secondario), con guardia su importo non valido. **Da estendere** agli
+      altri form con lo stesso pattern (`CreateCashflowPage`, `CreateRecurringPage`,
+      `ConfirmRecurringPage`, `CreateAccountPage`) — vedi 🐛 Bug da correggere.
+- [x] **Docs/verifica**: `spec.md` (sezione "Edit or Create Expense") e `AGENTS.md` aggiornati;
+      verificato nel browser su `npm run preview` (creazione: tastierino subito, dettagli chiusi,
+      riepilogo dopo una modifica; modifica: dettagli aperti e nessun autofocus; salvataggio
+      `12,50` → movimento `-12.50`) e `npm run build` OK.
 
 ### Backup e ripristino da cloud — pianificata il 03/10/2026, **priorità bassa** (in pausa)
 
@@ -1053,6 +1089,14 @@ Decisioni utente:
 ## 🐛 Bug da correggere
 
 *(Tutti i bug elencati sono stati corretti il 16/08/2026 — vedi sezione ✅ Completati.)*
+
+- [ ] **(aperto, 04/10/2026) Virgola decimale scartata negli altri form**: la correzione è stata
+      applicata al solo form Spesa (vedi ⏳ Da fare). Lo stesso pattern
+      (`/^\d*\.?\d*$/` + `parseFloat`) è ancora in `CreateCashflowPage`,
+      `CreateRecurringPage`, `ConfirmRecurringPage` e `CreateAccountPage` (giacenza iniziale):
+      su tastiera italiana la virgola viene scartata in silenzio. Da sostituire con
+      `AMOUNT_INPUT_PATTERN` + `parseAmountInput` e verificare che il valore salvato coincida
+      con quanto digitato.
 
 ## 👀 Osservazioni (limiti noti, da tenere d'occhio)
 
