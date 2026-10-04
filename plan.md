@@ -316,8 +316,8 @@ i# Plan — Expense Tracker AI
       richiudibile, chiusa in creazione e aperta in modifica, con una riga di riepilogo quando
       contiene valori non predefiniti. Durante il test è emerso e stato corretto anche il
       **bug della virgola decimale** scartata in silenzio (`12,50` → `1250`): nuovi
-      `AMOUNT_INPUT_PATTERN`/`parseAmountInput` in `src/utils/formatting.ts` (per ora applicati
-      al form Spesa; da estendere agli altri form, vedi 🐛 Bug da correggere).
+      `AMOUNT_INPUT_PATTERN`/`parseAmountInput` in `src/utils/formatting.ts`, applicati a
+      **tutti** i form importo (Spesa, Entrata, Ricorrenze, conferma prevista, giacenza conto).
 
 ## �️ Dettaglio dei lavori a più step (tutti completati)
 
@@ -680,9 +680,8 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 
 > Le attività recenti sono conservate qui con gli step completati; al **04/10/2026** non ci
 > sono lavori in corso. L'unica feature pianificata e non iniziata è il **backup/ripristino da
-> cloud** (primo blocco qui sotto), a **priorità bassa** per decisione dell'utente. Aperto solo
-> un **bug da correggere** (virgola decimale negli altri form importo, applicata per ora al solo
-> form Spesa). Le altre feature candidate sono in **🔮 Prossime release**.
+> cloud** (primo blocco qui sotto), a **priorità bassa** per decisione dell'utente. Le altre
+> feature candidate sono in **🔮 Prossime release**.
 > Le nuove richieste vanno pianificate qui come blocchi di step `[ ]` prima di essere
 > implementate, poi marcate `[x]` e riepilogate in ✅ Completati.
 > ⚠️ **Prima del `git push` chiedere sempre conferma all'utente**: il push fa partire il
@@ -706,10 +705,10 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 - [x] **Bug trovato durante il test — virgola decimale scartata**: i campi importo accettavano
       solo `.`, ma su tastiera italiana `inputMode="decimal"` mostra la **virgola**: `12,50`
       diventava `1250` (o `12`) **in silenzio**. Aggiunti `AMOUNT_INPUT_PATTERN` e
-      `parseAmountInput` in `src/utils/formatting.ts` e applicati al form Spesa (importo e
-      importo dal conto secondario), con guardia su importo non valido. **Da estendere** agli
-      altri form con lo stesso pattern (`CreateCashflowPage`, `CreateRecurringPage`,
-      `ConfirmRecurringPage`, `CreateAccountPage`) — vedi 🐛 Bug da correggere.
+      `parseAmountInput` in `src/utils/formatting.ts`, applicati al form Spesa (importo e
+      importo dal conto secondario) con guardia su importo non valido, poi **estesi a tutti gli
+      altri form importo** (`CreateCashflowPage`, `CreateRecurringPage`, `ConfirmRecurringPage`,
+      `CreateAccountPage`).
 - [x] **Docs/verifica**: `spec.md` (sezione "Edit or Create Expense") e `AGENTS.md` aggiornati;
       verificato nel browser su `npm run preview` (creazione: tastierino subito, dettagli chiusi,
       riepilogo dopo una modifica; modifica: dettagli aperti e nessun autofocus; salvataggio
@@ -1090,13 +1089,12 @@ Decisioni utente:
 
 *(Tutti i bug elencati sono stati corretti il 16/08/2026 — vedi sezione ✅ Completati.)*
 
-- [ ] **(aperto, 04/10/2026) Virgola decimale scartata negli altri form**: la correzione è stata
-      applicata al solo form Spesa (vedi ⏳ Da fare). Lo stesso pattern
-      (`/^\d*\.?\d*$/` + `parseFloat`) è ancora in `CreateCashflowPage`,
-      `CreateRecurringPage`, `ConfirmRecurringPage` e `CreateAccountPage` (giacenza iniziale):
-      su tastiera italiana la virgola viene scartata in silenzio. Da sostituire con
-      `AMOUNT_INPUT_PATTERN` + `parseAmountInput` e verificare che il valore salvato coincida
-      con quanto digitato.
+- [x] **(corretto il 04/10/2026) Virgola decimale scartata negli altri form**: la correzione è
+      stata applicata prima al form Spesa e poi estesa a `CreateCashflowPage`,
+      `CreateRecurringPage`, `ConfirmRecurringPage` e `CreateAccountPage` (giacenza iniziale +
+      helper `parseAmount` locale che ora riusa `parseAmountInput`). Verificato nel browser:
+      entrata con routing `50,50` → due leg a ±50.50, ricorrenza `9,90` → template a 9.9,
+      conferma `11,20` → spesa 11.2, giacenza iniziale `120,75` → saldo 120.75.
 
 ## 👀 Osservazioni (limiti noti, da tenere d'occhio)
 

@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Cashflow } from '../types';
 import { sortAccountsPreferred, getDefaultPrimaryAccount } from '../utils/accounts';
-import { abbreviateAmount } from '../utils/formatting';
+import { abbreviateAmount, AMOUNT_INPUT_PATTERN, parseAmountInput } from '../utils/formatting';
 import { useNavigateBack } from '../utils/navigation';
 import TitleBar, { TitleBarAction } from '../components/TitleBar';
 import { CheckIcon, TrashIcon } from '../components/icons';
@@ -119,7 +119,7 @@ export default function CreateCashflowPage() {
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+    if (value === '' || AMOUNT_INPUT_PATTERN.test(value)) {
       setFormData((prev) => ({
         ...prev,
         amount: value,
@@ -177,6 +177,12 @@ export default function CreateCashflowPage() {
       return;
     }
 
+    const amount = parseAmountInput(formData.amount);
+    if (Number.isNaN(amount)) {
+      showToast('Inserisci un importo valido', '⚠️');
+      return;
+    }
+
     try {
       setIsLoading(true);
 
@@ -199,7 +205,7 @@ export default function CreateCashflowPage() {
             id: uuidv4(),
             date: new Date(formData.date),
             time: formData.time,
-            amount: -parseFloat(formData.amount),
+            amount: -amount,
             accountId: formData.routingAccountId,
             routingAccountId: null,
             routingPairId: pairId,
@@ -213,7 +219,7 @@ export default function CreateCashflowPage() {
             id: cashflowId,
             date: new Date(formData.date),
             time: formData.time,
-            amount: parseFloat(formData.amount),
+            amount,
             accountId: formData.accountId,
             routingAccountId: formData.routingAccountId,
             routingPairId: pairId,
@@ -235,7 +241,7 @@ export default function CreateCashflowPage() {
             id: uuidv4(),
             date: new Date(formData.date),
             time: formData.time,
-            amount: -parseFloat(formData.amount),
+            amount: -amount,
             accountId: formData.routingAccountId,
             routingAccountId: null,
             routingPairId: pairId,
@@ -249,7 +255,7 @@ export default function CreateCashflowPage() {
             id: uuidv4(),
             date: new Date(formData.date),
             time: formData.time,
-            amount: parseFloat(formData.amount),
+            amount,
             accountId: formData.accountId,
             routingAccountId: formData.routingAccountId,
             routingPairId: pairId,
@@ -271,7 +277,7 @@ export default function CreateCashflowPage() {
           id: cashflowId || uuidv4(),
           date: new Date(formData.date),
           time: formData.time,
-          amount: parseFloat(formData.amount),
+          amount,
           accountId: formData.accountId,
           routingAccountId: null,
           routingPairId: null,

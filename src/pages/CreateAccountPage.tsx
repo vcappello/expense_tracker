@@ -9,7 +9,7 @@ import Toast from '../components/Toast';
 import AlertModal from '../components/AlertModal';
 import Modal from '../components/Modal';
 import { useNavigateBack } from '../utils/navigation';
-import { formatCurrency } from '../utils/formatting';
+import { AMOUNT_INPUT_PATTERN, formatCurrency, parseAmountInput } from '../utils/formatting';
 import { v4 as uuidv4 } from 'uuid';
 import '../styles/EntityForm.css';
 import '../styles/AccountAdjustments.css';
@@ -28,7 +28,7 @@ const localDateInputValue = (date: Date): string =>
 
 const parseAmount = (value: string): number | null => {
   if (!value.trim()) return null;
-  const parsed = Number(value.replace(',', '.'));
+  const parsed = parseAmountInput(value);
   return Number.isFinite(parsed) ? parsed : null;
 };
 
@@ -190,7 +190,7 @@ export default function CreateAccountPage() {
 
   const handleInitialBalanceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+    if (value === '' || AMOUNT_INPUT_PATTERN.test(value)) {
       setFormData((prev) => ({ ...prev, initialBalance: value }));
     }
   };
@@ -206,7 +206,7 @@ export default function CreateAccountPage() {
     try {
       setIsLoading(true);
       const now = new Date();
-      const initialBalance = parseFloat(formData.initialBalance) || 0;
+      const initialBalance = parseAmount(formData.initialBalance) ?? 0;
 
       if (accountId) {
         const existing = await getAccount(accountId);

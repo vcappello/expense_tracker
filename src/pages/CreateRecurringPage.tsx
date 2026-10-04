@@ -8,7 +8,7 @@ import { CheckIcon, TrashIcon } from '../components/icons';
 import ConfirmModal from '../components/ConfirmModal';
 import AlertModal from '../components/AlertModal';
 import Toast from '../components/Toast';
-import { formatDate } from '../utils/formatting';
+import { AMOUNT_INPUT_PATTERN, formatDate, parseAmountInput } from '../utils/formatting';
 import {
   getDefaultPrimaryAccount,
   sortAccountsPreferred,
@@ -130,7 +130,7 @@ export default function CreateRecurringPage() {
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+    if (value === '' || AMOUNT_INPUT_PATTERN.test(value)) {
       setFormData((prev) => ({ ...prev, amount: value }));
     }
   };
@@ -145,7 +145,7 @@ export default function CreateRecurringPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const amount = parseFloat(formData.amount);
+    const amount = parseAmountInput(formData.amount);
     if (!formData.name.trim()) {
       showToast('Inserisci un nome per la ricorrenza', '⚠️');
       return;

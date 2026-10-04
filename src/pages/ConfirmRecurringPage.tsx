@@ -9,7 +9,7 @@ import AlertModal from '../components/AlertModal';
 import Toast from '../components/Toast';
 import { sortAccountsPreferred } from '../utils/accounts';
 import { getFrequencyLabel, getOccurrencePeriodKey } from '../utils/recurrence';
-import { abbreviateAmount } from '../utils/formatting';
+import { abbreviateAmount, AMOUNT_INPUT_PATTERN, parseAmountInput } from '../utils/formatting';
 import { useNavigateBack } from '../utils/navigation';
 import { ONLINE_LOCATION_VALUE } from '../utils/locationCategories';
 import '../styles/EntityForm.css';
@@ -123,7 +123,7 @@ export default function ConfirmRecurringPage() {
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    if (value === '' || /^\d*\.?\d*$/.test(value)) setAmount(value);
+    if (value === '' || AMOUNT_INPUT_PATTERN.test(value)) setAmount(value);
   };
 
   // When the pending movement is a salary, show the reimbursable expenses since
@@ -187,7 +187,7 @@ export default function ConfirmRecurringPage() {
       return;
     }
 
-    const value = parseFloat(amount);
+    const value = parseAmountInput(amount);
     if (!value || value <= 0) {
       showToast('Inserisci un importo valido', '⚠️');
       return;
