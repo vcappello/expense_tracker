@@ -324,6 +324,9 @@ i# Plan — Expense Tracker AI
       `Intl.NumberFormat('it-IT')` condiviso: virgola decimale e raggruppamento italiano
       (`1.234,56`). Sostituiti anche i `toFixed(2)` residui nei tooltip SVG
       (`MovementsChart`, `MonthBreakdownChart`) e nei popup di eliminazione di conto/categoria.
+      Uniformata anche la **stampa del simbolo**: `formatCurrency` non usa più lo stile
+      `currency` di `Intl` (che stampava `12,50 €` con lo spazio) ma compone importo + simbolo
+      → `12,50€`, come in tutto il resto dell'app.
 
 ## �️ Dettaglio dei lavori a più step (tutti completati)
 

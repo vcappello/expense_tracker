@@ -46,19 +46,16 @@ export const abbreviateAmount = (amount: number): string => {
   return AMOUNT_FORMATTER.format(amount);
 };
 
+/** Currency symbols used by `formatCurrency` (multi-currency is a future feature). */
+const CURRENCY_SYMBOLS: Record<string, string> = { EUR: '€' };
+
 /**
- * Format amount as currency with sign and appropriate decimals
+ * Format amount as currency with sign and appropriate decimals, using the same
+ * shape as the rest of the UI: amount followed by the symbol, no space
+ * ("12,50€", not "12,50 €").
  */
-export const formatCurrency = (amount: number, currency: string = 'EUR'): string => {
-  const formatter = new Intl.NumberFormat('it-IT', {
-    style: 'currency',
-    currency: currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  
-  return formatter.format(amount);
-};
+export const formatCurrency = (amount: number, currency: string = 'EUR'): string =>
+  `${AMOUNT_FORMATTER.format(amount)}${CURRENCY_SYMBOLS[currency] ?? currency}`;
 
 /**
  * Format date to DD/MM/YYYY format

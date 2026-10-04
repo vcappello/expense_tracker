@@ -80,11 +80,13 @@ completed, and only then they can show the "no movements" empty state.
 The output of amount values, when indicated as *abbreviated* must display the amount in K when the amount in greather than 999 and in M when the amount is greather than 999.999, with 2 decimal places.
 
 Amounts are displayed with the **Italian decimal separator (comma)** and the Italian grouping
-(`12,50`, `1.234,56`), because the UI is Italian and the CSV export already uses the comma.
-All amounts go through the shared formatters in `src/utils/formatting.ts`
-(`abbreviateAmount` for the abbreviated values, `formatAmount` for the precise ones, used
-e.g. in the chart tooltips and in the delete confirmations), never through a local
-`toFixed(2)`.
+(`12,50`, `1.234,56`), because the UI is Italian and the CSV export already uses the comma. The
+euro symbol is always attached to the amount without a space (`12,50€`). All amounts go through
+the shared formatters in `src/utils/formatting.ts`: `abbreviateAmount` for the abbreviated
+values, `formatAmount` for the precise ones (used e.g. in the chart tooltips and in the delete
+confirmations) and `formatCurrency` for the values that carry the currency symbol — never
+through a local `toFixed(2)` or an `Intl` currency style (which would add a space before the
+symbol).
 
 ## Main view
 In the main view is displayed the list of movements (Expense or Cashflow), **grouped by
