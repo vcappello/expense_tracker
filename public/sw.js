@@ -8,7 +8,15 @@
 // sottocartella (es. /expense_tracker/). Tutti i percorsi derivano da
 // self.registration.scope (che termina sempre con '/'), quindi funzionano in
 // entrambi i casi senza hardcoded path.
-const CACHE = 'expense-tracker-v2';
+// Versione delle icone: va bumpata insieme a index.html e manifest.webmanifest
+// quando le icone cambiano. I file mantengono lo stesso nome (quindi lo stesso
+// URL) e senza `?v=` browser e service worker continuerebbero a servire le
+// icone vecchie dal loro cache.
+const ICON_VERSION = '2';
+
+// Bumpare a ogni correzione della strategia di cache: `activate` elimina le
+// cache con nome diverso, forzando il refresh degli asset cache-first.
+const CACHE = 'expense-tracker-v3';
 
 const BASE = self.registration.scope;
 const INDEX_HTML = new URL('index.html', BASE).href;
@@ -16,13 +24,24 @@ const MANIFEST = new URL('manifest.webmanifest', BASE).href;
 const ASSETS_BASE = new URL('assets/', BASE).href;
 const ICONS_BASE = new URL('icons/', BASE).href;
 const PRECACHE = [BASE, INDEX_HTML, MANIFEST];
+const PRECACHE_ICONS = ['icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'icon-180.png'].map(
+  (name) => new URL(`icons/${name}?v=${ICON_VERSION}`, BASE).href
+);
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches
-      .open(CACHE)
-      .then((cache) => cache.addAll(PRECACHE))
-      .then(() => self.skipWaiting())
+    (async () => {
+      const cache = await caches.open(CACHE);
+      await cache.addAll(PRECACHE);
+      // Icone precache best-effort: un errore non deve bloccare l'update del SW.
+      // `cache: 'reload'` scavalca l'HTTP cache (GitHub Pages: max-age 600).
+      await Promise.all(
+        PRECACHE_ICONS.map((url) =>
+          cache.add(new Request(url, { cache: 'reload' })).catch(() => {})
+        )
+      );
+      await self.skipWaiting();
+    })()
   );
 });
 

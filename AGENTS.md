@@ -61,7 +61,7 @@
   l'assenza di storico.
 - **Toast**: componente `Toast` (messaggio in basso, si auto-nasconde) con stile globale in `styles.css`; usato per confermare la creazione inline della categoria nel form spesa (`showToast` con timer).
 - **Importi abbreviati**: in Analytics (sommario, top categorie, report movimenti) e nelle pagine di gestione (totali categoria, ultimo movimento account) usare `abbreviateAmount` (K >999, M >999.999, 2 decimali). Nella Main view gli importi sono già abbreviati. I totali del popup di conferma delete in `ConfirmModal` restano volutamente precisi (`.toFixed(2)`).
-- **PWA (nessuna dipendenza esterna)**: manifest in `public/manifest.webmanifest`; icone generate da `scripts/generate-icons.mjs` con `npm run icons` (encoder PNG puro con zlib): **scontrino bianco con bordo a zig-zag** (3 punte, simmetrico) su quadrato smeraldo, con il glifo € in peso regular; il glifo arriva dalla maschera 1-bit `scripts/euro-glyph.mjs` (estratta dal font Liberation Sans Regular, perché Node non ha un rasterizzatore di font) — la versione maskable riempie tutto il canvas (niente trasparenza) con lo scontrino nella zona sicura; service worker `public/sw.js` (navigate network-first + fallback `/index.html`, asset `/assets/`+`/icons/`+manifest cache-first); registrato **solo in produzione** (`import.meta.env.PROD` in `main.tsx`) per evitare cache in dev. Build di produzione: `npm run build` + `npm run preview` (host 0.0.0.0, porta 4173).
+- **PWA (nessuna dipendenza esterna)**: manifest in `public/manifest.webmanifest`; icone generate da `scripts/generate-icons.mjs` con `npm run icons` (encoder PNG puro con zlib): **scontrino bianco con bordo a zig-zag** (3 punte, simmetrico) su quadrato smeraldo, con il glifo € in peso regular; il glifo arriva dalla maschera 1-bit `scripts/euro-glyph.mjs` (estratta dal font Liberation Sans Regular, perché Node non ha un rasterizzatore di font) — la versione maskable riempie tutto il canvas (niente trasparenza) con lo scontrino nella zona sicura; service worker `public/sw.js` (navigate network-first + fallback `/index.html`, asset `/assets/`+`/icons/`+manifest cache-first); registrato **solo in produzione** (`import.meta.env.PROD` in `main.tsx`) per evitare cache in dev. Build di produzione: `npm run build` + `npm run preview` (host 0.0.0.0, porta 4173). **Icone versionate (`?v=` = `ICON_VERSION` in `sw.js`)**: vedi il bullet in "Problemi risolti".
 - **Redesign UI (fase 1)**: `Header.tsx`/`Header.css` eliminati e sostituiti da `TitleBar` + `ActionMenu` (componenti condivisi) con icone SVG in `src/components/icons.tsx`. Regole: pulsante creazione sempre nella title bar a destra (Main view, Categorie, Conti); view di modifica → title bar con **Conferma (✓)** ed **Elimina (🗑)**, niente Annulla (il Back annulla e torna indietro); view di creazione → **solo Conferma (✓)**; menu azioni a tre righe per azioni extra (Main view: Analisi/Conti/Categorie; Analytics: Esporta CSV). I form non hanno più pulsanti in fondo: la Conferma in title bar invia con `formRef.current?.requestSubmit()` (in ogni form c'è un bottone submit nascosto `.sr-only` per l'invio con Invio). In MainView le righe movimento sono cliccabili (niente pulsanti edit/delete a destra; la delete è spostata nella view di modifica; le righe mostrano il dettaglio: categoria per Spesa, conto per Entrata, sorgente→destinazione per routing).
 - **Back button**: usa `navigate(-1)` (default della `TitleBar`) per tornare alla view di origine preservando lo stack. NON usare `onBack` che fanno `navigate('/...')` nelle view di create/edit: pushano una nuova entry e rompono lo stack (es. main→conti→edit: al secondo Back si tornava a edit invece che a main). Verificare sempre con il percorso main→lista→edit→Back→Back.
 - **Liste gestione (Conti/Categorie)**: come la Main view, le righe sono cliccabili e aprono la view di modifica (niente pulsanti edit/delete; nelle Categorie il chevron espande/collassa con `stopPropagation`). La delete è solo nella view di modifica (per conti/categorie usa `ConfirmModal` + delete in cascata). Pluralizzazione italiana nei popup: spesa/spese, entrata/entrate, sottocategoria/sottocategorie (non usare il suffisso `'e'` su "spesa"/"entrata").
@@ -287,6 +287,23 @@
   un booleano condiviso: è la causa del falso empty state. Riprodotto in modo deterministico
   con CPU throttling 20x + `MutationObserver` sulle classi `.empty-state`/`.loading-state`:
   prima `EMPTY → LOADING → EMPTY → GROUPS`, dopo il fix solo `LOADING → GROUPS`.
+- **Icona dell'app aggiornata ma non visibile (fix 04/10/2026)**: dopo la rigenerazione
+  delle icone (stesso nome file = stesso URL) il browser continuava a mostrare quella
+  vecchia, **anche come favicon da browser**. Causa: `/icons/` è servito dal SW in
+  **cache-first**, quindi `caches.match(request)` restituiva per sempre i byte vecchi (la
+  cache HTTP di GitHub Pages è `max-age=600`, non c'entrava). Fix: URL delle icone
+  **versionati** (`icons/icon-192.png?v=N`, oltre a `icon-180.png` per l'apple-touch-icon e
+  alle tre voci del manifest) — con un URL nuovo il vecchio cache non matcha più e la
+  richiesta va in rete; inoltre il manifest cambia, così Android può aggiornare l'icona
+  dell'app installata. La versione sta in **tre punti da bumpare insieme**: `ICON_VERSION`
+  in `public/sw.js`, i `<link>` in `index.html`, i `src` in `public/manifest.webmanifest`.
+  Il SW ora **precacha anche le icone** all'install (`cache: 'reload'` per scavalcare
+  l'HTTP cache) e la sua cache è bumpata a `expense-tracker-v3` (bumpare il nome a ogni
+  cambiamento della strategia: `activate` elimina le cache vecchie). Verificato con un
+  test nel browser: con un'icona stale sotto l'URL non versionato, l'URL `?v=2` torna i
+  byte nuovi (hash `4a3e3e9e…`). Nota: l'icona della **PWA già installata** si aggiorna
+  quando il browser rilegge il manifest cambiato; su iOS (snapshot statico) può servire
+  rimuovere e ri-aggiungere l'app alla home.
 
 ## Limiti noti (non bloccanti)
 *(Nessun limite noto aperto al 19/09/2026: quello della Main view al primo load freddo è

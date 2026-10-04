@@ -304,6 +304,12 @@ i# Plan — Expense Tracker AI
       distinguono spese ed entrate previste. Filtri di conto/categoria rispettati;
       ricorrenze in pausa, confermate o saltate escluse. Motore in
       `src/utils/balanceTrend.ts`; specifica e README aggiornati; `npm run build` OK.
+- [x] **Icona aggiornata ma non visibile da browser/smartphone (cache SW)** (04/10/2026):
+      le icone rigenerate mantenevano lo stesso URL e il service worker (cache-first su
+      `/icons/`) continuava a servire quelle vecchie. Fix: URL versionati (`?v=2`) in
+      `index.html` e nel manifest, `ICON_VERSION` in `public/sw.js`, precache delle icone
+      all'install e cache SW bumpata a `expense-tracker-v3`. Dettagli in "⏳ Da fare" e in
+      `AGENTS.md`.
 
 ## �️ Dettaglio dei lavori a più step (tutti completati)
 
@@ -664,7 +670,7 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 
 ## ⏳ Da fare
 
-> Le attività recenti sono conservate qui con gli step completati; al **03/10/2026** non ci
+> Le attività recenti sono conservate qui con gli step completati; al **04/10/2026** non ci
 > sono lavori in corso. L'unica feature pianificata e non iniziata è il **backup/ripristino da
 > cloud** (primo blocco qui sotto), a **priorità bassa** per decisione dell'utente. Le altre
 > feature candidate sono in **🔮 Prossime release**.
@@ -746,6 +752,32 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 - [ ] **Documentazione**: `spec.md` (sezione Backup/Ripristino + nota sulle chiamate di rete,
       che restano solo su azione dell'utente), `AGENTS.md` (bullet + "Problemi risolti" quando
       sarà implementata), `README` se serve.
+
+### Icona app non aggiornata su smartphone (cache del service worker) — risolta il 04/10/2026
+
+> Segnalazione utente (04/10/2026): dopo il redesign "scontrino" l'icona vecchia restava
+> visibile sullo smartphone, **anche da browser** (favicon), pur senza reinstallare la PWA.
+
+- [x] **Diagnosi**: il deploy è OK e sul server ci sono le icone nuove (verificato con
+      `curl` + hash SHA-256 identici ai file locali; workflow #41 `success`). L'HTTP cache di
+      GitHub Pages è `max-age=600`, quindi non spiega 16 ore di ritardo: la causa è il
+      **service worker**, che serve `/icons/` in **cache-first**. Le icone rigenerate
+      conservano lo stesso nome file → stesso URL → `caches.match()` continuava a restituire
+      i byte vecchi dalla cache `expense-tracker-v2`, e il browser (favicon compresa) li
+      riceveva dal SW.
+- [x] **Fix — URL versionati**: `icons/*.png?v=2` in `index.html` (favicon + apple-touch-icon)
+      e in `public/manifest.webmanifest`; costante `ICON_VERSION` in `public/sw.js`.
+      Un URL nuovo non matcha il vecchio cache e va in rete anche con il SW vecchio attivo;
+      il manifest modificato permette ad Android di aggiornare l'icona dell'app installata.
+      Da bumparsi **insieme** nei tre punti quando le icone cambiano (documentato in
+      `AGENTS.md` e `spec.md`).
+- [x] **Fix — service worker**: precache delle icone all'install (`cache: 'reload'` per
+      scavalcare l'HTTP cache, errori non bloccanti) e cache bumpata a
+      `expense-tracker-v3` (`activate` elimina le cache vecchie).
+- [x] **Verifica**: `npm run build` OK; test nel browser su `npm run preview` con un'icona
+      stale seminata sotto l'URL non versionato → la richiesta di `icon-192.png?v=2` torna i
+      byte nuovi (SHA-256 `4a3e3e9e…`, magic PNG corretto), precache presente nella cache
+      `expense-tracker-v3`.
 
 ### Icona dell'app — nuovo design "scontrino" — implementata il 03/10/2026
 

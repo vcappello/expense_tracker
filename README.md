@@ -24,7 +24,12 @@ npm run preview   # serve la build su http://0.0.0.0:4173/
 ```
 
 Dal telefono apri `http://192.168.1.10:4173/` e scegli *Aggiungi a schermata Home* per installarla.
-Le icone PWA si rigenerano con `npm run icons` (nessuna dipendenza esterna).
+Le icone PWA si rigenerano con `npm run icons` (nessuna dipendenza esterna). Dopo averle
+rigenerate **bumpa la versione delle icone** (`?v=`) in `index.html`, in
+`public/manifest.webmanifest` e in `ICON_VERSION` di `public/sw.js`: i file mantengono lo
+stesso nome, quindi senza il bump il service worker (cache-first) continua a servire le
+icone vecchie anche da browser. L'icona della PWA già installata si aggiorna al successivo
+avvio; su iOS, se resta quella vecchia, rimuovi e ri-aggiungi l'app alla schermata Home.
 
 ## Pubblicazione su GitHub Pages (HTTPS)
 L'app è pubblicata su **GitHub Pages** e usabile via HTTPS:
