@@ -1,86 +1,120 @@
 # Expense Tracker AI
 
-Web app per monitorare le spese personali in modo semplice e immediato.
+A smartphone-first web app for tracking personal expenses with as little typing as possible.
+The UI is in **Italian**; this document is in English.
 
-## Requisiti
+## ⚡ Simplified expense entry (the point of the app)
+
+Entering a movement is designed to take seconds, not a form:
+
+1. **Best case: you only type the amount.** The app takes care of the rest.
+   - **Location is derived for you**: the place field sits at the top of the expense form and
+     detects your position automatically, with autocomplete search (Photon / OpenStreetMap)
+     when you prefer to type. An **Online / no place** checkbox covers purchases without a
+     physical location.
+   - **Category is derived for you**: once a place is known (GPS or search), the app picks the
+     category you usually use for that place (learned from your own history), falling back to a
+     conservative place-type → category mapping (restaurants, shops, fuel, tolls). The choice is
+     already selected and always editable, and a manually chosen category is never overwritten.
+   - Optional **home location** (Main view → Actions) recognizes purchases made at home as online
+     purchases, so you don't have to think about it.
+2. **Recurring expenses: you only approve them.** Templates (expenses *and* incomes, including
+   one-off ones) show up as **"Movimenti previsti"** (expected movements) when they are due — you
+   just confirm, or skip/stop the series. Confirming many at once is a single tap.
+
+Everything else (accounts, categories, routing, balance adjustments, analytics) stays available
+when you need it, out of the way when you don't.
+
+## Requirements
 - Node.js 18+
 - npm
 
-## Avvio
+## Getting started
 
 ```bash
 npm install
 npm run dev
 ```
 
-URL locale: `http://localhost:5173/` — dalla rete (smartphone, stessa WiFi): `http://192.168.1.10:5173/`
+Local URL: `http://localhost:5173/` — over the network (smartphone, same Wi-Fi): `http://192.168.1.10:5173/`
 
-## Produzione / PWA
-L'app è una **PWA installabile** (aggiungi a schermata Home):
+## Production / PWA
+The app is an **installable PWA** (add it to the Home screen):
 
 ```bash
 npm run build
-npm run preview   # serve la build su http://0.0.0.0:4173/
+npm run preview   # serves the build on http://0.0.0.0:4173/
 ```
 
-Dal telefono apri `http://192.168.1.10:4173/` e scegli *Aggiungi a schermata Home* per installarla.
-Le icone PWA si rigenerano con `npm run icons` (nessuna dipendenza esterna). Dopo averle
-rigenerate **bumpa la versione delle icone** (`?v=`) in `index.html`, in
-`public/manifest.webmanifest` e in `ICON_VERSION` di `public/sw.js`: i file mantengono lo
-stesso nome, quindi senza il bump il service worker (cache-first) continua a servire le
-icone vecchie anche da browser. L'icona della PWA già installata si aggiorna al successivo
-avvio; su iOS, se resta quella vecchia, rimuovi e ri-aggiungi l'app alla schermata Home.
+Open `http://192.168.1.10:4173/` on the phone and choose *Add to Home screen* to install it.
+PWA icons are regenerated with `npm run icons` (no external dependencies). After regenerating
+them, **bump the icon version** (`?v=`) in `index.html`, `public/manifest.webmanifest` and
+`ICON_VERSION` in `public/sw.js`: the files keep the same name, so without the bump the
+cache-first service worker keeps serving the old icons even from the browser. The icon of an
+installed PWA refreshes on the next launch; on iOS, if it stays stale, remove and re-add the app
+to the Home screen.
 
-## Pubblicazione su GitHub Pages (HTTPS)
-L'app è pubblicata su **GitHub Pages** e usabile via HTTPS:
+## Publishing to GitHub Pages (HTTPS)
+The app is published on **GitHub Pages** and usable over HTTPS:
 
 - **URL**: `https://vcappello.github.io/expense_tracker/`
-- **Deploy**: automatico a ogni push su `main` tramite GitHub Actions
-  (`.github/workflows/deploy.yml`): build con `BASE_URL=/expense_tracker/` e
-  pubblicazione di `dist/` su `gh-pages`. In Impostazioni del repo → Pages impostare
-  **Source = GitHub Actions**.
-- **Routing**: `HashRouter` (URL con `#/...`) — GitHub Pages non riscrive le route SPA,
-  quindi con gli hash le view funzionano sempre, anche al refresh, senza file 404.
-- **Service worker e manifest**: percorsi relativi allo scope
-  (`self.registration.scope` in `public/sw.js`, `start_url`/`scope` relativi nel manifest,
-  `%BASE_URL%` nei link di `index.html`), così l'app funziona sia da root (locale) sia da
-  sottocartella (GitHub Pages).
-- In locale: `npm run build` + `npm run preview` continuano a funzionare alla root
-  (il base path default è `/`; si personalizza con la variabile d'ambiente `BASE_URL`).
+- **Deploy**: automatic on every push to `main` via GitHub Actions
+  (`.github/workflows/deploy.yml`): builds with `BASE_URL=/expense_tracker/` and publishes
+  `dist/` to `gh-pages`. In the repository settings → Pages, set **Source = GitHub Actions**.
+- **Routing**: `HashRouter` (URLs with `#/...`) — GitHub Pages does not rewrite SPA routes, so
+  hash routes always work, including on refresh, with no 404 page needed.
+- **Service worker and manifest**: scope-relative paths (`self.registration.scope` in
+  `public/sw.js`, relative `start_url`/`scope` in the manifest, `%BASE_URL%` in the
+  `index.html` links), so the app works both from the root (local) and from a subfolder
+  (GitHub Pages).
+- Locally, `npm run build` + `npm run preview` keep working from the root (the default base
+  path is `/`; override it with the `BASE_URL` environment variable).
 
-### ⚠️ Dati salvati nel browser
-IndexedDB è legato all'**origine**: i dati salvati su `localhost` **non** vengono ereditati
-dal dominio `https://vcappello.github.io/expense_tracker/`. Prima di passare a GitHub
-Pages, su localhost fai **Esporta backup** (menu Azioni della Main view), poi sul sito
-online fai **Ripristina backup**. Da quel momento i dati restano nel browser usato
-(l'origine `github.io` è condivisa tra i repo dello stesso utente).
+### ⚠️ Data is stored in the browser
+IndexedDB is bound to the **origin**: data saved on `localhost` is **not** inherited by
+`https://vcappello.github.io/expense_tracker/`. Before switching to GitHub Pages, use
+**Export backup** on localhost (Actions menu in the main view), then **Restore backup** on the
+live site. From then on the data lives in the browser you use (the `github.io` origin is shared
+across repositories of the same user).
 
-## Funzioni principali
-- Interfaccia in **italiano** ottimizzata per smartphone
-- **Installabile** e **offline** (PWA: manifest, icone, service worker)
-- Registrazione di **Spese** ed **Entrate** con data e ora (hh:mm:ss)
-- Required **Luogo** field near the start of expense entry, with Photon search, automatic GPS detection on creation, an online/no-place checkbox, automatic editable category selection, and optional home-location recognition configured from Main view → Actions
-- **Movimenti ricorrenti e programmati** (spese ed entrate, anche una tantum): vengono proposti come **"Movimenti previsti"** finché non confermati; nella pagina **Ricorrenti** (menu Azioni) si creano, modificano, mettono in pausa o si interrompono
-- Quando il mese corrente è vuoto, la Main view indica chiaramente il periodo e mostra il
-  riepilogo di entrate, spese e saldo dell'ultimo mese precedente con movimenti effettivi,
-  se disponibile
-- La conferma di una spesa ricorrente propone **Online / nessun luogo** se il modello non ha un luogo, modificabile per la singola spesa
-- **Rimborsi in attesa**: dal menu Azioni si consulta l'elenco delle spese rimborsabili successive all'ultimo stipendio, con totale e accesso alla modifica
-- Gestione **Conti** e **Categorie** (anche gerarchiche) con eliminazione in cascata; creazione/modifica in **pagine dedicate**
-- Tipo di conto **Stash secondario non tracciato**: è selezionabile sia come conto principale sia come secondario nelle spese; i movimenti assegnati allo stash non ne cambiano il saldo. La spesa completa resta registrata in Analisi; il conto preferito è indipendente e preseleziona il conto nel ruolo corrispondente.
-- **Riallineamento saldi** per contanti e conti bancari, con rettifiche datate e storico; aggiornano il saldo e il grafico Andamento senza alterare entrate o spese
-- **Analisi** con riepilogo (totale spese/entrate, saldo, media, top categorie) e **esportazione CSV** (formato Excel italiano)
-- **Grafici** in Analisi: **Report**, **Grafico** (barre per giorno o per categoria/conto), **Andamento** (saldo reale continuo e previsione tratteggiata con spese/entrate programmate evidenziate) e **Tendenze** (spese mensili degli ultimi 12 mesi, media e categorie in crescita/calo)
-- Filtri per periodo (mese, anno, tutto), importi abbreviati (K/M)
-- Le righe dei movimenti sono cliccabili per aprire la modifica; l'eliminazione è disponibile
-  nella relativa schermata di modifica
-- Dati salvati localmente nel browser (IndexedDB)
+## Main features
+- **Italian UI**, optimized for smartphones
+- **Installable** and **offline** (PWA: manifest, icons, service worker)
+- **Expenses** and **Incomes** recorded with date and time (hh:mm:ss)
+- Required **place** field near the start of expense entry: Photon search, automatic GPS
+  detection on creation, an Online / no place checkbox, automatic editable category selection,
+  and optional home-location recognition configured from Main view → Actions
+- **Recurring and scheduled movements** (expenses and incomes, including one-off ones): shown as
+  **"Movimenti previsti"** until confirmed; managed from the **Ricorrenti** page (Actions menu),
+  where they can be created, edited, paused or stopped. A recurring expense without a place
+  defaults to **Online / no place** on confirmation, editable for that single occurrence
+- When the current month is empty, the main view states the period clearly and shows the summary
+  (incomes, expenses, balance) of the latest previous month with actual movements, if available
+- **Pending reimbursements**: the Actions menu lists the reimbursable expenses after the last
+  salary, with the total and a shortcut to edit each one
+- **Accounts** and **Categories** management (hierarchical too) with cascade deletion;
+  create/edit in **dedicated pages**
+- **Secondary untracked stash** account type: selectable as the main or the secondary account of
+  an expense; movements assigned to a stash do not change its balance, while the full expense is
+  still recorded in Analytics. The preferred account is independent and pre-selects the account
+  for the matching role
+- **Balance realignment** for cash and bank accounts, with dated adjustments and history; they
+  update the balance and the Andamento chart without affecting incomes or expenses
+- **Analytics** with a summary (total expenses/incomes, balance, average, top categories) and
+  **CSV export** (Italian Excel format)
+- **Charts** in Analytics: **Report**, **Grafico** (bars per day or per category/account),
+  **Andamento** (continuous real balance plus a dashed projection highlighting scheduled
+  expenses/incomes) and **Tendenze** (monthly expenses over the last 12 months, averages and
+  rising/falling categories)
+- Period filters (month, year, all) and abbreviated amounts (K/M)
+- Movement rows are clickable to open the edit page; deletion is available on that page
+- Data stored locally in the browser (IndexedDB)
 
-## Struttura
-- `src/App.tsx`: routing principale
-- `src/pages/`: pagine (main view, spese, entrate, categorie, conti, analisi)
-- `src/context/AppContext.tsx`: stato globale e operazioni CRUD
-- `src/db/database.ts`: layer IndexedDB
-- `spec.md`: specifiche di progetto
-- `plan.md`: piano attività (step completati = marcati)
-- `.copilot-instructions.md` / `AGENTS.md`: indicazioni per lo sviluppo assistito da agent AI
+## Project structure
+- `src/App.tsx`: main routing
+- `src/pages/`: pages (main view, expenses, incomes, categories, accounts, analytics)
+- `src/context/AppContext.tsx`: global state and CRUD operations
+- `src/db/database.ts`: IndexedDB layer
+- `spec.md`: project specification
+- `plan.md`: activity plan (completed steps are marked)
+- `.copilot-instructions.md` / `AGENTS.md`: guidance for AI-assisted development
