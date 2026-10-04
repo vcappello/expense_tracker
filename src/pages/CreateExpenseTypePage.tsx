@@ -8,6 +8,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import Toast from '../components/Toast';
 import AlertModal from '../components/AlertModal';
 import { useNavigateBack } from '../utils/navigation';
+import { formatAmount } from '../utils/formatting';
 import '../styles/EntityForm.css';
 
 export default function CreateExpenseTypePage() {
@@ -216,7 +217,7 @@ export default function CreateExpenseTypePage() {
             <>
               Questa categoria ha:
               <br />• {deleteInfo.expensesCount} {deleteInfo.expensesCount === 1 ? 'spesa' : 'spese'} per{' '}
-              {Math.abs(deleteInfo.expensesTotal).toFixed(2)}€
+              {formatAmount(Math.abs(deleteInfo.expensesTotal))}€
               <br />• {deleteInfo.childCount} {deleteInfo.childCount === 1 ? 'sottocategoria' : 'sottocategorie'}
               {deleteInfo.recurringCount > 0 && (
                 <>

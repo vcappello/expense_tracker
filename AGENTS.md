@@ -60,7 +60,7 @@
   interna del conto secondario non tracciato come Analytics; gli errori di lettura non vanno confusi con
   l'assenza di storico.
 - **Toast**: componente `Toast` (messaggio in basso, si auto-nasconde) con stile globale in `styles.css`; usato per confermare la creazione inline della categoria nel form spesa (`showToast` con timer).
-- **Importi abbreviati**: in Analytics (sommario, top categorie, report movimenti) e nelle pagine di gestione (totali categoria, ultimo movimento account) usare `abbreviateAmount` (K >999, M >999.999, 2 decimali). Nella Main view gli importi sono già abbreviati. I totali del popup di conferma delete in `ConfirmModal` restano volutamente precisi (`.toFixed(2)`).
+- **Importi abbreviati**: in Analytics (sommario, top categorie, report movimenti) e nelle pagine di gestione (totali categoria, ultimo movimento account) usare `abbreviateAmount` (K >999, M >999.999, 2 decimali). Nella Main view gli importi sono già abbreviati. I totali del popup di conferma delete in `ConfirmModal` restano volutamente precisi (2 decimali, `formatAmount`), non abbreviati. **Separatore decimale = virgola** (italiano): `abbreviateAmount` e `formatAmount` usano un `Intl.NumberFormat('it-IT')` condiviso in `src/utils/formatting.ts` → mai `toFixed(2)` sparso nei componenti (produce il punto e rompe la coerenza con la UI italiana e col CSV, che usa già la virgola). `formatCurrency` (bottone/etichette con simbolo €) resta per gli importi con valuta.
 - **Form Spesa: "solo l'importo" (autofocus + dettagli collassati)**: in creazione il campo
   **Importo** prende il focus da solo (`autoFocus={!expenseId}`, così su Android appare subito
   il tastierino `inputMode="decimal"`) e i campi opzionali (Data, Ora, "Sarà rimborsata", Note,

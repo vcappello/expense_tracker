@@ -318,6 +318,12 @@ i# Plan — Expense Tracker AI
       **bug della virgola decimale** scartata in silenzio (`12,50` → `1250`): nuovi
       `AMOUNT_INPUT_PATTERN`/`parseAmountInput` in `src/utils/formatting.ts`, applicati a
       **tutti** i form importo (Spesa, Entrata, Ricorrenze, conferma prevista, giacenza conto).
+- [x] **Importi con la virgola (formattazione italiana)** (04/10/2026): gli importi erano
+      renderizzati con `toFixed(2)`, quindi col **punto** (`Saldo: -12.50€`) mentre l'input
+      accettava la virgola. Ora `abbreviateAmount` e il nuovo `formatAmount` usano un
+      `Intl.NumberFormat('it-IT')` condiviso: virgola decimale e raggruppamento italiano
+      (`1.234,56`). Sostituiti anche i `toFixed(2)` residui nei tooltip SVG
+      (`MovementsChart`, `MonthBreakdownChart`) e nei popup di eliminazione di conto/categoria.
 
 ## �️ Dettaglio dei lavori a più step (tutti completati)
 

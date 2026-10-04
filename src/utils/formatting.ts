@@ -13,22 +13,37 @@ export const parseAmountInput = (value: string): number =>
   Number(value.trim().replace(',', '.'));
 
 /**
+ * Italian amount formatting: comma as decimal separator, two decimals.
+ * Every amount shown in the UI goes through `formatAmount`/`abbreviateAmount`
+ * so the separator matches the Italian UI and the CSV export.
+ */
+const AMOUNT_FORMATTER = new Intl.NumberFormat('it-IT', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/**
+ * Format a precise amount (two decimals, Italian decimal comma).
+ */
+export const formatAmount = (amount: number): string => AMOUNT_FORMATTER.format(amount);
+
+/**
  * Format amount to abbreviated format
  * K for thousands (>999), M for millions (>999,999)
  * with 2 decimal places
  */
 export const abbreviateAmount = (amount: number): string => {
   const absAmount = Math.abs(amount);
-  
+
   if (absAmount >= 1_000_000) {
-    return `${(amount / 1_000_000).toFixed(2)}M`;
+    return `${AMOUNT_FORMATTER.format(amount / 1_000_000)}M`;
   }
-  
+
   if (absAmount >= 1_000) {
-    return `${(amount / 1_000).toFixed(2)}K`;
+    return `${AMOUNT_FORMATTER.format(amount / 1_000)}K`;
   }
-  
-  return amount.toFixed(2);
+
+  return AMOUNT_FORMATTER.format(amount);
 };
 
 /**

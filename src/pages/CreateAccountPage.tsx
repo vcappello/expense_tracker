@@ -9,7 +9,12 @@ import Toast from '../components/Toast';
 import AlertModal from '../components/AlertModal';
 import Modal from '../components/Modal';
 import { useNavigateBack } from '../utils/navigation';
-import { AMOUNT_INPUT_PATTERN, formatCurrency, parseAmountInput } from '../utils/formatting';
+import {
+  AMOUNT_INPUT_PATTERN,
+  formatAmount,
+  formatCurrency,
+  parseAmountInput,
+} from '../utils/formatting';
 import { v4 as uuidv4 } from 'uuid';
 import '../styles/EntityForm.css';
 import '../styles/AccountAdjustments.css';
@@ -541,14 +546,14 @@ export default function CreateAccountPage() {
                 <>
                   <br />• {deleteInfo.cashflowsCount}{' '}
                   {deleteInfo.cashflowsCount === 1 ? 'entrata' : 'entrate'} per{' '}
-                  {Math.abs(deleteInfo.cashflowsTotal).toFixed(2)}€
+                  {formatAmount(Math.abs(deleteInfo.cashflowsTotal))}€
                 </>
               )}
               {deleteInfo.expensesCount > 0 && (
                 <>
                   <br />• {deleteInfo.expensesCount}{' '}
                   {deleteInfo.expensesCount === 1 ? 'spesa' : 'spese'} per{' '}
-                  {Math.abs(deleteInfo.expensesTotal).toFixed(2)}€
+                  {formatAmount(Math.abs(deleteInfo.expensesTotal))}€
                 </>
               )}
               {deleteInfo.recurringCount > 0 && (

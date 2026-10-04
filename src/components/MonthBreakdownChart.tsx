@@ -1,5 +1,5 @@
 import { Account, ExpenseType } from '../types';
-import { abbreviateAmount } from '../utils/formatting';
+import { abbreviateAmount, formatAmount } from '../utils/formatting';
 import { EXPECTED_EXPENSE_TYPE_ID, EXPECTED_INCOME_ACCOUNT_ID } from '../utils/recurrence';
 
 interface MonthBreakdownChartProps {
@@ -136,7 +136,7 @@ export default function MonthBreakdownChart({
                   isExpense || b.color ? { fill: colorFor(b.key) } : undefined
                 }
               >
-                <title>{`${b.label}\n${isExpense ? 'Spese: -' : 'Entrate: '}${b.value.toFixed(2)}€`}</title>
+                <title>{`${b.label}\n${isExpense ? 'Spese: -' : 'Entrate: '}${formatAmount(b.value)}€`}</title>
               </rect>
 
               {showLabels && (

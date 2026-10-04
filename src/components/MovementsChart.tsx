@@ -1,5 +1,5 @@
 import { ExpenseType } from '../types';
-import { abbreviateAmount } from '../utils/formatting';
+import { abbreviateAmount, formatAmount } from '../utils/formatting';
 import { EXPECTED_EXPENSE_TYPE_ID } from '../utils/recurrence';
 
 export interface DailyTotal {
@@ -129,7 +129,7 @@ export default function MovementsChart({ data, expenseTypes }: MovementsChartPro
                   width={barW}
                   height={ch}
                 >
-                  <title>{`${d.label}\nEntrate: ${d.cashflow >= 0 ? '+' : ''}${d.cashflow.toFixed(2)}€`}</title>
+                  <title>{`${d.label}\nEntrate: ${d.cashflow >= 0 ? '+' : ''}${formatAmount(d.cashflow)}€`}</title>
                 </rect>
               )}
 
@@ -142,7 +142,7 @@ export default function MovementsChart({ data, expenseTypes }: MovementsChartPro
                   height={expectedCh}
                   style={{ fill: EXPECTED_COLOR }}
                 >
-                  <title>{`${d.label}\nEntrate previste: +${d.expectedIncome.toFixed(2)}€`}</title>
+                  <title>{`${d.label}\nEntrate previste: +${formatAmount(d.expectedIncome)}€`}</title>
                 </rect>
               )}
 
@@ -160,7 +160,7 @@ export default function MovementsChart({ data, expenseTypes }: MovementsChartPro
                     height={h}
                     style={{ fill: colorFor(id) }}
                   >
-                    <title>{`${d.label}\n${typeNames[id] || id}: -${amt.toFixed(2)}€`}</title>
+                    <title>{`${d.label}\n${typeNames[id] || id}: -${formatAmount(amt)}€`}</title>
                   </rect>
                 );
                 offsetY += h;
