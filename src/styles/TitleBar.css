@@ -232,3 +232,19 @@
     padding: 0 12px;
   }
 }
+
+/* Edit views carry three actions (duplicate, delete, confirm): buy back some
+   room for the title on narrow phones, where it is ellipsized. */
+@media (max-width: 400px) {
+  .title-bar {
+    gap: 8px;
+  }
+
+  .title-bar-title {
+    font-size: 1rem;
+  }
+
+  .title-bar-action.danger {
+    margin-right: 10px;
+  }
+}

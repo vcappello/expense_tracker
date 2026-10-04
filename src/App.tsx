@@ -51,10 +51,22 @@ function AppContent() {
       <div className="app">
         <Routes>
           <Route path="/" element={<MainView />} />
-          <Route path="/expense/new" element={<CreateExpensePage />} />
-          <Route path="/expense/:id/edit" element={<CreateExpensePage />} />
-          <Route path="/cashflow/new" element={<CreateCashflowPage />} />
-          <Route path="/cashflow/:id/edit" element={<CreateCashflowPage />} />
+          {/* Distinct keys: create and edit render the same component, and
+              without a key React reuses the instance when navigating between
+              them (e.g. "Duplica" from the edit view), keeping the old form state. */}
+          <Route path="/expense/new" element={<CreateExpensePage key="expense-new" />} />
+          <Route
+            path="/expense/:id/edit"
+            element={<CreateExpensePage key="expense-edit" />}
+          />
+          <Route
+            path="/cashflow/new"
+            element={<CreateCashflowPage key="cashflow-new" />}
+          />
+          <Route
+            path="/cashflow/:id/edit"
+            element={<CreateCashflowPage key="cashflow-edit" />}
+          />
           <Route path="/expense-types" element={<ExpenseTypeManagementPage />} />
           <Route path="/expense-type/new" element={<CreateExpenseTypePage />} />
           <Route path="/expense-type/:id/edit" element={<CreateExpenseTypePage />} />

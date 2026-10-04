@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Expense, ExpenseType } from '../types';
 import { sortAccountsPreferred, getDefaultPrimaryAccount } from '../utils/accounts';
@@ -14,9 +14,9 @@ import {
   loadHomeLocation,
 } from '../utils/homeLocation';
 import { useNavigateBack } from '../utils/navigation';
-import { AMOUNT_INPUT_PATTERN, parseAmountInput } from '../utils/formatting';
+import { AMOUNT_INPUT_PATTERN, parseAmountInput, toDateTime } from '../utils/formatting';
 import TitleBar, { TitleBarAction } from '../components/TitleBar';
-import { CheckIcon, TrashIcon, LocateIcon } from '../components/icons';
+import { CheckIcon, TrashIcon, LocateIcon, CopyIcon } from '../components/icons';
 import Toast from '../components/Toast';
 import ConfirmModal from '../components/ConfirmModal';
 import AlertModal from '../components/AlertModal';
@@ -29,6 +29,9 @@ const formatTimeToHHMMSS = (date: Date): string => {
   const seconds = String(date.getSeconds()).padStart(2, '0');
   return `${hours}:${minutes}:${seconds}`;
 };
+
+/** How many "repeat a recent expense" chips are offered in the create form. */
+const MAX_QUICK_FILL_CHIPS = 4;
 
 interface LocationSuggestion {
   label: string;
@@ -88,7 +91,12 @@ const getPhotonSuggestions = (payload: unknown): LocationSuggestion[] => {
 
 export default function CreateExpensePage() {
   const navigateBack = useNavigateBack('/');
+  const navigate = useNavigate();
   const { id: expenseId } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  // `?from=<id>`: create a new expense starting from an existing one (the
+  // "Duplica" action of the edit view).
+  const duplicateFromId = expenseId ? null : searchParams.get('from');
   const {
     accounts,
     expenseTypes,
@@ -132,6 +140,7 @@ export default function CreateExpensePage() {
   const initialDateTimeRef = useRef({ date: formData.date, time: formData.time });
   const dropdownRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const amountInputRef = useRef<HTMLInputElement>(null);
   const [toast, setToast] = useState<{ message: string; icon?: string } | null>(null);
   const toastTimerRef = useRef<number | null>(null);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
@@ -417,6 +426,77 @@ export default function CreateExpensePage() {
     setLocationSearchStatus('idle');
     setActiveLocationSuggestion(-1);
   };
+
+  /**
+   * Copy place, category, account, notes and the reimbursable flag from an
+   * existing expense. Date, time and amount stay those of a new expense (the
+   * amount is the only thing worth typing again).
+   */
+  const applyQuickFill = (source: Expense) => {
+    // Stop the GPS: a late fix must not overwrite the copied place.
+    cancelLocationDetection();
+    // The copied category is an explicit choice: treat it as manual so a
+    // place-based suggestion cannot overwrite it.
+    categorySelectionOriginRef.current = 'manual';
+    setLocation(source.location ?? '');
+    setFormData((prev) => ({
+      ...prev,
+      // Keep the current value if the source references something deleted.
+      expenseTypeId: expenseTypes.some((type) => type.id === source.expenseTypeId)
+        ? source.expenseTypeId
+        : prev.expenseTypeId,
+      accountId: accounts.some((account) => account.id === source.accountId)
+        ? source.accountId
+        : prev.accountId,
+      notes: source.notes ?? '',
+      reimbursable: source.reimbursable === true,
+    }));
+    setExpenseTypeSearch('');
+    setShowTypeDropdown(false);
+    amountInputRef.current?.focus();
+  };
+
+  // One chip per place+category, keeping the most recent occurrence.
+  const recentExpenses = useMemo(() => {
+    const sorted = [...expenses].sort(
+      (a, b) => toDateTime(b.date, b.time).getTime() - toDateTime(a.date, a.time).getTime()
+    );
+    const seen = new Set<string>();
+    const picks: Expense[] = [];
+    for (const expense of sorted) {
+      const key = `${(expense.location ?? '').toLocaleLowerCase()}|${expense.expenseTypeId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      picks.push(expense);
+      if (picks.length === MAX_QUICK_FILL_CHIPS) break;
+    }
+    return picks;
+  }, [expenses]);
+
+  // `?from=<id>`: pre-fill the form from an existing expense (once).
+  const quickFillAppliedRef = useRef(false);
+  useEffect(() => {
+    if (!duplicateFromId || quickFillAppliedRef.current) return;
+    quickFillAppliedRef.current = true;
+    let active = true;
+    getExpense(duplicateFromId)
+      .then((expense) => {
+        if (!active) return;
+        if (!expense) {
+          showToast('Spesa da duplicare non trovata', '⚠️');
+          return;
+        }
+        applyQuickFill(expense);
+        showToast('Spesa duplicata: controlla i dati e conferma');
+      })
+      .catch((err) => {
+        console.error('Failed to load the expense to duplicate:', err);
+        if (active) showToast('Impossibile caricare la spesa da duplicare', '⚠️');
+      });
+    return () => {
+      active = false;
+    };
+  }, [duplicateFromId, getExpense]);
 
   const handleLocationSuggestionSelect = (suggestion: LocationSuggestion) => {
     cancelLocationDetection();
@@ -753,6 +833,13 @@ export default function CreateExpensePage() {
   const titleBarActions: TitleBarAction[] = [];
   if (expenseId) {
     titleBarActions.push({
+      content: <CopyIcon />,
+      label: 'Duplica',
+      iconOnly: true,
+      onClick: () => navigate(`/expense/new?from=${encodeURIComponent(expenseId)}`),
+      disabled: isLoading,
+    });
+    titleBarActions.push({
       content: <TrashIcon />,
       label: 'Elimina',
       kind: 'danger',
@@ -985,6 +1072,29 @@ export default function CreateExpensePage() {
 
       <main className="page-content">
         <form ref={formRef} className="expense-form" onSubmit={handleSubmit} noValidate>
+          {!expenseId && recentExpenses.length > 0 && (
+            <div className="quick-fill">
+              <div className="quick-fill-title">Ripeti una spesa recente</div>
+              <div className="quick-fill-chips">
+                {recentExpenses.map((expense) => (
+                  <button
+                    key={expense.id}
+                    type="button"
+                    className="quick-fill-chip"
+                    onClick={() => applyQuickFill(expense)}
+                  >
+                    <span className="quick-fill-chip-category">
+                      {expenseTypes.find((type) => type.id === expense.expenseTypeId)
+                        ?.name || 'Senza categoria'}
+                    </span>
+                    <span className="quick-fill-chip-place">
+                      {expense.location || 'Nessun luogo'}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {locationField}
           {categoryField}
 
@@ -995,6 +1105,7 @@ export default function CreateExpensePage() {
               type="text"
               inputMode="decimal"
               id="amount"
+              ref={amountInputRef}
               placeholder="0.00"
               value={formData.amount}
               onChange={handleAmountChange}

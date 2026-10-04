@@ -169,6 +169,66 @@
   border-radius: 8px;
 }
 
+/* "Repeat a recent expense" chips (create form only) */
+.quick-fill {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.quick-fill-title {
+  color: #94a3b8;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.quick-fill-chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.quick-fill-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.quick-fill-chip {
+  flex: 0 0 auto;
+  max-width: 60vw;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: 999px;
+  color: #cbd5e1;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.quick-fill-chip:hover {
+  border-color: rgba(16, 185, 129, 0.7);
+}
+
+.quick-fill-chip-category {
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.quick-fill-chip-place {
+  color: #94a3b8;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Progressive disclosure: optional fields collapsed by default on create */
 .form-details {
   display: flex;

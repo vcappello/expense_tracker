@@ -200,6 +200,24 @@ The user can enter:
 
 When editing an existing Expense, all fields are pre-populated with the stored values.
 
+### Start from an existing expense
+Two shortcuts create a new expense from an existing one, both copying **place, category,
+account, note and the "Sarà rimborsata" flag** and leaving the **amount** empty and focused
+(date and time are those of the new expense, and the secondary-account split is not copied):
+
+- **"Ripeti una spesa recente"**: in the create form, a row of chips above the place field
+  offers the most recent expenses, one per distinct place+category pair, newest first. Tapping
+  a chip fills the form. The GPS detection is stopped (a late fix must not overwrite the
+  copied place) and the copied category is treated as manually chosen, so a place-based
+  suggestion never overwrites it.
+- **"Duplica"**: in the edit view, the title bar action opens the create form pre-filled from
+  the current expense (`/expense/new?from=<id>`); the Back button returns to the edit view of
+  the source.
+
+Create and edit render the same page component, so the two routes carry distinct React keys
+in `App.tsx`; without them React reuses the instance and the create form would keep the state
+of the edit form (old amount, date, expanded details).
+
 Actions:
 - Create from photo: open the smartphone camera for take a photo of a receipt, the new Expense is created reading information from the receipt using AI
 - Use current location: fill the Location field from the GPS position via the online Nominatim reverse geocoding service (see "Notes and location on an Expense")

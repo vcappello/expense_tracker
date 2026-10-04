@@ -318,6 +318,12 @@ i# Plan — Expense Tracker AI
       **bug della virgola decimale** scartata in silenzio (`12,50` → `1250`): nuovi
       `AMOUNT_INPUT_PATTERN`/`parseAmountInput` in `src/utils/formatting.ts`, applicati a
       **tutti** i form importo (Spesa, Entrata, Ricorrenze, conferma prevista, giacenza conto).
+- [x] **Creare una spesa da una esistente: chip "Ripeti una spesa recente" + "Duplica"**
+      (04/10/2026): nel form di creazione una riga di chip riempie luogo, categoria, conto, note
+      e "sarà rimborsata" dall'ultima spesa (o da quella scelta), lasciando l'importo vuoto e a
+      fuoco; nella view di modifica l'azione "Duplica" apre lo stesso form precompilato
+      (`/expense/new?from=<id>`). Nel test è emerso e stato corretto anche il **riuso
+      dell'istanza di pagina** tra modifica e creazione (key distinte nelle route in `App.tsx`).
 - [x] **Importi con la virgola (formattazione italiana)** (04/10/2026): gli importi erano
       renderizzati con `toFixed(2)`, quindi col **punto** (`Saldo: -12.50€`) mentre l'input
       accettava la virgola. Ora `abbreviateAmount` e il nuovo `formatAmount` usano un
@@ -722,6 +728,30 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
       verificato nel browser su `npm run preview` (creazione: tastierino subito, dettagli chiusi,
       riepilogo dopo una modifica; modifica: dettagli aperti e nessun autofocus; salvataggio
       `12,50` → movimento `-12.50`) e `npm run build` OK.
+
+### Creare una spesa da una esistente: "Duplica" e "Ripeti una spesa recente" — implementata il 04/10/2026
+
+> Richiesta utente (04/10/2026): non era chiaro come creare una nuova spesa partendo da una
+> esistente (la funzione non c'era). Due scorciatoie complementari nel form Spesa, entrambe
+> coerenti con il flusso "solo l'importo".
+
+- [x] **"Ripeti una spesa recente" (chip) nel form di nuova spesa**: riga di chip in cima al form
+      di creazione con le ultime spese, una per (luogo, categoria) distinta, dalla più recente.
+      Un tap copia **luogo, categoria, conto, note e flag "sarà rimborsata"** e mette il focus
+      sull'importo; data/ora restano quelle correnti e l'importo resta vuoto. La copia ferma il
+      GPS (un fix tardivo non deve sovrascrivere il luogo copiato) e segna la categoria come
+      "manuale" (nessun suggerimento dal luogo la sovrascrive).
+- [x] **"Duplica" nella view di modifica**: nuova azione nella title bar (icona copia, nuovo
+      `CopyIcon`) che apre `/expense/new?from=<id>`; la pagina di creazione carica la spesa e
+      applica lo stesso riempimento. Il Back torna alla modifica della spesa di origine.
+- [x] **Bug trovato durante il test — stato trascinato da modifica a creazione**: senza `key`
+      React riusava l'istanza di `CreateExpensePage` tra `/expense/:id/edit` e `/expense/new`,
+      quindi il form di creazione partiva con importo, data/ora e dettagli aperti della spesa in
+      modifica. Aggiunte key distinte alle route in `App.tsx` (expense e cashflow).
+- [x] **Docs/verifica**: `spec.md` (sezione "Edit or Create Expense") e `AGENTS.md` aggiornati;
+      verificato nel browser (chip con riempimento completo, duplica con importo vuoto e a fuoco,
+      Back verso la modifica di origine, salvataggio riuscito, layout title bar 360px+ senza
+      troncamento) e `npm run build` OK.
 
 ### Backup e ripristino da cloud — pianificata il 03/10/2026, **priorità bassa** (in pausa)
 
