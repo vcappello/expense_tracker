@@ -20,7 +20,9 @@ Entering a movement is designed to take seconds, not a form:
      purchases, so you don't have to think about it.
 2. **Recurring expenses: you only approve them.** Templates (expenses *and* incomes, including
    one-off ones) show up as **"Movimenti previsti"** (expected movements) when they are due — you
-   just confirm, or skip/stop the series. Confirming many at once is a single tap.
+   just confirm, or skip/stop the series. Confirming many at once is a single tap. If you pay
+   **before** the due date, the **Ricorrenti** list has a **"Registra ora"** action that
+   registers the upcoming occurrence in advance, so it is not proposed again later.
 
 Everything else (accounts, categories, routing, balance adjustments, analytics) stays available
 when you need it, out of the way when you don't.

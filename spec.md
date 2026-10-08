@@ -209,7 +209,11 @@ account, note and the "Sarà rimborsata" flag** and leaving the **amount** empty
   offers the most recent expenses, one per distinct place+category pair, newest first. Tapping
   a chip fills the form. The GPS detection is stopped (a late fix must not overwrite the
   copied place) and the copied category is treated as manually chosen, so a place-based
-  suggestion never overwrites it.
+  suggestion never overwrites it. The chips row is **horizontally scrollable** and must not
+  widen the form: `min-width: 0` on `.quick-fill`/`.quick-fill-chips` (and on the single
+  `.quick-fill-chip`) keeps the create view at the screen width, so only the chips row scrolls
+  (without it the long place names blow the row up to its full content width, ~960px on a
+  390px phone, and the whole view scrolls sideways).
 - **"Duplica"**: in the edit view, the title bar action opens the create form pre-filled from
   the current expense (`/expense/new?from=<id>`); the Back button returns to the edit view of
   the source.
@@ -498,6 +502,24 @@ and the current date/time:
   - **Interrompi la ricorrenza** — the template is deleted and the expense is never
     proposed again (already confirmed expenses are kept).
 
+### Registrazione in anticipo ("Registra ora")
+An occurrence can be registered **before its due date** (e.g. a monthly rent due on the 25th
+paid on the 8th), when the template is not proposed yet because it is "too early":
+
+- the **Ricorrenti** list shows a **"Registra ora"** action on every active template whose
+  current-period occurrence is **still in the future** and not yet confirmed or skipped
+  (`getNextOccurrence` = `getExpectedOccurrence` without the "already due" constraint). A
+  template already due is proposed in the Main view instead, so the action is not shown;
+- the action opens the same confirmation view (`/recurring/:id/confirm?early=1`), pre-filled
+  with the template amount and the current date/time, plus a "⏱️ Registrazione in anticipo"
+  banner that recalls the **due date** it will consume;
+- the confirmation consumes the **next occurrence's period**, passed explicitly as
+  `periodKey` to `confirmRecurringOccurrence` (in the common case it equals the period that
+  contains the confirmation day; passing it explicitly covers a period already consumed when
+  registering the following one). "Salta questa" skips that same period;
+- the rule is limited to the **current period**: after the confirmation the action disappears
+  until the next period starts (no registration a whole month/year ahead).
+
 ### Edit of an expected occurrence
 The confirmation view is also the edit view of the expected occurrence: changing the amount
 and saving asks "Solo questa / Tutte le successive" as described above ("Solo questa" = the
@@ -516,8 +538,9 @@ exactly like a normal expense, with no recurring question:
 Reachable from the Main view "Azioni" menu ("🔁 Spese ricorrenti"), it lists all the
 templates: for each one the name, the frequency, the default amount, the category · account
 and the next due date. Active templates come first, paused ones after them with a
-"in pausa" badge. The rows are clickable and open the Edit view (no buttons in the list,
-like Accounts/Categories).
+"in pausa" badge. The rows are clickable and open the Edit view (no edit/delete buttons in
+the list, like Accounts/Categories); the only in-row action is **"Registra ora"**, shown
+while the current-period occurrence is still in the future (see "Registrazione in anticipo").
 
 Create / Edit view (title bar: Confirm, and Delete in edit mode only; the Back button
 cancels):
@@ -534,7 +557,8 @@ cancels):
   `recurringId` of those records is cleared, so they become normal expenses).
 
 Routes: `/recurring` (management), `/recurring/new`, `/recurring/:id/edit`,
-`/recurring/:id/confirm` (confirmation/edit of the pending occurrence).
+`/recurring/:id/confirm` (confirmation/edit of the pending occurrence; with `?early=1` it
+targets the next not-yet-due occurrence — "Registra ora").
 
 ### Cascades
 Deleting an Account or an ExpenseType used by a recurring template also deletes the

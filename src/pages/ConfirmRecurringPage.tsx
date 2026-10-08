@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { RecurringExpense } from '../types';
 import TitleBar, { TitleBarAction } from '../components/TitleBar';
@@ -8,8 +8,13 @@ import Modal from '../components/Modal';
 import AlertModal from '../components/AlertModal';
 import Toast from '../components/Toast';
 import { sortAccountsPreferred } from '../utils/accounts';
-import { getFrequencyLabel, getOccurrencePeriodKey } from '../utils/recurrence';
-import { abbreviateAmount, AMOUNT_INPUT_PATTERN, parseAmountInput } from '../utils/formatting';
+import {
+  ExpectedOccurrence,
+  getFrequencyLabel,
+  getNextOccurrence,
+  getOccurrencePeriodKey,
+} from '../utils/recurrence';
+import { abbreviateAmount, AMOUNT_INPUT_PATTERN, formatDate, parseAmountInput } from '../utils/formatting';
 import { useNavigateBack } from '../utils/navigation';
 import { ONLINE_LOCATION_VALUE } from '../utils/locationCategories';
 import '../styles/EntityForm.css';
@@ -36,6 +41,10 @@ const formatTimeToHHMMSS = (date: Date): string =>
 export default function ConfirmRecurringPage() {
   const navigateBack = useNavigateBack('/');
   const { id: recurringId } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  // "Registra ora": register the next occurrence before its due date, when the
+  // template is not proposed yet (see spec.md → "Recurring expenses").
+  const isEarly = searchParams.get('early') === '1';
   const {
     accounts,
     loadAccounts,
@@ -50,6 +59,9 @@ export default function ConfirmRecurringPage() {
   } = useApp();
 
   const [template, setTemplate] = useState<RecurringExpense | null>(null);
+  // The occurrence targeted by an early registration (null = normal flow).
+  const [earlyOccurrence, setEarlyOccurrence] =
+    useState<ExpectedOccurrence | null>(null);
   const [amount, setAmount] = useState('');
   const [location, setLocation] = useState(ONLINE_LOCATION_VALUE);
   const [date, setDate] = useState(toInputDate(new Date()));
@@ -96,18 +108,27 @@ export default function ConfirmRecurringPage() {
           setAlertMessage('Ricorrenza non trovata');
           return;
         }
+        // "Registra ora": the occurrence is not due yet, so it is not proposed
+        // by getExpectedOccurrence. Target the next (future) occurrence.
+        const target = isEarly ? getNextOccurrence(recurring) : null;
+        if (isEarly && !target) {
+          setAlertMessage(
+            'Nessuna occorrenza futura da registrare in anticipo.'
+          );
+          return;
+        }
         // Guard: do not confirm a period already consumed (e.g. stale page).
         // The period key comes from the due date (for `once` it is the planned
         // date, not the day of the confirmation).
-        if (
-          recurring.lastConfirmedPeriod ===
-          getOccurrencePeriodKey(recurring, new Date())
-        ) {
+        const targetPeriodKey =
+          target?.periodKey ?? getOccurrencePeriodKey(recurring, new Date());
+        if (recurring.lastConfirmedPeriod === targetPeriodKey) {
           setAlertMessage(
             'Questa ricorrenza è già stata confermata per il periodo corrente.'
           );
           return;
         }
+        setEarlyOccurrence(target);
         setTemplate(recurring);
         setAmount(String(recurring.amount));
         if (recurring.kind !== 'income') {
@@ -119,7 +140,7 @@ export default function ConfirmRecurringPage() {
       }
     };
     load();
-  }, [recurringId, getRecurringExpense]);
+  }, [recurringId, getRecurringExpense, isEarly]);
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -166,6 +187,7 @@ export default function ConfirmRecurringPage() {
         amount: value,
         date: new Date(`${date}T00:00:00`),
         time,
+        periodKey: earlyOccurrence?.periodKey,
         ...(template.kind === 'income' ? {} : { location }),
       });
       navigateBack();
@@ -211,7 +233,7 @@ export default function ConfirmRecurringPage() {
     if (!template) return;
     try {
       setIsLoading(true);
-      await skipRecurringOccurrence(template.id);
+      await skipRecurringOccurrence(template.id, earlyOccurrence?.periodKey);
       setAskDelete(false);
       navigateBack();
     } catch (err) {
@@ -289,6 +311,17 @@ export default function ConfirmRecurringPage() {
                 </strong>
               </span>
             </div>
+
+            {earlyOccurrence && (
+              <div className="recurring-early-info">
+                <p>
+                  ⏱️ <strong>Registrazione in anticipo</strong>: questa è
+                  l'occorrenza prevista per{' '}
+                  <strong>{formatDate(earlyOccurrence.dueDate)}</strong>.
+                  Confermandola ora non ti verrà riproposta.
+                </p>
+              </div>
+            )}
 
             {isIncome && template.isSalary && (
               <div className="form-info salary-info">

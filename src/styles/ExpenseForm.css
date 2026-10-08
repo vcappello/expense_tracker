@@ -169,11 +169,15 @@
   border-radius: 8px;
 }
 
-/* "Repeat a recent expense" chips (create form only) */
+/* "Repeat a recent expense" chips (create form only).
+   `min-width: 0` is required: the chips row is a grid item of `.expense-form`
+   and its default `min-width: auto` would let the (long) chip content widen the
+   whole page instead of scrolling inside the row. */
 .quick-fill {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
 }
 
 .quick-fill-title {
@@ -187,9 +191,12 @@
 .quick-fill-chips {
   display: flex;
   gap: 8px;
+  min-width: 0;
+  max-width: 100%;
   overflow-x: auto;
   padding-bottom: 2px;
   scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
 
 .quick-fill-chips::-webkit-scrollbar {
@@ -198,6 +205,9 @@
 
 .quick-fill-chip {
   flex: 0 0 auto;
+  /* Let `max-width` cap the chip (otherwise `min-width: auto` wins and the
+     long place name makes the chip wider than the row). */
+  min-width: 0;
   max-width: 60vw;
   display: flex;
   flex-direction: column;

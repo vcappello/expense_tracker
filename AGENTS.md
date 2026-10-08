@@ -320,6 +320,36 @@
   byte nuovi (hash `4a3e3e9e…`). Nota: l'icona della **PWA già installata** si aggiorna
   quando il browser rilegge il manifest cambiato; su iOS (snapshot statico) può servire
   rimuovere e ri-aggiungere l'app alla home.
+- **Chip "Ripeti una spesa recente" che allargano la view (fix 08/10/2026)**: la riga chip
+  nella creazione spesa è un **grid item** di `.expense-form`; con il default `min-width:
+  auto` la sua min-content (i nomi luogo lunghi, `white-space: nowrap` con ellissi) non può
+  scendere sotto la larghezza del contenuto, quindi la riga si allargava a ~960px su un
+  telefono da 390px e a scorrere era **tutta la view** (`.page-content` ha `overflow-y:
+  auto`, quindi overflow-x diventa auto) e non le chip. Fix in `ExpenseForm.css`:
+  `min-width: 0` su `.quick-fill` e `.quick-fill-chips` (**da non rimuovere**) e
+  `min-width: 0` + `max-width: 60vw` sul singolo `.quick-fill-chip`, così la riga resta
+  larga quanto il form e scorre solo lei. Verificato nel browser a 390px:
+  `chipsClientWidth` 960 → 366 con `scrollWidth` 960 (prima `docScrollWidth` della view
+  restava 390 ma la riga chip era 960 e trascinava la view, poi solo la riga scorre).
+- **Registrare in anticipo un movimento ricorrente ("Registra ora", 08/10/2026)**: la
+  prevista non esiste prima della scadenza (`getExpectedOccurrence` torna `null` se
+  `dueDate > oggi`), quindi una ricorrenza pagata in anticipo non era registrabile.
+  Soluzione scelta (opzione A): azione **"Registra ora"** su ogni riga attiva della pagina
+  Ricorrenti → `/recurring/:id/confirm?early=1`, che apre la stessa view di conferma con un
+  banner "⏱️ Registrazione in anticipo". Regole da non violare:
+  - `getNextOccurrence(template, today)` in `utils/recurrence.ts` = `getExpectedOccurrence`
+    senza il vincolo "già scaduta", ma **solo per il periodo corrente** (`dueDate > oggi`);
+    una ricorrenza già scaduta è proposta nella Main view e il bottone **non** compare
+    (altrimenti offrirebbe di registrare il mese/anno successivo con largo anticipo);
+  - l'occorrenza consuma il **periodo della scadenza**, passato esplicitamente come
+    `periodKey` a `confirmRecurringOccurrence` / `skipRecurringOccurrence` (nuovo parametro
+    opzionale in `ConfirmRecurringInput`); senza di esso `confirmMany` usa
+    `getOccurrencePeriodKey(template, now)` e con un periodo già consumato dirottava
+    sull'occorrenza sbagliata;
+  - la **data del movimento resta oggi** (giorno del pagamento anticipato), solo il
+    `recurringPeriod` è quello della scadenza;
+  - il bottone nella lista è un'azione **dentro una riga cliccabile**: `stopPropagation`
+    su click e keydown per non aprire la view di modifica.
 
 ## Limiti noti (non bloccanti)
 *(Nessun limite noto aperto al 19/09/2026: quello della Main view al primo load freddo è

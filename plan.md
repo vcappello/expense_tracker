@@ -333,6 +333,32 @@ i# Plan — Expense Tracker AI
       Uniformata anche la **stampa del simbolo**: `formatCurrency` non usa più lo stile
       `currency` di `Intl` (che stampava `12,50 €` con lo spazio) ma compone importo + simbolo
       → `12,50€`, come in tutto il resto dell'app.
+- [x] **Chip "Ripeti una spesa recente" senza allargare la view** (08/10/2026): `min-width: 0` su `.quick-fill`/`.quick-fill-chips` (e sul singolo chip) → la riga chip resta larga quanto lo schermo e scorre solo lei, non più tutta la view (dettaglio sotto)
+- [x] **Ricorrenze — azione "Registra ora"** (08/10/2026): registrare un movimento ricorrente **in anticipo** (prima della scadenza) dall'elenco Ricorrenti; consuma il periodo della scadenza, così non viene riproposto (dettaglio sotto)
+
+### Rifiniture UX: chip "Ripeti una spesa" e registrazione in anticipo delle ricorrenze — implementate l'08/10/2026
+
+> Richieste utente (08/10/2026): (1) nella creazione spesa la riga di chip "Ripeti una spesa
+> recente" allargava tutta la view su smartphone; (2) non era possibile registrare una spesa
+> ricorrente pagata **in anticipo**, perché la prevista compare solo dalla scadenza.
+
+- [x] **Chip "Ripeti una spesa recente": larghezza fissa + scroll orizzontale** (fatto):
+      causa = la riga chip è un grid item di `.expense-form` e con `min-width: auto` la sua
+      min-content (luoghi lunghi, `nowrap`) allargava la riga fino a ~960px su 390px,
+      trascinando tutta la view in orizzontale. Fix in `ExpenseForm.css`: `min-width: 0` su
+      `.quick-fill` e `.quick-fill-chips`, `min-width: 0` + `max-width: 60vw` sul chip.
+      Verificato nel browser a 390px (`chipsClientWidth` 960 → 366, `scrollWidth` 960) e
+      confermato che è il fix a risolvere (rimuovendolo la riga torna 960px).
+- [x] **Ricorrenze — azione "Registra ora"** (fatto): nuova `getNextOccurrence(template,
+      today)` in `utils/recurrence.ts` (occorrenza del periodo corrente ancora futura e non
+      consumata) e azione nell'elenco Ricorrenti → `/recurring/:id/confirm?early=1` con banner
+      "⏱️ Registrazione in anticipo". `ConfirmRecurringInput` e `skipRecurringOccurrence`
+      accettano un `periodKey` esplicito per consumare il periodo della **scadenza** (non
+      quello del giorno di conferma): così la prevista non ricompare alla scadenza. La
+      conferma anticipata resta limitata al periodo corrente (nessuna registrazione con un
+      mese/anno di anticipo). Verificato nel browser: ricorrenza mensile al 25 registrata
+      l'08 (`recurringPeriod = 2026-10`, bottone nascosto dopo la conferma), ricorrenza dovuta
+      oggi senza bottone (proposta nei movimenti previsti), dati di test poi rimossi; build OK.
 
 ## �️ Dettaglio dei lavori a più step (tutti completati)
 

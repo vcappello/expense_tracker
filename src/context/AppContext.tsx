@@ -63,6 +63,12 @@ export interface ConfirmRecurringInput {
   date: Date;
   time: string;
   location?: string;
+  /**
+   * Period to consume. Defaults to the period containing "now"; the "Registra
+   * ora" flow passes the next (still future) occurrence's period so it can be
+   * confirmed in advance.
+   */
+  periodKey?: string;
 }
 
 /**
@@ -192,7 +198,7 @@ interface AppContextType {
   confirmRecurringOccurrences: (
     inputs: ConfirmRecurringInput[]
   ) => Promise<ConfirmedRecurringMovement[]>;
-  skipRecurringOccurrence: (recurringId: string) => Promise<void>;
+  skipRecurringOccurrence: (recurringId: string, periodKey?: string) => Promise<void>;
   // Last recurring confirmation (used by the Main view undo Toast)
   lastRecurringConfirmation: RecurringConfirmationBatch | null;
   undoLastRecurringConfirmation: () => Promise<void>;
@@ -952,8 +958,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         const now = new Date();
         // The period key comes from the due date, so a `once` occurrence
-        // consumes its planned date and not the day of the confirmation.
-        const periodKey = getOccurrencePeriodKey(template, now);
+        // consumes its planned date and not the day of the confirmation. The
+        // early registration ("Registra ora") passes the next occurrence's
+        // period explicitly.
+        const periodKey = input.periodKey ?? getOccurrencePeriodKey(template, now);
         let createdId: string;
 
         if (template.kind === 'income') {
@@ -1063,20 +1071,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
    * Skip the current period of a template: no movement is created and the
    * template proposes the occurrence again in the next period.
    */
-  const skipRecurringOccurrence = useCallback(async (recurringId: string) => {
-    clearError();
-    const template = await db.getRecurringExpense(recurringId);
-    if (!template) return;
-    const updated: RecurringExpense = {
-      ...template,
-      skippedPeriod: getOccurrencePeriodKey(template, new Date()),
-      updatedAt: new Date(),
-    };
-    await db.updateRecurringExpense(updated);
-    setRecurringExpenses((prev) =>
-      prev.map((r) => (r.id === updated.id ? updated : r))
-    );
-  }, []);
+  const skipRecurringOccurrence = useCallback(
+    async (recurringId: string, periodKey?: string) => {
+      clearError();
+      const template = await db.getRecurringExpense(recurringId);
+      if (!template) return;
+      const updated: RecurringExpense = {
+        ...template,
+        skippedPeriod: periodKey ?? getOccurrencePeriodKey(template, new Date()),
+        updatedAt: new Date(),
+      };
+      await db.updateRecurringExpense(updated);
+      setRecurringExpenses((prev) =>
+        prev.map((r) => (r.id === updated.id ? updated : r))
+      );
+    },
+    []
+  );
 
   const clearLastRecurringConfirmation = useCallback(() => {
     setLastRecurringConfirmation(null);

@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext';
 import { RecurringExpense } from '../types';
 import TitleBar from '../components/TitleBar';
 import { abbreviateAmount, formatDate } from '../utils/formatting';
-import { getFrequencyLabel, getNextDueDate } from '../utils/recurrence';
+import { getFrequencyLabel, getNextDueDate, getNextOccurrence } from '../utils/recurrence';
 import '../styles/ManagementPage.css';
 import '../styles/RecurringPage.css';
 
@@ -34,6 +34,10 @@ export default function RecurringManagementPage() {
   const handleCreate = () => navigate('/recurring/new');
   const handleEdit = (recurring: RecurringExpense) =>
     navigate(`/recurring/${recurring.id}/edit`);
+  // Register the next occurrence in advance, before its due date (the template
+  // is not proposed yet because it is "too early").
+  const handleRegisterNow = (recurring: RecurringExpense) =>
+    navigate(`/recurring/${recurring.id}/confirm?early=1`);
 
   // Active templates first, then by name
   const sorted = [...recurringExpenses].sort((a, b) => {
@@ -77,6 +81,10 @@ export default function RecurringManagementPage() {
             {sorted.map((recurring) => {
               const isIncome = recurring.kind === 'income';
               const isOnce = recurring.frequency === 'once';
+              // "Registra ora": offered only while the current period's
+              // occurrence is still in the future, so the user can register it
+              // in advance (otherwise it is already a regular expected one).
+              const canRegisterNow = getNextOccurrence(recurring) !== null;
               return (
                 <div
                   key={recurring.id}
@@ -124,6 +132,19 @@ export default function RecurringManagementPage() {
                       </span>
                     </div>
                   </div>
+                  {canRegisterNow && (
+                    <button
+                      type="button"
+                      className="recurring-register-now"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRegisterNow(recurring);
+                      }}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    >
+                      Registra ora
+                    </button>
+                  )}
                 </div>
               );
             })}

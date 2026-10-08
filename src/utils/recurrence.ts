@@ -261,6 +261,36 @@ export const getExpectedOccurrence = (
   return { template, dueDate, periodKey, amount: template.amount };
 };
 
+/**
+ * Next occurrence of a template that is **still in the future** inside the
+ * current period and has not been confirmed or skipped yet, or null when there
+ * is none. It is `getExpectedOccurrence` relaxed to allow a due date that has
+ * not been reached, so the user can register the occurrence **in advance**
+ * (see spec.md → "Recurring expenses": the "Registra ora" action). Once the
+ * occurrence is due (or the period is consumed) it returns null: the regular
+ * flow takes over.
+ */
+export const getNextOccurrence = (
+  template: RecurringExpense,
+  today: Date = new Date()
+): ExpectedOccurrence | null => {
+  if (!template.active) return null;
+
+  const ref = startOfDay(today);
+  const start = startOfDay(template.startDate);
+  const dueDate = getDueDateInPeriod(template.frequency, start, ref);
+  if (dueDate < start) return null; // the recurrence has not started yet
+  if (dueDate <= ref) return null; // already due: proposed as an expected occurrence
+
+  // The period key is derived from the due date (for `once` it is the planned
+  // date itself), same rule as the regular confirmation.
+  const periodKey = getPeriodKey(template.frequency, dueDate);
+  if (template.lastConfirmedPeriod === periodKey) return null;
+  if (template.skippedPeriod === periodKey) return null;
+
+  return { template, dueDate, periodKey, amount: template.amount };
+};
+
 /** All the expected occurrences of the given templates, ordered by due date. */
 export const getExpectedOccurrences = (
   templates: RecurringExpense[],
