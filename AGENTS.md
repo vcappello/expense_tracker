@@ -348,8 +348,15 @@
     sull'occorrenza sbagliata;
   - la **data del movimento resta oggi** (giorno del pagamento anticipato), solo il
     `recurringPeriod` è quello della scadenza;
-  - il bottone nella lista è un'azione **dentro una riga cliccabile**: `stopPropagation`
-    su click e keydown per non aprire la view di modifica.
+  - il bottone nella lista è **icon-only** (✓ con `aria-label`/`title` "Registra ora") e sta
+    **sempre a destra sulla stessa riga**: su mobile `.list-item` diventa `flex-direction:
+    column` (ManagementPage.css, ≤640px), quindi serve l'override
+    `.list-item.recurring-item { flex-direction: row; align-items: center }` — senza di esso il
+    pulsante finiva su una nuova riga e la ricorrenza diventava alta il doppio (172px vs 118px
+    a 390px). `min-width: 0` su `.recurring-item .item-main` per non far straripare il testo
+    sulla colonna del pulsante (la qual cosa l'aveva fatto intercettare i click);
+  - l'azione dentro la riga cliccabile ha `stopPropagation` su click e keydown per non aprire
+    la view di modifica.
 
 ## Limiti noti (non bloccanti)
 *(Nessun limite noto aperto al 19/09/2026: quello della Main view al primo load freddo è

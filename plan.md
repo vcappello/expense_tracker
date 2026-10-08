@@ -356,9 +356,15 @@ i# Plan — Expense Tracker AI
       accettano un `periodKey` esplicito per consumare il periodo della **scadenza** (non
       quello del giorno di conferma): così la prevista non ricompare alla scadenza. La
       conferma anticipata resta limitata al periodo corrente (nessuna registrazione con un
-      mese/anno di anticipo). Verificato nel browser: ricorrenza mensile al 25 registrata
-      l'08 (`recurringPeriod = 2026-10`, bottone nascosto dopo la conferma), ricorrenza dovuta
-      oggi senza bottone (proposta nei movimenti previsti), dati di test poi rimossi; build OK.
+      mese/anno di anticipo). Il pulsante è **icon-only (✓) e sempre a destra sulla stessa
+      riga**: l'override `.list-item.recurring-item` mantiene la riga orizzontale anche su
+      mobile (≤640px), dove `.list-item` passa a colonna → prima il pulsante finiva su una
+      seconda riga e la ricorrenza diventava alta il doppio (172px → 118px a 390px).
+      Verificato nel browser: ricorrenza mensile al 25 registrata l'08
+      (`recurringPeriod = 2026-10`, bottone nascosto dopo la conferma), riga compatta con
+      pulsante 40×40 centrato a destra (misure a 390px e 900px, nessun overflow), ricorrenza
+      dovuta oggi senza bottone (proposta nei movimenti previsti), dati di test poi rimossi;
+      build OK.
 
 ## �️ Dettaglio dei lavori a più step (tutti completati)
 

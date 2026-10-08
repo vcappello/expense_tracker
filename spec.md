@@ -509,7 +509,11 @@ paid on the 8th), when the template is not proposed yet because it is "too early
 - the **Ricorrenti** list shows a **"Registra ora"** action on every active template whose
   current-period occurrence is **still in the future** and not yet confirmed or skipped
   (`getNextOccurrence` = `getExpectedOccurrence` without the "already due" constraint). A
-  template already due is proposed in the Main view instead, so the action is not shown;
+  template already due is proposed in the Main view instead, so the action is not shown. The
+  action is an **icon-only round button (✓, `aria-label`/`title` "Registra ora")** kept on the
+  right of the row: on mobile the row stays horizontal (`.list-item.recurring-item` overrides
+  the ≤640px column layout) so the button does not become a new line and does not make the
+  row taller;
 - the action opens the same confirmation view (`/recurring/:id/confirm?early=1`), pre-filled
   with the template amount and the current date/time, plus a "⏱️ Registrazione in anticipo"
   banner that recalls the **due date** it will consume;
@@ -539,8 +543,9 @@ Reachable from the Main view "Azioni" menu ("🔁 Spese ricorrenti"), it lists a
 templates: for each one the name, the frequency, the default amount, the category · account
 and the next due date. Active templates come first, paused ones after them with a
 "in pausa" badge. The rows are clickable and open the Edit view (no edit/delete buttons in
-the list, like Accounts/Categories); the only in-row action is **"Registra ora"**, shown
-while the current-period occurrence is still in the future (see "Registrazione in anticipo").
+the list, like Accounts/Categories); the only in-row action is an icon-only **"Registra ora"**
+button on the right, shown while the current-period occurrence is still in the future (see
+"Registrazione in anticipo").
 
 Create / Edit view (title bar: Confirm, and Delete in edit mode only; the Back button
 cancels):

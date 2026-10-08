@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { RecurringExpense } from '../types';
 import TitleBar from '../components/TitleBar';
+import { CheckIcon } from '../components/icons';
 import { abbreviateAmount, formatDate } from '../utils/formatting';
 import { getFrequencyLabel, getNextDueDate, getNextOccurrence } from '../utils/recurrence';
 import '../styles/ManagementPage.css';
@@ -88,7 +89,7 @@ export default function RecurringManagementPage() {
               return (
                 <div
                   key={recurring.id}
-                  className="list-item"
+                  className="list-item recurring-item"
                   role="button"
                   tabIndex={0}
                   onClick={() => handleEdit(recurring)}
@@ -136,13 +137,15 @@ export default function RecurringManagementPage() {
                     <button
                       type="button"
                       className="recurring-register-now"
+                      aria-label="Registra ora"
+                      title="Registra ora"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleRegisterNow(recurring);
                       }}
                       onKeyDown={(e) => e.stopPropagation()}
                     >
-                      Registra ora
+                      <CheckIcon size={18} />
                     </button>
                   )}
                 </div>
