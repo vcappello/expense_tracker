@@ -833,9 +833,11 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
       storico"** con data suggerita = primo movimento sul conto (o data di creazione del
       conto, se non ci sono movimenti), modificabile; le righe precedenti diventano lo stato
       `before-history` (contatore dedicato, fuori dal matching e dalla scorciatoia "Solo da
-      controllare"), ma restano creabili su richiesta. Default **non attivo** (non nasconde
-      nulla senza scelta dell'utente). Verificato nel browser: con storico dal 01/09/2026,
-      103 righe escluse e "da creare" da 167 → 64; "Solo da controllare" → 64 righe.
+      controllare"), ma restano creabili su richiesta. Default **attivo quando il conto ha già
+      movimenti** (spento su un conto nuovo, dove il file serve a costruire lo storico); una
+      scelta manuale vince. Verificato nel browser: conto nuovo → 167 "da creare" e nessuna
+      esclusione; con storico dal 01/09/2026 → esclusione attiva, 103 righe "prima dello
+      storico" e "da creare" da 167 → 64; deselezione manuale mantenuta.
 
 ### Inserimento spese più rapido: autofocus importo + dettagli opzionali collassati — implementata il 04/10/2026
 

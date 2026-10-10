@@ -140,6 +140,8 @@ export default function ReconcileStatementPage() {
   const [realignOpen, setRealignOpen] = useState(false);
   const [balanceRefresh, setBalanceRefresh] = useState(0);
   const [excludeBeforeHistory, setExcludeBeforeHistory] = useState(false);
+  /** True once the user toggles the boundary: their choice wins over the default. */
+  const [historyTouched, setHistoryTouched] = useState(false);
   /** '' = use the suggested boundary (first tracked movement / account creation). */
   const [fromDateInput, setFromDateInput] = useState('');
   const [balances, setBalances] = useState<{
@@ -184,9 +186,10 @@ export default function ReconcileStatementPage() {
     );
   }, [account, movements]);
 
-  // The override is dropped when the user switches account.
+  // The override and the explicit preference are dropped when the account changes.
   useEffect(() => {
     setFromDateInput('');
+    setHistoryTouched(false);
   }, [accountId]);
 
   const fromDateValue =
@@ -293,6 +296,13 @@ export default function ReconcileStatementPage() {
     () => (account ? movements.some((movement) => movement.accountId === account.id) : false),
     [account, movements]
   );
+
+  // Default of the history boundary: on when the account already has movements
+  // (there is a tracked history to protect), off for a fresh account (the file
+  // is probably being used to build the history). A user choice always wins.
+  useEffect(() => {
+    if (!historyTouched) setExcludeBeforeHistory(hasAccountMovements);
+  }, [hasAccountMovements, historyTouched]);
 
   const categoryName = (id: string): string =>
     expenseTypes.find((type) => type.id === id)?.name ?? 'Spesa';
@@ -814,7 +824,10 @@ export default function ReconcileStatementPage() {
               <input
                 type="checkbox"
                 checked={excludeBeforeHistory}
-                onChange={(event) => setExcludeBeforeHistory(event.target.checked)}
+                onChange={(event) => {
+                  setHistoryTouched(true);
+                  setExcludeBeforeHistory(event.target.checked);
+                }}
               />
               Escludi le righe precedenti allo storico
             </label>

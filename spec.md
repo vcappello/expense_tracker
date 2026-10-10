@@ -846,8 +846,10 @@ review view offers **"Escludi le righe precedenti allo storico"** with a date su
 automatically — the **first movement recorded on the account**, or the **account creation
 date** when the account has no movements — and editable by the user. Rows before that date are
 reported as `before-history` (the excluded counter), take no part in the matching and are left
-out of the "Solo da controllare" shortcut, so the pending work stays focused. The check is off
-by default: nothing is hidden unless the user asks for it.
+out of the "Solo da controllare" shortcut, so the pending work stays focused. The check is
+**on by default when the account already has movements** (there is a tracked history to
+protect) and off for a fresh account, where the file is likely being used to build the
+history; a manual toggle always wins until the account is changed.
 
 The reverse direction reports the movements of the reconciled account inside the period that
 have no bank row (`appOnly`): duplicates, missing amounts, wrong account or movements that do

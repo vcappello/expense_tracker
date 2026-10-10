@@ -416,8 +416,10 @@
     righe con data confronto < `fromDate`: non entrano nel matching (non consumano movimenti),
     hanno un contatore dedicato ed è **escluso** da `ACTIONABLE_STATUSES` (scorciatoia "Solo da
     controllare"), altrimenti resterebbe il rumore delle righe mai tracciate. Data suggerita =
-    primo movimento sul conto, altrimenti `account.createdAt`; default **non attivo** per non
-    nascondere righe senza scelta esplicita. La classificazione usa la **data valuta**
+    primo movimento sul conto, altrimenti `account.createdAt`. Default **attivo quando il conto
+    ha già movimenti** (c'è uno storico da proteggere), spento su un conto nuovo (il file serve
+    a costruire lo storico); una scelta manuale vince finché non si cambia conto
+    (`historyTouched`, azzerato al cambio conto);. La classificazione usa la **data valuta**
     (fallback contabile), coerente col matching;
   - **saldi e riallineamento**: la pagina mostra il saldo app al giorno prima della prima
     contabile e all'ultima contabile (`getAccountBalanceAtDate`) accanto ai saldi banca; il
