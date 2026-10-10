@@ -549,3 +549,116 @@
   border-left-color: #475569;
   opacity: 0.75;
 }
+
+/* Wizard: stepper */
+.recon-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 16px 0;
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.recon-step {
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(148, 163, 184, 0.08);
+  color: #94a3b8;
+}
+
+.recon-step.active {
+  background: rgba(56, 189, 248, 0.16);
+  border-color: rgba(56, 189, 248, 0.55);
+  color: #7dd3fc;
+  font-weight: 600;
+}
+
+.recon-step:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Summary: balance verdict */
+.recon-verdict {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+.recon-verdict.ok {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+}
+
+.recon-verdict.warn {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+}
+
+.recon-verdict-icon {
+  font-size: 1.2rem;
+  line-height: 1.2;
+}
+
+.recon-verdict-title {
+  font-weight: 700;
+  color: #e5eefb;
+}
+
+.recon-verdict.ok .recon-verdict-title {
+  color: #6ee7b7;
+}
+
+.recon-verdict.warn .recon-verdict-title {
+  color: #fcd34d;
+}
+
+.recon-verdict-detail {
+  margin-top: 2px;
+  font-size: 0.85rem;
+  color: #cbd5e1;
+}
+
+/* Summary table */
+.recon-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.recon-table th {
+  text-align: left;
+  color: #94a3b8;
+  font-weight: 500;
+  font-size: 0.75rem;
+  padding: 4px 6px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.recon-table td {
+  padding: 6px;
+  color: #e5eefb;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  vertical-align: top;
+}
+
+.recon-table th.num,
+.recon-table td.num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.recon-table-total td {
+  font-weight: 700;
+  border-top: 1px solid rgba(148, 163, 184, 0.35);
+  border-bottom: none;
+}

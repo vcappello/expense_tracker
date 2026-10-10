@@ -838,6 +838,16 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
       scelta manuale vince. Verificato nel browser: conto nuovo → 167 "da creare" e nessuna
       esclusione; con storico dal 01/09/2026 → esclusione attiva, 103 righe "prima dello
       storico" e "da creare" da 167 → 64; deselezione manuale mantenuta.
+- [x] **UX della view riorganizzata in 3 passi** (richiesta utente: la view era "troppo
+      confusionaria"): **1 · File e conto** (parametri), **2 · Riepilogo** (confronto saldi
+      banca/app con messaggio di successo o di warning, + tabella per stato con righe,
+      importo e **Δ saldo**, + "Avanti: dettaglio incongruenze (N)" e "Riallinea solo il
+      saldo") e **3 · Dettaglio** (solo le incongruenze di default, azioni per riga, conferma
+      nella title bar). Stepper tappabile; il Back torna al passo precedente; dopo
+      l'applicazione si torna al riepilogo con i numeri aggiornati (e il riallineamento chiude
+      il cerchio). Verificato nel browser: passi e abilitazioni, verdict ⚠ 294,39€ →
+      applicazione di una correzione → ritorno al riepilogo (Δ 289,39€, "importo diverso"
+      sparito) → riallineamento → "✅ I saldi coincidono"; nessun overflow a 390px.
 
 ### Inserimento spese più rapido: autofocus importo + dettagli opzionali collassati — implementata il 04/10/2026
 

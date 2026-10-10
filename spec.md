@@ -869,29 +869,31 @@ transfer (withdrawal, prepaid-card top-up, outgoing transfer). The user can also
 ### Review view
 
 The feature is reached from the Main view "Azioni" menu as **"🏦 Riconcilia estratto conto"**
-(route `/reconcile`). The view is mobile-first and divided in steps:
+(route `/reconcile`) and is organised as a **3-step wizard** (a stepper at the top shows the
+current step and lets the user jump back):
 
-1. **File and account**: the account to reconcile (default: the first preferred normal
-   account, the same rule as the forms), the CSV file picker and two options (amount
-   tolerance, date tolerance). The date tolerance is the **maximum distance between the value
-   date of a row and the date of an app movement for them to be paired**: it does not limit
-   the period, the **whole statement is always reconciled**, and the view states it explicitly.
-   The selected file name is shown; the balance anchors are read from it.
-2. **Statement**: number of movements, opening/closing balance, sum of the movements and the
-   check against `closing − opening`.
-3. **Congruences**: a counter per state and, for every bank row, the value date (and the
-   accounting date when different), the merchant, the amount and the matched app movement
-   with the reason of the mismatch. The counters are **clickable filters**: tapping one shows
-   only the rows in that state (several selections combine, an empty selection shows
-   everything, and the app-only section follows its own counter). A **"🔧 Solo da controllare"**
-   shortcut keeps only the rows that are not plain congruences — duplicates, wrong date or
-   amount, wrong account, movements to create — which is what matters after processing the
-   file. A final section lists the account movements that no bank row covers (duplicates and
-   movements missing from the statement).
+1. **File e conto** (parameters): the account to reconcile (default: the first preferred normal
+   account, the same rule as the forms), the CSV file picker, the two tolerances (amount and
+   **date** — the date tolerance is the maximum distance between the value date of a row and
+   the date of an app movement for them to be paired; it does not limit the period, the whole
+   statement is always reconciled) and the **tracked-history boundary** (see below). Choosing a
+   valid file moves to the next step.
+2. **Riepilogo**: first the **balance comparison** — the bank's closing balance against the
+   balance the app calculates at the last accounting date — with a clear **success** message
+   when they match and a **warning** with the difference when they do not; then a **table per
+   state** with the number of rows, the statement amount and the **balance effect** (`Δ saldo`)
+   of applying the proposed actions, closed by a total row and the "not in the statement"
+   figure. At the bottom: **"Avanti: dettaglio incongruenze (N)"** (primary) and
+   **"Riallinea solo il saldo (Δ)"** (only when a difference exists). The realignment is the
+   last step, so a note reminds that fixing movements afterwards makes the difference reappear.
+3. **Dettaglio**: only the rows that are not plain congruences by default (the filter chips
+   still allow any combination, including the congruences). Here the per-row actions are taken
+   and applied from the title bar; after applying, the app returns to the summary with the
+   updated numbers.
 
-Invalid files show an `AlertModal`. Positions in the list are rendered as cards (not a
-table), with the amount always visible on small screens. File parsing and matching are
-performed locally: the statement content is never sent anywhere.
+The title bar Back button moves one step back (from the first step it leaves the view). Invalid
+files show an `AlertModal`. File parsing and matching are performed locally: the statement
+content is never sent anywhere.
 
 ### Applying the changes
 

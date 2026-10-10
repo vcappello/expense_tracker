@@ -64,6 +64,21 @@ const ACTIONABLE_STATUSES: ReconcileStatus[] = (
 /** Values of the result filter: the row states plus the app-only section. */
 type FilterValue = ReconcileStatus | 'appOnly';
 
+/** Steps of the reconciliation wizard. */
+type Step = 'setup' | 'summary' | 'detail';
+
+const STEPS: { value: Step; label: string }[] = [
+  { value: 'setup', label: '1 · File e conto' },
+  { value: 'summary', label: '2 · Riepilogo' },
+  { value: 'detail', label: '3 · Dettaglio' },
+];
+
+/**
+ * Default filter of the detail step: everything that is not a plain congruence
+ * (the step exists to work on what needs attention).
+ */
+const DEFAULT_FILTER: FilterValue[] = [...ACTIONABLE_STATUSES, 'appOnly'];
+
 /** Inline configuration of a movement created from an unmatched bank row. */
 interface CreateConfig {
   kind: 'expense' | 'cashflow' | 'routing';
@@ -132,7 +147,9 @@ export default function ReconcileStatementPage() {
   const [decisions, setDecisions] = useState<Record<number, RowDecision>>({});
   const [appOnlyDeletes, setAppOnlyDeletes] = useState<Record<string, boolean>>({});
   /** Result filter (empty = show everything, the project's convention). */
-  const [statusFilter, setStatusFilter] = useState<FilterValue[]>([]);
+  const [statusFilter, setStatusFilter] = useState<FilterValue[]>([...DEFAULT_FILTER]);
+  /** Current wizard step (the parsed file lives in memory across the steps). */
+  const [step, setStep] = useState<Step>('setup');
   const [expandedCreate, setExpandedCreate] = useState<number | null>(null);
   const [createDraft, setCreateDraft] = useState<CreateConfig | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -235,7 +252,9 @@ export default function ReconcileStatementPage() {
     ? displayRows.filter((entry) => statusFilter.includes(entry.status))
     : displayRows;
   const focusMode =
-    isFiltered && ACTIONABLE_STATUSES.every((status) => statusFilter.includes(status));
+    isFiltered &&
+    statusFilter.length === DEFAULT_FILTER.length &&
+    DEFAULT_FILTER.every((value) => statusFilter.includes(value));
   const toggleFilter = (value: FilterValue): void =>
     setStatusFilter((previous) =>
       previous.includes(value)
@@ -243,7 +262,7 @@ export default function ReconcileStatementPage() {
         : [...previous, value]
     );
   const toggleFocusMode = (): void =>
-    setStatusFilter(focusMode ? [] : [...ACTIONABLE_STATUSES]);
+    setStatusFilter(focusMode ? [] : [...DEFAULT_FILTER]);
 
   /** First and last accounting date of the statement (its period). */
   const statementRange = useMemo(() => {
@@ -292,6 +311,7 @@ export default function ReconcileStatementPage() {
       ? Math.round((statement.closingBalance.amount - balances.afterClosing) * 100) / 100
       : null;
 
+
   const hasAccountMovements = useMemo(
     () => (account ? movements.some((movement) => movement.accountId === account.id) : false),
     [account, movements]
@@ -332,7 +352,8 @@ export default function ReconcileStatementPage() {
       setDecisions({});
       setAppOnlyDeletes({});
       setExpandedCreate(null);
-      setStatusFilter([]);
+      setStatusFilter([...DEFAULT_FILTER]);
+      setStep('summary');
     } catch (err) {
       setStatement(null);
       setWarnings([]);
@@ -450,6 +471,8 @@ export default function ReconcileStatementPage() {
       setAppOnlyDeletes({});
       setExpandedCreate(null);
       setBalanceRefresh((value) => value + 1);
+      // Back to the summary with the updated numbers (the realign closes the loop).
+      setStep('summary');
       setToast(`${applied} modifiche applicate`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Applicazione non riuscita.');
@@ -717,12 +740,61 @@ export default function ReconcileStatementPage() {
     return null;
   };
 
+  /** Effect on the reconciled account balance of applying the proposed action. */
+  const rowApplyEffect = (entry: ReconcileRow): number => {
+    const { best, status, row } = entry;
+    switch (status) {
+      case 'amount-mismatch':
+        return best
+          ? Math.round((row.amount - movementSigned(best.movement)) * 100) / 100
+          : 0;
+      case 'wrong-account':
+        return best ? Math.round(movementSigned(best.movement) * 100) / 100 : 0;
+      case 'unmatched':
+        return row.amount;
+      default:
+        return 0;
+    }
+  };
+
+  const round2 = (value: number): number => Math.round(value * 100) / 100;
+
+  /** One table row per state: how many rows, how much they weigh, what they move. */
+  const summaryRows = (Object.keys(STATUS_LABELS) as ReconcileStatus[])
+    .map((status) => {
+      const entries = (report?.rows ?? []).filter((entry) => entry.status === status);
+      return {
+        status,
+        count: entries.length,
+        amount: round2(entries.reduce((sum, entry) => sum + entry.row.amount, 0)),
+        effect: round2(entries.reduce((sum, entry) => sum + rowApplyEffect(entry), 0)),
+      };
+    })
+    .filter((entry) => entry.count > 0);
+
+  /** Rows that need attention (a plain congruence or a historical row does not). */
+  const pendingRows = report
+    ? report.rows.length - report.summary.matched - report.summary.beforeHistory
+    : 0;
+
+  const appOnlyAmount = round2(
+    (report?.appOnly ?? []).reduce(
+      (sum, finding) => sum + movementSigned(finding.movement),
+      0
+    )
+  );
+
   return (
     <div className="recon-page">
       <TitleBar
         title="🏦 Riconciliazione"
+        onBack={
+          step === 'setup'
+            ? undefined
+            : () => setStep(step === 'detail' ? 'summary' : 'setup')
+        }
         actions={
-          pendingCount > 0
+          step === 'detail' && pendingCount > 0
             ? [
                 {
                   content: <>✓ Applica {pendingCount}</>,
@@ -736,254 +808,225 @@ export default function ReconcileStatementPage() {
         }
       />
 
+      <div className="recon-steps">
+        {STEPS.map((entry, index) => (
+          <button
+            key={entry.value}
+            type="button"
+            className={`recon-step ${step === entry.value ? 'active' : ''}`}
+            disabled={
+              index === 1 ? statement === null : index === 2 ? !(report && account) : false
+            }
+            onClick={() => setStep(entry.value)}
+          >
+            {entry.label}
+          </button>
+        ))}
+      </div>
+
       <div className="recon-content">
-        <section className="recon-card">
-          <h2 className="recon-card-title">1 · File e conto</h2>
-          <div className="recon-field">
-            <label htmlFor="recon-account">Conto da riconciliare</label>
-            <select
-              id="recon-account"
-              value={accountId}
-              onChange={(event) => setAccountId(event.target.value)}
-            >
-              {orderedAccounts.map((candidate) => (
-                <option key={candidate.id} value={candidate.id}>
-                  {candidate.isPreferred ? '★ ' : ''}
-                  {candidate.name}
-                  {candidate.isCoinAccount ? ' (stash)' : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="recon-field">
-            <span className="recon-label">Estratto conto (CSV)</span>
-            <div className="recon-file-row">
-              <button
-                type="button"
-                className="recon-file-button"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                📄 Scegli file
-              </button>
-              <span className="recon-file-name">
-                {fileName ?? 'Nessun file selezionato'}
-              </span>
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv,text/csv"
-              className="sr-only"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) handleFile(file);
-                event.target.value = '';
-              }}
-            />
-          </div>
-
-          <div className="recon-options">
-            <div className="recon-field">
-              <label htmlFor="recon-tolerance">Tolleranza importo</label>
-              <select
-                id="recon-tolerance"
-                value={amountTolerance}
-                onChange={(event) => setAmountTolerance(Number(event.target.value))}
-              >
-                {AMOUNT_TOLERANCES.map((value) => (
-                  <option key={value} value={value}>
-                    ± {formatAmount(value)}€
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="recon-field">
-              <label htmlFor="recon-window">Tolleranza date</label>
-              <select
-                id="recon-window"
-                value={linkWindowDays}
-                onChange={(event) => setLinkWindowDays(Number(event.target.value))}
-              >
-                {LINK_WINDOWS.map((value) => (
-                  <option key={value} value={value}>
-                    {value} giorni
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <p className="recon-note">
-            La tolleranza date vale solo per l'accoppiamento riga ↔ movimento (data valuta):
-            <b> l'intero estratto viene sempre riconciliato</b>, qualunque sia il valore scelto.
-          </p>
-
-          <div className="recon-history">
-            <label className="recon-create-check">
-              <input
-                type="checkbox"
-                checked={excludeBeforeHistory}
-                onChange={(event) => {
-                  setHistoryTouched(true);
-                  setExcludeBeforeHistory(event.target.checked);
-                }}
-              />
-              Escludi le righe precedenti allo storico
-            </label>
-            <input
-              type="date"
-              value={fromDateValue}
-              disabled={!excludeBeforeHistory}
-              aria-label="Data di inizio dello storico"
-              onChange={(event) => setFromDateInput(event.target.value)}
-            />
-            {suggestedFromDate && (
-              <span className="recon-hint">
-                Suggerito {formatDate(suggestedFromDate)} —{' '}
-                {hasAccountMovements ? 'primo movimento sul conto' : 'creazione del conto'}: le
-                righe precedenti non hanno un corrispondente.
-              </span>
-            )}
-          </div>
-        </section>
-
-        {warnings.length > 0 && (
-          <section className="recon-card recon-warnings">
-            <h2 className="recon-card-title">Avvisi sul file</h2>
-            <ul>
-              {warnings.slice(0, 20).map((warning) => (
-                <li key={warning}>{warning}</li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {statement && (
-          <section className="recon-card">
-            <h2 className="recon-card-title">2 · Estratto</h2>
-            <dl className="recon-summary">
-              <div>
-                <dt>Movimenti</dt>
-                <dd>{statement.movements.length}</dd>
-              </div>
-              <div>
-                <dt>Saldo iniziale</dt>
-                <dd>
-                  {statement.openingBalance
-                    ? formatCurrency(statement.openingBalance.amount)
-                    : '—'}
-                </dd>
-              </div>
-              <div>
-                <dt>Saldo finale</dt>
-                <dd>
-                  {statement.closingBalance
-                    ? formatCurrency(statement.closingBalance.amount)
-                    : '—'}
-                </dd>
-              </div>
-              <div>
-                <dt>Σ movimenti</dt>
-                <dd>{formatCurrency(statement.net)}</dd>
-              </div>
-            </dl>
-            {balanceCheck !== null && (
-              <p className={`recon-check ${balanceCheck ? 'ok' : 'warn'}`}>
-                {balanceCheck
-                  ? '✓ il totale dei movimenti coincide con saldo finale − saldo iniziale.'
-                  : '⚠ il totale dei movimenti NON coincide con saldo finale − saldo iniziale.'}
-              </p>
-            )}
-          </section>
-        )}
-
-        {!movementsLoaded ? (
-          <div className="recon-loading">Caricamento movimenti...</div>
-        ) : report && account ? (
+        {step === 'setup' && (
           <>
             <section className="recon-card">
-              <h2 className="recon-card-title">3 · Congruenze</h2>
-              <div className={`recon-counters ${isFiltered ? 'filtering' : ''}`}>
-                {(Object.keys(STATUS_LABELS) as ReconcileStatus[]).map((status) => (
-                  <button
-                    key={status}
-                    type="button"
-                    className={`recon-counter recon-${STATUS_TONE[status]} ${
-                      statusFilter.includes(status) ? 'active' : ''
-                    }`}
-                    onClick={() => toggleFilter(status)}
-                    aria-pressed={statusFilter.includes(status)}
-                  >
-                    {STATUS_LABELS[status]}:{' '}
-                    <b>{report.summary[statusToSummaryKey(status)]}</b>
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  className={`recon-counter recon-info ${
-                    statusFilter.includes('appOnly') ? 'active' : ''
-                  }`}
-                  onClick={() => toggleFilter('appOnly')}
-                  aria-pressed={statusFilter.includes('appOnly')}
+              <h2 className="recon-card-title">File e conto</h2>
+              <div className="recon-field">
+                <label htmlFor="recon-account">Conto da riconciliare</label>
+                <select
+                  id="recon-account"
+                  value={accountId}
+                  onChange={(event) => setAccountId(event.target.value)}
                 >
-                  non nell'estratto: <b>{report.summary.appOnly}</b>
-                </button>
+                  {orderedAccounts.map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.isPreferred ? '★ ' : ''}
+                      {candidate.name}
+                      {candidate.isCoinAccount ? ' (stash)' : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              <div className="recon-filters">
-                <button
-                  type="button"
-                  className={`recon-focus ${focusMode ? 'active' : ''}`}
-                  onClick={toggleFocusMode}
-                  aria-pressed={focusMode}
-                >
-                  🔧 Solo da controllare
-                </button>
-                {isFiltered && (
+              <div className="recon-field">
+                <span className="recon-label">Estratto conto (CSV)</span>
+                <div className="recon-file-row">
                   <button
                     type="button"
-                    className="recon-clear"
-                    onClick={() => setStatusFilter([])}
+                    className="recon-file-button"
+                    onClick={() => fileInputRef.current?.click()}
                   >
-                    Mostra tutte le {displayRows.length} righe
+                    📄 Scegli file
                   </button>
-                )}
-              </div>
-              {isFiltered && (
-                <p className="recon-filter-info">
-                  Mostro {visibleRows.length} di {displayRows.length} righe.
-                </p>
-              )}
-              {statementRange && (
-                <p className="recon-scope">
-                  Ambito: <b>tutto l'estratto</b> ({statement?.movements.length ?? 0}{' '}
-                  movimenti, contabile dal {formatDate(statementRange.first)} al{' '}
-                  {formatDate(statementRange.last)}), confrontato con i movimenti del conto.
-                </p>
-              )}
-              <p className="recon-balance-line">
-                Netto app sul conto <b>{formatCurrency(report.balances.appNet)}</b> · netto
-                estratto <b>{formatCurrency(report.balances.statementNet)}</b>
-                {Math.abs(report.balances.appNet - report.balances.statementNet) >
-                  0.01 && (
-                  <span className="recon-delta">
-                    {' '}
-                    (differenza{' '}
-                    {formatCurrency(
-                      report.balances.appNet - report.balances.statementNet
-                    )}
-                    )
+                  <span className="recon-file-name">
+                    {fileName ?? 'Nessun file selezionato'}
                   </span>
-                )}
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="sr-only"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) handleFile(file);
+                    event.target.value = '';
+                  }}
+                />
+              </div>
+
+              <div className="recon-options">
+                <div className="recon-field">
+                  <label htmlFor="recon-tolerance">Tolleranza importo</label>
+                  <select
+                    id="recon-tolerance"
+                    value={amountTolerance}
+                    onChange={(event) => setAmountTolerance(Number(event.target.value))}
+                  >
+                    {AMOUNT_TOLERANCES.map((value) => (
+                      <option key={value} value={value}>
+                        ± {formatAmount(value)}€
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="recon-field">
+                  <label htmlFor="recon-window">Tolleranza date</label>
+                  <select
+                    id="recon-window"
+                    value={linkWindowDays}
+                    onChange={(event) => setLinkWindowDays(Number(event.target.value))}
+                  >
+                    {LINK_WINDOWS.map((value) => (
+                      <option key={value} value={value}>
+                        {value} giorni
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <p className="recon-note">
+                La tolleranza date vale solo per l'accoppiamento riga ↔ movimento (data
+                valuta):<b> l'intero estratto viene sempre riconciliato</b>, qualunque sia il
+                valore scelto.
               </p>
 
-              {(balances.beforeOpening !== null || balances.afterClosing !== null) && (
-                <div className="recon-balances">
+              <div className="recon-history">
+                <label className="recon-create-check">
+                  <input
+                    type="checkbox"
+                    checked={excludeBeforeHistory}
+                    onChange={(event) => {
+                      setHistoryTouched(true);
+                      setExcludeBeforeHistory(event.target.checked);
+                    }}
+                  />
+                  Escludi le righe precedenti allo storico
+                </label>
+                <input
+                  type="date"
+                  value={fromDateValue}
+                  disabled={!excludeBeforeHistory}
+                  aria-label="Data di inizio dello storico"
+                  onChange={(event) => setFromDateInput(event.target.value)}
+                />
+                {suggestedFromDate && (
+                  <span className="recon-hint">
+                    Suggerito {formatDate(suggestedFromDate)} —{' '}
+                    {hasAccountMovements ? 'primo movimento sul conto' : 'creazione del conto'}:
+                    le righe precedenti non hanno un corrispondente.
+                  </span>
+                )}
+              </div>
+
+              <div className="recon-actions">
+                <button
+                  type="button"
+                  className="recon-action primary"
+                  disabled={!statement}
+                  onClick={() => setStep('summary')}
+                >
+                  {statement ? 'Vai al riepilogo →' : 'Scegli un file per iniziare'}
+                </button>
+              </div>
+            </section>
+
+            {warnings.length > 0 && (
+              <section className="recon-card recon-warnings">
+                <h2 className="recon-card-title">Avvisi sul file</h2>
+                <ul>
+                  {warnings.slice(0, 20).map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          </>
+        )}
+
+        {step === 'summary' &&
+          (!movementsLoaded ? (
+            <div className="recon-loading">Caricamento movimenti...</div>
+          ) : report && account && statement ? (
+            <>
+              <section className="recon-card">
+                <h2 className="recon-card-title">Confronto saldi</h2>
+                {closingDelta === null || balances.afterClosing === null ? (
+                  <p className="recon-check warn">
+                    Saldo del conto non disponibile: impossibile confrontarlo con l'estratto.
+                  </p>
+                ) : Math.abs(closingDelta) <= 0.01 ? (
+                  <div className="recon-verdict ok">
+                    <span className="recon-verdict-icon" aria-hidden="true">
+                      ✅
+                    </span>
+                    <div>
+                      <div className="recon-verdict-title">I saldi coincidono</div>
+                      <div className="recon-verdict-detail">
+                        Banca{' '}
+                        <b>
+                          {statement.closingBalance
+                            ? formatCurrency(statement.closingBalance.amount)
+                            : '—'}
+                        </b>{' '}
+                        · app <b>{formatCurrency(balances.afterClosing)}</b>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="recon-verdict warn">
+                    <span className="recon-verdict-icon" aria-hidden="true">
+                      ⚠️
+                    </span>
+                    <div>
+                      <div className="recon-verdict-title">
+                        Differenza di {formatCurrency(closingDelta)}
+                      </div>
+                      <div className="recon-verdict-detail">
+                        Saldo banca (fine estratto){' '}
+                        <b>
+                          {statement.closingBalance
+                            ? formatCurrency(statement.closingBalance.amount)
+                            : '—'}
+                        </b>{' '}
+                        · saldo app <b>{formatCurrency(balances.afterClosing)}</b>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <dl className="recon-summary">
                   <div>
-                    <span className="recon-balance-label">Saldo iniziale banca</span>
-                    <span>
-                      {statement?.openingBalance
+                    <dt>Movimenti nell'estratto</dt>
+                    <dd>{statement.movements.length}</dd>
+                  </div>
+                  <div>
+                    <dt>Σ movimenti</dt>
+                    <dd>{formatCurrency(statement.net)}</dd>
+                  </div>
+                  <div>
+                    <dt>Saldo iniziale banca</dt>
+                    <dd>
+                      {statement.openingBalance
                         ? formatCurrency(statement.openingBalance.amount)
                         : '—'}
                       {balances.beforeOpening !== null && (
@@ -992,12 +1035,12 @@ export default function ReconcileStatementPage() {
                           · app {formatCurrency(balances.beforeOpening)}
                         </span>
                       )}
-                    </span>
+                    </dd>
                   </div>
                   <div>
-                    <span className="recon-balance-label">Saldo finale banca</span>
-                    <span>
-                      {statement?.closingBalance
+                    <dt>Saldo finale banca</dt>
+                    <dd>
+                      {statement.closingBalance
                         ? formatCurrency(statement.closingBalance.amount)
                         : '—'}
                       {balances.afterClosing !== null && (
@@ -1006,129 +1049,261 @@ export default function ReconcileStatementPage() {
                           · app {formatCurrency(balances.afterClosing)}
                         </span>
                       )}
-                    </span>
+                    </dd>
                   </div>
-                </div>
-              )}
+                </dl>
 
-              {closingDelta !== null && Math.abs(closingDelta) > 0.01 && (
+                {balanceCheck !== null && !balanceCheck && (
+                  <p className="recon-check warn">
+                    ⚠ il totale dei movimenti NON coincide con saldo finale − saldo iniziale.
+                  </p>
+                )}
+                {statementRange && (
+                  <p className="recon-scope">
+                    Ambito: <b>tutto l'estratto</b> (contabile dal{' '}
+                    {formatDate(statementRange.first)} al {formatDate(statementRange.last)}
+                    ), confrontato con i movimenti del conto.
+                  </p>
+                )}
+                <p className="recon-note">
+                  Il confronto con il saldo iniziale è indicativo: l'app data i movimenti con
+                  la data valuta, la banca con quella contabile.
+                </p>
+              </section>
+
+              <section className="recon-card">
+                <h2 className="recon-card-title">Riepilogo per stato</h2>
+                <table className="recon-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Stato</th>
+                      <th scope="col">Righe</th>
+                      <th scope="col">Importo</th>
+                      <th scope="col">Δ saldo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {summaryRows.map((entry) => (
+                      <tr key={entry.status}>
+                        <td>{STATUS_LABELS[entry.status]}</td>
+                        <td className="num">{entry.count}</td>
+                        <td className="num">{formatCurrency(entry.amount)}</td>
+                        <td className="num">
+                          {entry.effect ? formatCurrency(entry.effect) : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr>
+                      <td>💰 non nell'estratto</td>
+                      <td className="num">{report.appOnly.length}</td>
+                      <td className="num">{formatCurrency(appOnlyAmount)}</td>
+                      <td className="num">—</td>
+                    </tr>
+                    <tr className="recon-table-total">
+                      <td>Totale estratto</td>
+                      <td className="num">{statement.movements.length}</td>
+                      <td className="num">{formatCurrency(statement.net)}</td>
+                      <td className="num">—</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p className="recon-note">
+                  Importo = somma dei movimenti dell'estratto in quello stato. Δ saldo =
+                  effetto sul saldo del conto applicando le azioni proposte (le righe "prima
+                  dello storico" non sono proposte).
+                </p>
+              </section>
+
+              <section className="recon-card">
                 <div className="recon-actions">
                   <button
                     type="button"
                     className="recon-action primary"
-                    disabled={applying}
-                    onClick={() => setRealignOpen(true)}
+                    disabled={pendingRows === 0}
+                    onClick={() => setStep('detail')}
                   >
-                    Riallinea il saldo ({formatCurrency(closingDelta)})
+                    Avanti: dettaglio incongruenze ({pendingRows}) →
+                  </button>
+                  {closingDelta !== null && Math.abs(closingDelta) > 0.01 && (
+                    <button
+                      type="button"
+                      className="recon-action"
+                      disabled={applying}
+                      onClick={() => setRealignOpen(true)}
+                    >
+                      Riallinea solo il saldo ({formatCurrency(closingDelta)})
+                    </button>
+                  )}
+                </div>
+                <p className="recon-note">
+                  Il riallineamento chiude la differenza sul saldo corrente: è l'ultimo passo,
+                  da fare dopo aver sistemato i movimenti (altrimenti la differenza ricompare).
+                </p>
+              </section>
+            </>
+          ) : (
+            <div className="recon-empty">
+              <p>Scegli il file dell'estratto conto per vedere il riepilogo.</p>
+            </div>
+          ))}
+
+        {step === 'detail' &&
+          (!movementsLoaded ? (
+            <div className="recon-loading">Caricamento movimenti...</div>
+          ) : report && account ? (
+            <>
+              <section className="recon-card">
+                <h2 className="recon-card-title">Incongruenze</h2>
+                <div className={`recon-counters ${isFiltered ? 'filtering' : ''}`}>
+                  {(Object.keys(STATUS_LABELS) as ReconcileStatus[]).map((status) => (
+                    <button
+                      key={status}
+                      type="button"
+                      className={`recon-counter recon-${STATUS_TONE[status]} ${
+                        statusFilter.includes(status) ? 'active' : ''
+                      }`}
+                      onClick={() => toggleFilter(status)}
+                      aria-pressed={statusFilter.includes(status)}
+                    >
+                      {STATUS_LABELS[status]}:{' '}
+                      <b>{report.summary[statusToSummaryKey(status)]}</b>
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    className={`recon-counter recon-info ${
+                      statusFilter.includes('appOnly') ? 'active' : ''
+                    }`}
+                    onClick={() => toggleFilter('appOnly')}
+                    aria-pressed={statusFilter.includes('appOnly')}
+                  >
+                    non nell'estratto: <b>{report.summary.appOnly}</b>
                   </button>
                 </div>
-              )}
 
-              <p className="recon-note">
-                Confronto indicativo: l'app data i movimenti con la data valuta, la banca con
-                quella contabile.
-              </p>
-            </section>
-
-            {visibleRows.length === 0 ? (
-              <p className="recon-empty">
-                Nessuna riga con i filtri selezionati.
-              </p>
-            ) : (
-              <ul className="recon-list">
-                {visibleRows.map((entry) => (
-                <li
-                  key={entry.row.line}
-                  className={`recon-item recon-${STATUS_TONE[entry.status]}`}
-                >
-                  <div className="recon-item-main">
-                    <div className="recon-item-title">
-                      {entry.row.causale || 'Movimento'}
-                      {entry.row.merchant ? ` · ${entry.row.merchant}` : ''}
-                    </div>
-                    <div className="recon-item-dates">
-                      valuta {formatDate(rowComparisonDate(entry.row))}
-                      {entry.row.valueDate && (
-                        <span> · contabile {formatDate(entry.row.accountingDate)}</span>
-                      )}
-                      {entry.row.currency && entry.row.currency !== 'EUR' && (
-                        <span className="recon-currency">
-                          {' '}
-                          {entry.row.currency}{' '}
-                          {formatAmount(entry.row.foreignAmount ?? 0)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="recon-item-match">{renderMatch(entry)}</div>
-                    {renderActions(entry)}
-                  </div>
-                  <div
-                    className={`recon-amount ${entry.row.amount < 0 ? 'out' : 'in'}`}
+                <div className="recon-filters">
+                  <button
+                    type="button"
+                    className={`recon-focus ${focusMode ? 'active' : ''}`}
+                    onClick={toggleFocusMode}
+                    aria-pressed={focusMode}
                   >
-                    {formatCurrency(entry.row.amount)}
-                  </div>
-                </li>
-              ))}
-              </ul>
-            )}
+                    🔧 Solo da controllare
+                  </button>
+                  {isFiltered && (
+                    <button
+                      type="button"
+                      className="recon-clear"
+                      onClick={() => setStatusFilter([])}
+                    >
+                      Mostra tutte le {displayRows.length} righe
+                    </button>
+                  )}
+                </div>
+                {isFiltered && (
+                  <p className="recon-filter-info">
+                    Mostro {visibleRows.length} di {displayRows.length} righe.
+                  </p>
+                )}
+              </section>
 
-            {report.appOnly.length > 0 &&
-              (!isFiltered || statusFilter.includes('appOnly')) && (
-              <section className="recon-card">
-                <h2 className="recon-card-title">
-                  Movimenti del conto non presenti nell'estratto
-                </h2>
-                <ul className="recon-apponly">
-                  {report.appOnly.map((finding) => (
-                    <li key={finding.movement.id}>
-                      <span className="recon-match">
-                        {describeMovement(finding.movement)} ·{' '}
-                        {movementDetail(finding.movement)}
-                      </span>
-                      <span className="recon-apponly-actions">
-                        <span
-                          className={`recon-badge ${
-                            finding.reason === 'duplicate' ? 'warn' : 'missing'
-                          }`}
-                        >
-                          {finding.reason === 'duplicate'
-                            ? 'possibile duplicato'
-                            : "non nell'estratto"}
-                        </span>
-                        {finding.movement.routingPairId ? (
-                          <span className="recon-badge missing">
-                            gestisci dalla modifica
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            className={`recon-action ${
-                              appOnlyDeletes[finding.movement.id] ? 'active' : ''
-                            }`}
-                            onClick={() =>
-                              setAppOnlyDeletes((previous) => ({
-                                ...previous,
-                                [finding.movement.id]: !previous[finding.movement.id],
-                              }))
-                            }
-                          >
-                            {appOnlyDeletes[finding.movement.id]
-                              ? '✓ sarà eliminato'
-                              : 'Elimina'}
-                          </button>
-                        )}
-                      </span>
+              {visibleRows.length === 0 ? (
+                <p className="recon-empty">Nessuna riga con i filtri selezionati.</p>
+              ) : (
+                <ul className="recon-list">
+                  {visibleRows.map((entry) => (
+                    <li
+                      key={entry.row.line}
+                      className={`recon-item recon-${STATUS_TONE[entry.status]}`}
+                    >
+                      <div className="recon-item-main">
+                        <div className="recon-item-title">
+                          {entry.row.causale || 'Movimento'}
+                          {entry.row.merchant ? ` · ${entry.row.merchant}` : ''}
+                        </div>
+                        <div className="recon-item-dates">
+                          valuta {formatDate(rowComparisonDate(entry.row))}
+                          {entry.row.valueDate && (
+                            <span> · contabile {formatDate(entry.row.accountingDate)}</span>
+                          )}
+                          {entry.row.currency && entry.row.currency !== 'EUR' && (
+                            <span className="recon-currency">
+                              {' '}
+                              {entry.row.currency}{' '}
+                              {formatAmount(entry.row.foreignAmount ?? 0)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="recon-item-match">{renderMatch(entry)}</div>
+                        {renderActions(entry)}
+                      </div>
+                      <div
+                        className={`recon-amount ${entry.row.amount < 0 ? 'out' : 'in'}`}
+                      >
+                        {formatCurrency(entry.row.amount)}
+                      </div>
                     </li>
                   ))}
                 </ul>
-              </section>
-            )}
-          </>
-        ) : (
-          <div className="recon-empty">
-            <p>Seleziona l'estratto conto della banca per vedere le congruenze.</p>
-          </div>
-        )}
+              )}
+
+              {report.appOnly.length > 0 &&
+                (!isFiltered || statusFilter.includes('appOnly')) && (
+                  <section className="recon-card">
+                    <h2 className="recon-card-title">
+                      Movimenti del conto non presenti nell'estratto
+                    </h2>
+                    <ul className="recon-apponly">
+                      {report.appOnly.map((finding) => (
+                        <li key={finding.movement.id}>
+                          <span className="recon-match">
+                            {describeMovement(finding.movement)} ·{' '}
+                            {movementDetail(finding.movement)}
+                          </span>
+                          <span className="recon-apponly-actions">
+                            <span
+                              className={`recon-badge ${
+                                finding.reason === 'duplicate' ? 'warn' : 'missing'
+                              }`}
+                            >
+                              {finding.reason === 'duplicate'
+                                ? 'possibile duplicato'
+                                : "non nell'estratto"}
+                            </span>
+                            {finding.movement.routingPairId ? (
+                              <span className="recon-badge missing">
+                                gestisci dalla modifica
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                className={`recon-action ${
+                                  appOnlyDeletes[finding.movement.id] ? 'active' : ''
+                                }`}
+                                onClick={() =>
+                                  setAppOnlyDeletes((previous) => ({
+                                    ...previous,
+                                    [finding.movement.id]: !previous[finding.movement.id],
+                                  }))
+                                }
+                              >
+                                {appOnlyDeletes[finding.movement.id]
+                                  ? '✓ sarà eliminato'
+                                  : 'Elimina'}
+                              </button>
+                            )}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+            </>
+          ) : (
+            <div className="recon-empty">
+              <p>Elabora prima un estratto conto.</p>
+            </div>
+          ))}
       </div>
 
       <ConfirmModal
@@ -1164,10 +1339,8 @@ export default function ReconcileStatementPage() {
           <>
             <p>
               Verrà creata una rettifica di saldo datata{' '}
-              <b>
-                {statementRange ? formatDate(statementRange.last) : '—'}
-              </b>{' '}
-              per portare il conto al saldo finale dell'estratto.
+              <b>{statementRange ? formatDate(statementRange.last) : '—'}</b> per portare il
+              conto al saldo finale dell'estratto.
             </p>
             <ul className="recon-confirm-list">
               <li>
@@ -1179,7 +1352,12 @@ export default function ReconcileStatementPage() {
                 </b>
               </li>
               <li>
-                Saldo app: <b>{balances.afterClosing !== null ? formatCurrency(balances.afterClosing) : '—'}</b>
+                Saldo app:{' '}
+                <b>
+                  {balances.afterClosing !== null
+                    ? formatCurrency(balances.afterClosing)
+                    : '—'}
+                </b>
               </li>
               <li>
                 Differenza: <b>{closingDelta !== null ? formatCurrency(closingDelta) : '—'}</b>

@@ -405,6 +405,16 @@
     `src/styles/ReconciliationPage.css` con classi **`recon-*`** (regola anti-collisione CSS
     globale). Carica i dati con `loadMovements({ dateRange: 'all' })`, `loadAccounts`,
     `loadExpenseTypes` (come Analytics); default conto = `getDefaultPrimaryAccount`;
+  - la pagina è un **wizard a 3 passi** (`setup` → `summary` → `detail`, stato `step`) su una
+    **sola route**: dal passo 3 si **torna al riepilogo automaticamente** dopo l'applicazione,
+    così il residuo e il riallineamento si vedono subito; il **Back della title bar torna al
+    passo precedente** (dal passo 1 esce: `onBack` undefined → `navigate(-1)`). Il passo 1 non
+    ha numerazione nel titolo delle card (la mostrano le chip del wizard); il passo dettaglio
+    parte con il filtro di default `DEFAULT_FILTER` (= stati non congruenti + non
+    nell'estratto). ⚠️ Nel componente i blocchi derivati che usano gli helper (`movementSigned`,
+    `summaryRows`, `appOnlyAmount`) devono stare **dopo** la loro definizione: metterli prima
+    provoca `Cannot access '...' before initialization` (temporal dead zone delle `const`) —
+    errore reale trovato in fase di test;
   - **applicazione su IndexedDB**: `db.applyReconciliationChanges` (put + delete su
     `expenses`+`cashflows` in **una sola transazione atomica**, tutto-o-niente) chiamata da
     `applyReconciliation` nel context (aggiorna i record correnti, crea/sposta/elimina e
