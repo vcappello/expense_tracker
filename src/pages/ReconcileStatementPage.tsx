@@ -50,6 +50,18 @@ const STATUS_TONE: Record<ReconcileStatus, string> = {
 const AMOUNT_TOLERANCES = [0, 0.01, 0.05, 0.1];
 const LINK_WINDOWS = [3, 5, 7, 14];
 
+/**
+ * Rows the "Solo da controllare" shortcut keeps visible: everything that is not
+ * a plain congruence (a duplicate candidate, a wrong date/amount, a wrong
+ * account or a movement to create).
+ */
+const ACTIONABLE_STATUSES: ReconcileStatus[] = (
+  Object.keys(STATUS_LABELS) as ReconcileStatus[]
+).filter((status) => status !== 'matched');
+
+/** Values of the result filter: the row states plus the app-only section. */
+type FilterValue = ReconcileStatus | 'appOnly';
+
 /** Inline configuration of a movement created from an unmatched bank row. */
 interface CreateConfig {
   kind: 'expense' | 'cashflow' | 'routing';
@@ -104,6 +116,8 @@ export default function ReconcileStatementPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [decisions, setDecisions] = useState<Record<number, RowDecision>>({});
   const [appOnlyDeletes, setAppOnlyDeletes] = useState<Record<string, boolean>>({});
+  /** Result filter (empty = show everything, the project's convention). */
+  const [statusFilter, setStatusFilter] = useState<FilterValue[]>([]);
   const [expandedCreate, setExpandedCreate] = useState<number | null>(null);
   const [createDraft, setCreateDraft] = useState<CreateConfig | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -153,6 +167,23 @@ export default function ReconcileStatementPage() {
   );
 
   const orderedAccounts = useMemo(() => sortAccountsPreferred(accounts), [accounts]);
+
+  // Result filter: empty selection shows everything, otherwise only the chosen
+  // states (and the app-only section only when 'appOnly' is among them).
+  const isFiltered = statusFilter.length > 0;
+  const visibleRows = isFiltered
+    ? displayRows.filter((entry) => statusFilter.includes(entry.status))
+    : displayRows;
+  const focusMode =
+    isFiltered && ACTIONABLE_STATUSES.every((status) => statusFilter.includes(status));
+  const toggleFilter = (value: FilterValue): void =>
+    setStatusFilter((previous) =>
+      previous.includes(value)
+        ? previous.filter((entry) => entry !== value)
+        : [...previous, value]
+    );
+  const toggleFocusMode = (): void =>
+    setStatusFilter(focusMode ? [] : [...ACTIONABLE_STATUSES]);
 
   /** First and last accounting date of the statement (its period). */
   const statementRange = useMemo(() => {
@@ -229,6 +260,7 @@ export default function ReconcileStatementPage() {
       setDecisions({});
       setAppOnlyDeletes({});
       setExpandedCreate(null);
+      setStatusFilter([]);
     } catch (err) {
       setStatement(null);
       setWarnings([]);
@@ -765,20 +797,57 @@ export default function ReconcileStatementPage() {
           <>
             <section className="recon-card">
               <h2 className="recon-card-title">3 · Congruenze</h2>
-              <div className="recon-counters">
+              <div className={`recon-counters ${isFiltered ? 'filtering' : ''}`}>
                 {(Object.keys(STATUS_LABELS) as ReconcileStatus[]).map((status) => (
-                  <span
+                  <button
                     key={status}
-                    className={`recon-counter recon-${STATUS_TONE[status]}`}
+                    type="button"
+                    className={`recon-counter recon-${STATUS_TONE[status]} ${
+                      statusFilter.includes(status) ? 'active' : ''
+                    }`}
+                    onClick={() => toggleFilter(status)}
+                    aria-pressed={statusFilter.includes(status)}
                   >
                     {STATUS_LABELS[status]}:{' '}
                     <b>{report.summary[statusToSummaryKey(status)]}</b>
-                  </span>
+                  </button>
                 ))}
-                <span className="recon-counter recon-info">
+                <button
+                  type="button"
+                  className={`recon-counter recon-info ${
+                    statusFilter.includes('appOnly') ? 'active' : ''
+                  }`}
+                  onClick={() => toggleFilter('appOnly')}
+                  aria-pressed={statusFilter.includes('appOnly')}
+                >
                   non nell'estratto: <b>{report.summary.appOnly}</b>
-                </span>
+                </button>
               </div>
+
+              <div className="recon-filters">
+                <button
+                  type="button"
+                  className={`recon-focus ${focusMode ? 'active' : ''}`}
+                  onClick={toggleFocusMode}
+                  aria-pressed={focusMode}
+                >
+                  🔧 Solo da controllare
+                </button>
+                {isFiltered && (
+                  <button
+                    type="button"
+                    className="recon-clear"
+                    onClick={() => setStatusFilter([])}
+                  >
+                    Mostra tutte le {displayRows.length} righe
+                  </button>
+                )}
+              </div>
+              {isFiltered && (
+                <p className="recon-filter-info">
+                  Mostro {visibleRows.length} di {displayRows.length} righe.
+                </p>
+              )}
               {statementRange && (
                 <p className="recon-scope">
                   Ambito: <b>tutto l'estratto</b> ({statement?.movements.length ?? 0}{' '}
@@ -854,8 +923,13 @@ export default function ReconcileStatementPage() {
               </p>
             </section>
 
-            <ul className="recon-list">
-              {displayRows.map((entry) => (
+            {visibleRows.length === 0 ? (
+              <p className="recon-empty">
+                Nessuna riga con i filtri selezionati.
+              </p>
+            ) : (
+              <ul className="recon-list">
+                {visibleRows.map((entry) => (
                 <li
                   key={entry.row.line}
                   className={`recon-item recon-${STATUS_TONE[entry.status]}`}
@@ -888,9 +962,11 @@ export default function ReconcileStatementPage() {
                   </div>
                 </li>
               ))}
-            </ul>
+              </ul>
+            )}
 
-            {report.appOnly.length > 0 && (
+            {report.appOnly.length > 0 &&
+              (!isFiltered || statusFilter.includes('appOnly')) && (
               <section className="recon-card">
                 <h2 className="recon-card-title">
                   Movimenti del conto non presenti nell'estratto

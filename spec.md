@@ -867,8 +867,13 @@ The feature is reached from the Main view "Azioni" menu as **"🏦 Riconcilia es
    check against `closing − opening`.
 3. **Congruences**: a counter per state and, for every bank row, the value date (and the
    accounting date when different), the merchant, the amount and the matched app movement
-   with the reason of the mismatch. A final section lists the account movements that no bank
-   row covers (duplicates and movements missing from the statement).
+   with the reason of the mismatch. The counters are **clickable filters**: tapping one shows
+   only the rows in that state (several selections combine, an empty selection shows
+   everything, and the app-only section follows its own counter). A **"🔧 Solo da controllare"**
+   shortcut keeps only the rows that are not plain congruences — duplicates, wrong date or
+   amount, wrong account, movements to create — which is what matters after processing the
+   file. A final section lists the account movements that no bank row covers (duplicates and
+   movements missing from the statement).
 
 Invalid files show an `AlertModal`. Positions in the list are rendered as cards (not a
 table), with the amount always visible on small screens. File parsing and matching are

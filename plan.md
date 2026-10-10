@@ -814,6 +814,19 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
       (regole e gotcha), `README.md` (feature in "Main features" e struttura progetto),
       `docs/bank-reconciliation.md`; `npm run build` OK; verifiche nel browser delle fasi 3-5.
 
+**Miglioramenti successivi (10/10/2026)**
+
+- [x] **Tolleranza date più chiara e margine del periodo derivato dal file**: l'etichetta
+      "Finestra date" lasciava intendere un filtro di periodo; il confronto copre **sempre
+      l'intero estratto** e il margine attorno al periodo ora è l'offset massimo
+      contabile↔valuta del file (non più fisso a 2 giorni).
+- [x] **Filtro sull'esito**: dopo l'elaborazione conta ciò che va corretto, quindi i
+      **contatori sono filtri cliccabili** (selezione multipla, vuoto = tutte; chip non
+      selezionate attenuate) con la scorciatoia **"🔧 Solo da controllare"** che nasconde le
+      sole righe congruenti; toggle dedicato per "non nell'estratto"; il filtro si azzera a
+      ogni nuovo file. Verificato nel browser (162 righe da controllare su 167, nessun
+      overflow a 390px).
+
 ### Inserimento spese più rapido: autofocus importo + dettagli opzionali collassati — implementata il 04/10/2026
 
 > Richiesta utente (04/10/2026): l'app ricava già luogo e categoria in autonomia, quindi nel
