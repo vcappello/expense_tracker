@@ -439,3 +439,14 @@
 .recon-balance-app {
   color: #94a3b8;
 }
+
+/* Statement scope line (the whole file is always reconciled) */
+.recon-scope {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  color: #94a3b8;
+}
+
+.recon-scope b {
+  color: #cbd5e1;
+}

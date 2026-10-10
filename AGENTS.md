@@ -374,6 +374,13 @@
   - **finestra di collegamento 7 giorni** (data congruente se ≤ 3 gg): gli importi bancari si
     ripetono (es. 5,95 €) e senza limite si collegano movimenti di mesi prima — meglio un
     `unmatched` esplicito;
+  - ⚠️ **l'opzione "Tolleranza date" della pagina NON limita il periodo**: l'intero estratto
+    viene sempre riconciliato; la tolleranza è solo la distanza massima riga ↔ movimento per
+    l'accoppiamento (i valori 3/7/14 non cambiano il numero di righe confrontate). Il
+    **periodo dei candidati** è quello dell'estratto (prima→ultima data contabile) **allargato
+    dell'offset massimo contabile↔valuta trovato nel file** (non un margine fisso: una carta
+    può essere contabilizzata giorni dopo l'acquisto). Non reintrodurre un margine fisso né far
+    credere che la tolleranza restringa l'ambito: la UI lo dichiara ("Ambito: tutto l'estratto");
   - effetto firmato sul conto: spesa `−amount` (memorizzata positiva), cashflow `+amount`;
     il saldo di un conto è influenzato solo dai movimenti con `accountId` = conto
     (`getAccountBalance`), quindi il matching del conto riconciliato guarda quelli;

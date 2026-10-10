@@ -821,8 +821,10 @@ The comparison is **bidirectional** and **one-to-one**: every bank row is matche
 app movements, and every app movement of the account inside the period is checked against the
 bank rows. Matching uses the amount (expenses are stored positive, so their signed effect on
 the account is negative), the **value date** and a textual similarity (merchant/location).
-A conservative link window (7 days) avoids linking equal amounts far apart; dates within
-3 days are congruent.
+The candidate window is the whole statement period (first to last accounting date), widened by
+the largest contabile/valuta gap found in the file so the value date of the first and last rows
+is always in scope. A conservative link window (7 days) avoids linking equal amounts far
+apart; dates within 3 days are congruent.
 
 Each bank row ends in one of these states, each with a proposed action:
 
@@ -857,8 +859,10 @@ The feature is reached from the Main view "Azioni" menu as **"🏦 Riconcilia es
 
 1. **File and account**: the account to reconcile (default: the first preferred normal
    account, the same rule as the forms), the CSV file picker and two options (amount
-   tolerance, date window). The selected file name is shown; the balance anchors are read
-   from it.
+   tolerance, date tolerance). The date tolerance is the **maximum distance between the value
+   date of a row and the date of an app movement for them to be paired**: it does not limit
+   the period, the **whole statement is always reconciled**, and the view states it explicitly.
+   The selected file name is shown; the balance anchors are read from it.
 2. **Statement**: number of movements, opening/closing balance, sum of the movements and the
    check against `closing − opening`.
 3. **Congruences**: a counter per state and, for every bank row, the value date (and the

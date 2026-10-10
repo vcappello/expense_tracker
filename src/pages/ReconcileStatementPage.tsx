@@ -688,7 +688,7 @@ export default function ReconcileStatementPage() {
               </select>
             </div>
             <div className="recon-field">
-              <label htmlFor="recon-window">Finestra date</label>
+              <label htmlFor="recon-window">Tolleranza date</label>
               <select
                 id="recon-window"
                 value={linkWindowDays}
@@ -702,6 +702,11 @@ export default function ReconcileStatementPage() {
               </select>
             </div>
           </div>
+
+          <p className="recon-note">
+            La tolleranza date vale solo per l'accoppiamento riga ↔ movimento (data valuta):
+            <b> l'intero estratto viene sempre riconciliato</b>, qualunque sia il valore scelto.
+          </p>
         </section>
 
         {warnings.length > 0 && (
@@ -774,6 +779,13 @@ export default function ReconcileStatementPage() {
                   non nell'estratto: <b>{report.summary.appOnly}</b>
                 </span>
               </div>
+              {statementRange && (
+                <p className="recon-scope">
+                  Ambito: <b>tutto l'estratto</b> ({statement?.movements.length ?? 0}{' '}
+                  movimenti, contabile dal {formatDate(statementRange.first)} al{' '}
+                  {formatDate(statementRange.last)}), confrontato con i movimenti del conto.
+                </p>
+              )}
               <p className="recon-balance-line">
                 Netto app sul conto <b>{formatCurrency(report.balances.appNet)}</b> · netto
                 estratto <b>{formatCurrency(report.balances.statementNet)}</b>

@@ -142,7 +142,10 @@ export interface ReconcileOptions {
   linkWindowDays?: number;
   /** Max alternatives returned per bank row. */
   maxCandidates?: number;
-  /** Extra days kept around the statement dates when looking for candidates. */
+  /**
+   * Extra days kept around the statement period when looking for candidates.
+   * The largest contabile/valuta gap of the file is always added on top.
+   */
   periodMarginDays?: number;
 }
 
@@ -329,8 +332,24 @@ export const reconcileStatement = (
   const times = rows.map((row) => startOfDay(row.accountingDate).getTime());
   const minTime = times.reduce((min, time) => (time < min ? time : min), times[0]);
   const maxTime = times.reduce((max, time) => (time > max ? time : max), times[0]);
-  const windowStart = minTime - periodMarginDays * MS_PER_DAY;
-  const windowEnd = maxTime + periodMarginDays * MS_PER_DAY;
+
+  // The candidate window is the whole statement period, widened by the largest
+  // contabile/valuta gap of the file: a card payment is often posted days after
+  // the purchase, so a fixed margin could leave the value date of the first or
+  // last rows out of scope.
+  const maxValueOffsetDays = rows.reduce((max, row) => {
+    if (!row.valueDate) return max;
+    const offset = Math.round(
+      Math.abs(
+        startOfDay(row.accountingDate).getTime() -
+          startOfDay(row.valueDate).getTime()
+      ) / MS_PER_DAY
+    );
+    return Math.max(max, offset);
+  }, 0);
+  const marginDays = periodMarginDays + maxValueOffsetDays;
+  const windowStart = minTime - marginDays * MS_PER_DAY;
+  const windowEnd = maxTime + marginDays * MS_PER_DAY;
 
   const isInWindow = (movement: Movement): boolean => {
     const time = startOfDay(new Date(movement.date)).getTime();
