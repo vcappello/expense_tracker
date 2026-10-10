@@ -191,16 +191,17 @@ export default function ReconcileStatementPage() {
 
   const fromDateValue =
     fromDateInput || (suggestedFromDate ? toInputDate(suggestedFromDate) : '');
-  const effectiveFromDate = excludeBeforeHistory
-    ? parseInputDate(fromDateValue) ?? undefined
-    : undefined;
 
   const report: ReconciliationReport | null = useMemo(() => {
     if (!statement || !account) return null;
+    // Parsed inside the memo: a new Date object on every render would defeat it.
+    const fromDate = excludeBeforeHistory
+      ? parseInputDate(fromDateValue) ?? undefined
+      : undefined;
     return reconcileStatement(statement.movements, movements, account, {
       amountTolerance,
       linkWindowDays,
-      fromDate: effectiveFromDate,
+      fromDate,
     });
   }, [
     statement,
@@ -208,7 +209,8 @@ export default function ReconcileStatementPage() {
     movements,
     amountTolerance,
     linkWindowDays,
-    effectiveFromDate,
+    excludeBeforeHistory,
+    fromDateValue,
   ]);
 
   const displayRows: ReconcileRow[] = useMemo(
