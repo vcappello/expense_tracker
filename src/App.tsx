@@ -18,6 +18,7 @@ import RecurringManagementPage from './pages/RecurringManagementPage';
 import CreateRecurringPage from './pages/CreateRecurringPage';
 import ConfirmRecurringPage from './pages/ConfirmRecurringPage';
 import ReimbursementsPage from './pages/ReimbursementsPage';
+import ReconcileStatementPage from './pages/ReconcileStatementPage';
 import './styles.css';
 
 function AppContent() {
@@ -79,6 +80,7 @@ function AppContent() {
           <Route path="/recurring/:id/edit" element={<CreateRecurringPage />} />
           <Route path="/recurring/:id/confirm" element={<ConfirmRecurringPage />} />
           <Route path="/reimbursements" element={<ReimbursementsPage />} />
+          <Route path="/reconcile" element={<ReconcileStatementPage />} />
         </Routes>
       </div>
     </Router>

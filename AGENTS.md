@@ -357,10 +357,93 @@
     sulla colonna del pulsante (la qual cosa l'aveva fatto intercettare i click);
   - l'azione dentro la riga cliccabile ha `stopPropagation` su click e keydown per non aprire
     la view di modifica.
+- **Riconciliazione estratto conto bancario (in corso dal 10/10/2026)**: analisi e progetto
+  completo in **`docs/bank-reconciliation.md`**; specifica in `spec.md` → "Bank statement
+  reconciliation"; piano a step in `plan.md` → `⏳ Da fare`. Regole da non violare:
+  - la logica sta in **moduli puri** e testabili a parte: `src/utils/bankStatement.ts`
+    (parser CSV: RFC 4180 a mano con quote/virgole nei campi/CRLF/BOM, importi italiani,
+    date `DD/MM/YYYY`, estrazione esercente/orario/valuta-carta, ancore `Saldo iniziale`/
+    `Saldo finale` separate dai movimenti, righe malformate saltate con `warnings`) e
+    `src/utils/reconciliation.ts` (`reconcileStatement` → report, **non scrive mai** su DB);
+  - **data di confronto = DATA VALUTA** (fallback contabile): è l'unica confrontabile con la
+    data della spesa, anche per gli acquisti in valuta estera (sul file reale valuta = data
+    dell'operazione per 139/139 pagamenti carta);
+  - il confronto è **bidirezionale** e **uno-a-uno**: oltre ai match riporta le anomalie
+    presenti **solo** nell'app (`appOnly`: duplicati, importi digitati male, conto sbagliato).
+    Un confronto a senso unico riga→spesa **non** le rileva: non regredire a quel modello;
+  - **finestra di collegamento 7 giorni** (data congruente se ≤ 3 gg): gli importi bancari si
+    ripetono (es. 5,95 €) e senza limite si collegano movimenti di mesi prima — meglio un
+    `unmatched` esplicito;
+  - effetto firmato sul conto: spesa `−amount` (memorizzata positiva), cashflow `+amount`;
+    il saldo di un conto è influenzato solo dai movimenti con `accountId` = conto
+    (`getAccountBalance`), quindi il matching del conto riconciliato guarda quelli;
+  - **movimenti senza controparte bancaria**: la gamba **interna** di un coin-split (cashflow
+    positivo con `routingPairId` di un gruppo che contiene anche una spesa) va **esclusa** dal
+    matching e da `appOnly` (non esiste in banca: sarebbe un falso positivo garantito); la
+    **spesa con conto secondario** va confrontata con l'importo **netto** della parte pagata
+    dallo stash. Le gambe di routing **reali** (es. prelievo ATM) restano matchabili. `appNet`
+    invece usa **tutti** i movimenti del conto (come `getAccountBalance`);
+  - ricerca **cross-account** per le righe senza corrispondenza → proposta *"Sposta sul conto
+    banca"* invece di creare un doppione; attenzione a **routing** (`routingPairId`: non
+    spostare un leg da solo) e **stash** (`isCoinAccount`: spostare su/da uno stash cambia il
+    saldo);
+  - chiusura del residuo con `AccountBalanceAdjustment` ("Riallinea saldo"): gli errori
+    **precedenti** al periodo emergono solo dal confronto `Saldo iniziale` banca vs saldo app
+    al giorno prima della prima contabile (`getAccountBalanceAtDate`);
+  - i campi di tracciamento previsti (`statementLineId`/`reconciledAt` su `Expense`/`Cashflow`)
+    vanno normalizzati in lettura (`database.ts`) e in import (`backup.ts`) **senza bump di
+    `DB_VERSION`** (pattern di `routingPairId`/`notes`/`reimbursable`);
+  - la **pagina** è `src/pages/ReconcileStatementPage.tsx`, route `/reconcile`
+    (voce "🏦 Riconcilia estratto conto" nel menu Azioni della Main view), stile in
+    `src/styles/ReconciliationPage.css` con classi **`recon-*`** (regola anti-collisione CSS
+    globale). Carica i dati con `loadMovements({ dateRange: 'all' })`, `loadAccounts`,
+    `loadExpenseTypes` (come Analytics); default conto = `getDefaultPrimaryAccount`;
+  - **applicazione su IndexedDB**: `db.applyReconciliationChanges` (put + delete su
+    `expenses`+`cashflows` in **una sola transazione atomica**, tutto-o-niente) chiamata da
+    `applyReconciliation` nel context (aggiorna i record correnti, crea/sposta/elimina e
+    ricarica lo stato). ⚠️ Nel costruire il batch, la guardia sul candidato va fatta **dopo**
+    il caso `create`: le righe da creare hanno `best === null` e una guardia anticipata
+    (`if (!decision || !best) return`) le scarta silenziosamente (bug reale trovato in test);
+  - **saldi e riallineamento**: la pagina mostra il saldo app al giorno prima della prima
+    contabile e all'ultima contabile (`getAccountBalanceAtDate`) accanto ai saldi banca; il
+    confronto sul saldo **iniziale è indicativo** (l'app data con la valuta, la banca con la
+    contabile). Il residuo si chiude con un `AccountBalanceAdjustment` (note "Riconciliazione
+    estratto conto") datato all'ultima contabile. I conti con movimenti non registrati restano
+    più alti/bassi fino al riallineamento: non è un bug;
+  - **tracciamento**: al momento dell'applicazione si scrivono `statementLineId` (rif. stabile
+    della riga banca via `statementLineRef`) e `reconciledAt` sul movimento; la Main view
+    mostra il badge **"✓"** (`.reconciled-badge`). I due campi sono obbligatori-null nel tipo:
+    vanno propagati a **tutti** gli object literal (`coins.ts`, `AppContext`, form) e
+    preservati in modifica, oltre che normalizzati in `database.ts` e `backup.ts` (niente bump
+    `DB_VERSION`);
+  - **azione di conferma nella title bar, non in una barra in fondo**: il `Toast` è fissato in
+    basso e copre qualunque barra inferiore intercettando i click (bug reale: "Applica N" non
+    era più cliccabile). Le conferme vanno nella title bar (convenzione del progetto);
+  - **creare un routing** = 2 leg con lo stesso `routingPairId`: quello **ricevente** sul conto
+    di destinazione (`routingAccountId` = conto riconciliato) e la **controparte negativa** sul
+    conto riconciliato. La cancellazione di un movimento presente solo nell'app è consentita
+    **solo se `routingPairId === null`** (altrimenti si orfanerebbe la coppia: si gestisce in
+    modifica);
+  - il progetto **non ha un framework di test**: i moduli puri si validano con uno script Node
+    temporaneo (transpilando i file con il `tsc` locale, nessuna dipendenza aggiunta), poi il
+    test è manuale nel browser. Validazione fase 1-2 sul file reale: 167 movimenti, 0 warning,
+    `Σ = Saldo finale − Saldo iniziale` ✔.
 
 ## Limiti noti (non bloccanti)
 *(Nessun limite noto aperto al 19/09/2026: quello della Main view al primo load freddo è
 stato risolto — vedi "Problemi risolti".)*
+
+Limiti noti della **riconciliazione estratto conto** (non bloccanti, decisi il 10/10/2026):
+
+- il confronto col **saldo iniziale** della banca è solo **indicativo** (l'app data i movimenti
+  con la data valuta, la banca con la contabile): l'azione di chiusura è il riallineamento al
+  saldo **finale**;
+- le righe da creare richiedono un tap per riga (nessuna "crea tutte"): la creazione richiede
+  una categoria per volta;
+- l'azione **"Elimina"** dei movimenti presenti solo nell'app non è disponibile per i movimenti
+  con `routingPairId` (si gestiscono dalla modifica, per non orfanare le coppie);
+- dopo l'applicazione l'elenco si ricalcola dai dati aggiornati; le righe con azione non
+  applicata non vengono ricordate tra un import e l'altro.
 
 ## Note di database (da `spec.md`)
 - Tabelle: `Expense`, `Cashflow`, `ExpenseType`, `Account` (DB locale); `RecurringExpense` (store `recurringExpenses`) da `DB_VERSION` 2 e `AccountBalanceAdjustment` (store `accountBalanceAdjustments`) da `DB_VERSION` 3.

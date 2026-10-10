@@ -212,6 +212,8 @@ export default function CreateCashflowPage() {
             isSalary: false,
             recurringId: null,
             recurringPeriod: null,
+            statementLineId: current?.statementLineId ?? null,
+            reconciledAt: current?.reconciledAt ?? null,
             createdAt: new Date(),
             updatedAt: new Date(),
           };
@@ -226,6 +228,8 @@ export default function CreateCashflowPage() {
             isSalary: formData.isSalary,
             recurringId: null,
             recurringPeriod: null,
+            statementLineId: current?.statementLineId ?? null,
+            reconciledAt: current?.reconciledAt ?? null,
             createdAt: new Date(),
             updatedAt: new Date(),
           };
@@ -248,6 +252,8 @@ export default function CreateCashflowPage() {
             isSalary: false,
             recurringId: null,
             recurringPeriod: null,
+            statementLineId: null,
+            reconciledAt: null,
             createdAt: new Date(),
             updatedAt: new Date(),
           };
@@ -262,6 +268,8 @@ export default function CreateCashflowPage() {
             isSalary: formData.isSalary,
             recurringId: null,
             recurringPeriod: null,
+            statementLineId: null,
+            reconciledAt: null,
             createdAt: new Date(),
             updatedAt: new Date(),
           };
@@ -284,6 +292,8 @@ export default function CreateCashflowPage() {
           isSalary: formData.isSalary,
           recurringId: current?.recurringId ?? null,
           recurringPeriod: current?.recurringPeriod ?? null,
+          statementLineId: current?.statementLineId ?? null,
+          reconciledAt: current?.reconciledAt ?? null,
           createdAt: new Date(),
           updatedAt: new Date(),
         };

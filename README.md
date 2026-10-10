@@ -102,6 +102,12 @@ across repositories of the same user).
   for the matching role
 - **Balance realignment** for cash and bank accounts, with dated adjustments and history; they
   update the balance and the Andamento chart without affecting incomes or expenses
+- **Bank statement reconciliation**: import the bank's CSV, match every row against the app
+  movements (using the value date), review the congruences — including the mistakes that live
+  only in the app (duplicates, mistyped amounts, wrong account) — then correct, create, move or
+  delete the movements in one atomic step and realign the account balance to the statement's
+  closing balance. Reconciled movements get a "✓" badge in the main view. Parsing and matching
+  run locally: the file is never sent anywhere
 - **Analytics** with a summary (total expenses/incomes, balance, average, top categories) and
   **CSV export** (Italian Excel format)
 - **Charts** in Analytics: **Report**, **Grafico** (bars per day or per category/account),
@@ -114,9 +120,13 @@ across repositories of the same user).
 
 ## Project structure
 - `src/App.tsx`: main routing
-- `src/pages/`: pages (main view, expenses, incomes, categories, accounts, analytics)
+- `src/pages/`: pages (main view, expenses, incomes, categories, accounts, analytics,
+  reconciliation)
 - `src/context/AppContext.tsx`: global state and CRUD operations
 - `src/db/database.ts`: IndexedDB layer
+- `src/utils/`: pure helpers (bank statement parsing, reconciliation matching, recurrence,
+  balances, routing, formatting, …)
+- `docs/bank-reconciliation.md`: analysis and design of the bank statement reconciliation
 - `spec.md`: project specification
 - `plan.md`: activity plan (completed steps are marked)
 - `.copilot-instructions.md` / `AGENTS.md`: guidance for AI-assisted development

@@ -40,6 +40,8 @@ export interface Expense {
   reimbursable: boolean; // the expense will be reimbursed (e.g. with the salary, default false)
   recurringId: string | null; // RecurringExpense that generated this expense (null for normal expenses)
   recurringPeriod: string | null; // period key consumed by the confirmation (see utils/recurrence.ts)
+  statementLineId: string | null; // bank statement row reconciled against this expense (null if none)
+  reconciledAt: Date | null; // when the reconciliation with the bank statement was confirmed
   createdAt: Date;
   updatedAt: Date;
 }
@@ -55,6 +57,8 @@ export interface Cashflow {
   isSalary: boolean; // this income is the salary (default false)
   recurringId: string | null; // RecurringExpense that generated this cashflow (null for normal cashflows)
   recurringPeriod: string | null; // period key consumed by the confirmation (see utils/recurrence.ts)
+  statementLineId: string | null; // bank statement row reconciled against this cashflow (null if none)
+  reconciledAt: Date | null; // when the reconciliation with the bank statement was confirmed
   createdAt: Date;
   updatedAt: Date;
 }

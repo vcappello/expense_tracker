@@ -53,6 +53,47 @@ export interface ExpenseWithCoinsInput {
   coinsAmount?: number | null;
 }
 
+/** Update proposed by the bank reconciliation for an existing movement. */
+export interface ReconciliationUpdateInput {
+  id: string;
+  amount?: number;
+  date?: Date;
+  time?: string;
+  /** Move the movement to another account (wrong-account case). */
+  accountId?: string;
+  /** Mark the movement as reconciled with the given bank row. */
+  statementLineId?: string;
+  reconciledAt?: Date;
+}
+
+/** Movement to create from an unmatched bank row. */
+export interface ReconciliationCreateInput {
+  kind: 'expense' | 'cashflow' | 'routing';
+  /** Signed bank amount: negative = outgoing (expense/routing), positive = incoming. */
+  amount: number;
+  date: Date;
+  time: string;
+  /** Reconciled account. */
+  accountId: string;
+  expenseTypeId?: string;
+  location?: string;
+  isSalary?: boolean;
+  /** Destination account of a routing transfer (kind = 'routing'). */
+  routingAccountId?: string;
+  statementLineId?: string;
+}
+
+/**
+ * Batch of changes applied by the reconciliation view (see
+ * `src/utils/reconciliation.ts`). Applied in one atomic transaction.
+ */
+export interface ReconciliationChanges {
+  expenseUpdates?: ReconciliationUpdateInput[];
+  cashflowUpdates?: ReconciliationUpdateInput[];
+  creates?: ReconciliationCreateInput[];
+  deletes?: { id: string; type: 'expense' | 'cashflow' }[];
+}
+
 /**
  * Input for confirming an expected occurrence of a recurring template: the user
  * can change the amount and the date/time (defaults: template amount, now).
@@ -210,6 +251,9 @@ interface AppContextType {
 
   // Backup / Restore (JSON export/import, see utils/backup.ts)
   restoreBackup: (data: BackupData) => Promise<void>;
+
+  // Bank statement reconciliation (batch apply, see utils/reconciliation.ts)
+  applyReconciliation: (changes: ReconciliationChanges) => Promise<number>;
 
   // Loading state
   isLoading: boolean;
@@ -579,6 +623,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             reimbursable: input.reimbursable === true,
             recurringId: current?.recurringId ?? null,
             recurringPeriod: current?.recurringPeriod ?? null,
+            statementLineId: current?.statementLineId ?? null,
+            reconciledAt: current?.reconciledAt ?? null,
             createdAt: current?.createdAt ?? now,
             updatedAt: now,
           };
@@ -623,6 +669,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           reimbursable: input.reimbursable === true,
           recurringId: null,
           recurringPeriod: null,
+          statementLineId: null,
+          reconciledAt: null,
           createdAt: now,
           updatedAt: now,
         };
@@ -976,6 +1024,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             isSalary: template.isSalary,
             recurringId: template.id,
             recurringPeriod: periodKey,
+            statementLineId: null,
+            reconciledAt: null,
             createdAt: now,
             updatedAt: now,
           };
@@ -998,6 +1048,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             reimbursable: template.reimbursable,
             recurringId: template.id,
             recurringPeriod: periodKey,
+            statementLineId: null,
+            reconciledAt: null,
             createdAt: now,
             updatedAt: now,
           };
@@ -1217,6 +1269,162 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     ]
   );
 
+  // ============ BANK RECONCILIATION ============
+  /**
+   * Apply a batch of reconciliation changes in one atomic transaction and
+   * reload the affected state. Returns the number of records written/deleted.
+   */
+  const applyReconciliation = useCallback(
+    async (changes: ReconciliationChanges): Promise<number> => {
+      beginLoad();
+      clearError();
+      try {
+        const now = new Date();
+        const expensePuts: Expense[] = [];
+        const cashflowPuts: Cashflow[] = [];
+
+        for (const update of changes.expenseUpdates ?? []) {
+          const current = await db.getExpense(update.id);
+          if (!current) continue;
+          expensePuts.push({
+            ...current,
+            amount: update.amount ?? current.amount,
+            date: update.date ?? current.date,
+            time: update.time ?? current.time,
+            accountId: update.accountId ?? current.accountId,
+            statementLineId: update.statementLineId ?? current.statementLineId,
+            reconciledAt: update.reconciledAt ?? current.reconciledAt,
+            updatedAt: now,
+          });
+        }
+
+        for (const update of changes.cashflowUpdates ?? []) {
+          const current = await db.getCashflow(update.id);
+          if (!current) continue;
+          cashflowPuts.push({
+            ...current,
+            amount: update.amount ?? current.amount,
+            date: update.date ?? current.date,
+            time: update.time ?? current.time,
+            accountId: update.accountId ?? current.accountId,
+            statementLineId: update.statementLineId ?? current.statementLineId,
+            reconciledAt: update.reconciledAt ?? current.reconciledAt,
+            updatedAt: now,
+          });
+        }
+
+        for (const create of changes.creates ?? []) {
+          if (create.kind === 'routing') {
+            if (!create.routingAccountId) continue;
+            const pairId = uuidv4();
+            const magnitude = Math.abs(create.amount);
+            // Receiving leg on the destination plus the counterpart on the
+            // reconciled account, sharing the routingPairId (see routing.ts).
+            cashflowPuts.push({
+              id: uuidv4(),
+              date: create.date,
+              time: create.time,
+              amount: magnitude,
+              accountId: create.routingAccountId,
+              routingAccountId: create.accountId,
+              routingPairId: pairId,
+              isSalary: false,
+              recurringId: null,
+              recurringPeriod: null,
+              statementLineId: create.statementLineId ?? null,
+              reconciledAt: now,
+              createdAt: now,
+              updatedAt: now,
+            });
+            cashflowPuts.push({
+              id: uuidv4(),
+              date: create.date,
+              time: create.time,
+              amount: -magnitude,
+              accountId: create.accountId,
+              routingAccountId: null,
+              routingPairId: pairId,
+              isSalary: false,
+              recurringId: null,
+              recurringPeriod: null,
+              statementLineId: create.statementLineId ?? null,
+              reconciledAt: now,
+              createdAt: now,
+              updatedAt: now,
+            });
+          } else if (create.kind === 'cashflow') {
+            cashflowPuts.push({
+              id: uuidv4(),
+              date: create.date,
+              time: create.time,
+              amount: create.amount,
+              accountId: create.accountId,
+              routingAccountId: null,
+              routingPairId: null,
+              isSalary: create.isSalary === true,
+              recurringId: null,
+              recurringPeriod: null,
+              statementLineId: create.statementLineId ?? null,
+              reconciledAt: now,
+              createdAt: now,
+              updatedAt: now,
+            });
+          } else {
+            expensePuts.push({
+              id: uuidv4(),
+              date: create.date,
+              time: create.time,
+              amount: Math.abs(create.amount),
+              expenseTypeId: create.expenseTypeId ?? '',
+              accountId: create.accountId,
+              routingPairId: null,
+              notes: '',
+              location: create.location ?? ONLINE_LOCATION_VALUE,
+              reimbursable: false,
+              recurringId: null,
+              recurringPeriod: null,
+              statementLineId: create.statementLineId ?? null,
+              reconciledAt: now,
+              createdAt: now,
+              updatedAt: now,
+            });
+          }
+        }
+
+        const deletes = changes.deletes ?? [];
+        const expenseDeletes = deletes
+          .filter((entry) => entry.type === 'expense')
+          .map((entry) => entry.id);
+        const cashflowDeletes = deletes
+          .filter((entry) => entry.type === 'cashflow')
+          .map((entry) => entry.id);
+
+        await db.applyReconciliationChanges({
+          expensePuts,
+          cashflowPuts,
+          expenseDeletes,
+          cashflowDeletes,
+        });
+        await Promise.all([loadExpenses(), loadCashflows()]);
+
+        return (
+          expensePuts.length +
+          cashflowPuts.length +
+          expenseDeletes.length +
+          cashflowDeletes.length
+        );
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : 'Failed to apply reconciliation'
+        );
+        throw err;
+      } finally {
+        endLoad();
+      }
+    },
+    [loadExpenses, loadCashflows]
+  );
+
   const value: AppContextType = {
     // Accounts
     accounts,
@@ -1290,6 +1498,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // Backup / Restore
     restoreBackup,
+
+    // Bank statement reconciliation
+    applyReconciliation,
 
     // State
     isLoading,

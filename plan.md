@@ -335,6 +335,14 @@ i# Plan — Expense Tracker AI
       → `12,50€`, come in tutto il resto dell'app.
 - [x] **Chip "Ripeti una spesa recente" senza allargare la view** (08/10/2026): `min-width: 0` su `.quick-fill`/`.quick-fill-chips` (e sul singolo chip) → la riga chip resta larga quanto lo schermo e scorre solo lei, non più tutta la view (dettaglio sotto)
 - [x] **Ricorrenze — azione "Registra ora"** (08/10/2026): registrare un movimento ricorrente **in anticipo** (prima della scadenza) dall'elenco Ricorrenti; consuma il periodo della scadenza, così non viene riproposto (dettaglio sotto)
+- [x] **Riconciliazione estratto conto bancario** (10/10/2026): import del CSV della banca
+      (parser RFC 4180 senza dipendenze) e **matching bidirezionale** con le spese/entrate,
+      sulla **data valuta**; per ogni riga un'azione (correggi importo/data, sposta conto, crea
+      spesa/entrata/routing, elimina i movimenti presenti solo nell'app) applicata in **una sola
+      transazione atomica**, conferma dei congruenti, **riallineamento del saldo** al saldo
+      finale con `AccountBalanceAdjustment` e badge **"✓"** sui movimenti riconciliati
+      (`statementLineId`/`reconciledAt`). Pagina `/reconcile` dal menu Azioni; analisi in
+      `docs/bank-reconciliation.md`, dettaglio step sotto.
 
 ### Rifiniture UX: chip "Ripeti una spesa" e registrazione in anticipo delle ricorrenze — implementate l'08/10/2026
 
@@ -725,14 +733,86 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 
 ## ⏳ Da fare
 
-> Le attività recenti sono conservate qui con gli step completati; al **04/10/2026** non ci
-> sono lavori in corso. L'unica feature pianificata e non iniziata è il **backup/ripristino da
-> cloud** (primo blocco qui sotto), a **priorità bassa** per decisione dell'utente. Le altre
-> feature candidate sono in **🔮 Prossime release**.
+> **Al 10/10/2026** la **riconciliazione dell'estratto conto bancario** è **implementata**
+> (fasi 1-6 completate; analisi in `docs/bank-reconciliation.md`, dettagli nel blocco più
+> sotto). L'unica feature pianificata e non iniziata è il **backup/ripristino da cloud**
+> (blocco più sotto), a **priorità bassa** per decisione dell'utente. Le altre feature
+> candidate sono in **🔮 Prossime release**.
 > Le nuove richieste vanno pianificate qui come blocchi di step `[ ]` prima di essere
 > implementate, poi marcate `[x]` e riepilogate in ✅ Completati.
 > ⚠️ **Prima del `git push` chiedere sempre conferma all'utente**: il push fa partire il
 > deploy automatico su GitHub Pages e pubblica subito la nuova versione.
+
+### Riconciliazione estratto conto bancario — implementata il 10/10/2026
+
+> Richiesta utente (10/10/2026): il saldo del conto in banca non torna. La banca esporta
+> l'elenco dei movimenti: aggiungere una feature che **accetta il file della banca**,
+> **trova per ogni riga la spesa corrispondente**, **mostra le congruenze** e permette di
+> **aggiornare i dati in IndexedDB**. Data di confronto = **data valuta** (confrontabile con
+> la data della spesa, anche all'estero).
+> Analisi completa e progetto: **`docs/bank-reconciliation.md`**.
+> Decisioni concordate: (1) scope completo — correggere, creare i mancanti, riallineare al
+> saldo finale; (2) confronto **bidirezionale** con evidenza delle anomalie presenti **solo**
+> nell'app (duplicati, importi digitati male, conto sbagliato); (3) ricerca cross-account con
+> proposta *"Sposta sul conto banca"* invece di creare un doppione.
+> File di riferimento reale: `movimenti_1791624566502.csv` (167 movimenti, 2 ancore di saldo).
+
+- [x] **Fase 1 — Parser** `src/utils/bankStatement.ts`: CSV RFC 4180 scritto a mano (quote,
+      virgole nei campi, CRLF, BOM), importi italiani `+8.102,60`/`-5,95`, date `DD/MM/YYYY`,
+      estrazione esercente (`presso …`), orario (`del … alle ore …`), valuta/importo in divisa
+      (`Div=`/`Importo in divisa=`), ultime 4 cifre carta; ancore `Saldo iniziale`/`Saldo
+      finale` separate dai movimenti; righe malformate saltate con `warnings`. Validato sul
+      file reale: **167 movimenti, 0 warning, Σ = 5.502,40 = Saldo finale − Saldo iniziale**.
+- [x] **Fase 2 — Motore di matching** `src/utils/reconciliation.ts`:
+      `reconcileStatement(rows, movements, account, options)` puro; effetto firmato sul conto
+      (spesa `−amount`, cashflow `+amount`); score `0,55·importo + 0,25·data + 0,20·testo`;
+      assegnazione **uno-a-uno** (importo congruente, conto riconciliato, finestra di
+      collegamento 7 gg); stati `matched`/`ambiguous`/`date-mismatch`/`amount-mismatch`/
+      `wrong-account`/`unmatched` con decisione proposta; anomalie **`appOnly`**
+      (`duplicate`/`unmatched-app`); riepilogo e netti. Validato con harness su dataset
+      composto (tutti gli stati classificati correttamente).
+- [x] **Fase 3 — Pagina di revisione** `src/pages/ReconcileStatementPage.tsx` + route
+      `/reconcile` + voce "🏦 Riconcilia estratto conto" nel menu Azioni della Main view:
+      selezione **conto** e **file CSV** (default: primo conto normale preferito, la stessa
+      regola dei form), opzioni tolleranza importo / finestra date, riepilogo estratto
+      (movimenti, saldo iniziale/finale, Σ e controllo vs saldo finale − iniziale), contatori
+      per stato, lista per riga con badge di congruità e movimento app a confronto (categoria ·
+      luogo · data · importo), sezione "movimenti del conto non presenti nell'estratto".
+      **Solo lettura**: nessuna scrittura su IndexedDB (fase 4). Stile dedicato
+      `src/styles/ReconciliationPage.css` con classi `recon-*`; `AlertModal` sui file non
+      validi. Verificato nel browser (Vite, 390px): file reale → 5 congruenti, 1 con più
+      candidati, 1 con importo diverso, 1 su altro conto, 159 da creare, 2 non nell'estratto;
+      `Σ = saldo finale − saldo iniziale` ✔; nessun overflow orizzontale a 390px.
+- [x] **Fase 4 — Applicazione su IndexedDB**: `db.applyReconciliationChanges` (una sola
+      transazione atomica su `expenses`+`cashflows`: put e delete, tutto-o-niente) + metodo
+      `applyReconciliation` nel context (applica update/spostamenti/creazioni/eliminazioni e
+      ricarica lo stato). Nella pagina: per ogni riga un'azione esplicita — **Correggi**
+      (importo/data), **Sposta su questo conto**, **Crea…** (con editor inline: categoria per
+      le spese, "Stipendio" per le entrate, "Trasferimento verso un altro conto" + conto
+      destinazione per i routing) e **Elimina** per i movimenti presenti solo nell'app (non
+      per quelli con `routingPairId`, da gestire in modifica). Conferma unica con `ConfirmModal`
+      (correzioni/nuovi/eliminazioni), **azione "✓ Applica N" nella title bar** (non in una barra
+      in fondo: il `Toast` la copriva), `Toast` di esito. Verificato nel browser con il file
+      reale: correzione importo (25,09 → 20,09), spostamento al conto banca, eliminazione del
+      duplicato e creazione di una spesa + di un routing (±250 sui due conti, stesso
+      `routingPairId`) — DB verificato dopo l'applicazione.
+- [x] **Fase 5 — Riallineamento e tracciamento**: nella pagina i **saldi a confronto** (saldo
+      iniziale/finale della banca accanto al saldo calcolato dall'app al giorno prima della
+      prima contabile e all'ultima contabile, via `getAccountBalanceAtDate`) e l'azione
+      **"Riallinea il saldo"** che chiude il residuo con un `AccountBalanceAdjustment` datato
+      all'ultima contabile (note "Riconciliazione estratto conto"); la riga di congruenza ha
+      l'azione **"Conferma congruenza"** e ogni applicazione registra sul movimento
+      `statementLineId` (rif. stabile della riga banca, `statementLineRef`) e `reconciledAt`;
+      in Main view badge **"✓"** (`reconciled-badge`) sui movimenti riconciliati.
+      Campi normalizzati in `database.ts` e `backup.ts`, propagati a tutti gli object literal
+      (`coins.ts`, `AppContext`, `CreateCashflowPage` con preservazione in modifica) —
+      **niente bump `DB_VERSION`**. Verificato nel browser: saldi a confronto, rettifica di
+      +256,62 (saldo app allineato, azione che sparisce), `statementLineId`/`reconciledAt`
+      scritti e badge "✓" visibile in Main view.
+- [x] **Fase 6 — Chiusura**: `spec.md` (sezione "Bank statement reconciliation": file,
+      matching, vista di revisione, azioni, saldi/riallineamento, tracciamento), `AGENTS.md`
+      (regole e gotcha), `README.md` (feature in "Main features" e struttura progetto),
+      `docs/bank-reconciliation.md`; `npm run build` OK; verifiche nel browser delle fasi 3-5.
 
 ### Inserimento spese più rapido: autofocus importo + dettagli opzionali collassati — implementata il 04/10/2026
 
@@ -1180,6 +1260,11 @@ stato risolto — vedi il bullet in ✅ Completati.)*
 
 - [ ] **Create from photo**: fotocamera smartphone + lettura dello scontrino con AI per creare
       la spesa automaticamente.
+- [x] **Riconciliazione estratto conto bancario (implementata il 10/10/2026)**: import del CSV
+      della banca, matching bidirezionale con le spese/entrate (data valuta), pagina di revisione
+      con correzione/creazione/spostamento/eliminazione dei movimenti in un'unica transazione,
+      riallineamento al saldo finale e badge "✓" sui movimenti riconciliati. Analisi in
+      `docs/bank-reconciliation.md`.
 - [ ] **Gestione multi-valuta**.
 - [x] **Promemoria scadenze ricorrenze**: all'apertura della Main view mostrare una volta al
       giorno un banner ("hai N movimenti previsti") per spese ed entrate programmate non

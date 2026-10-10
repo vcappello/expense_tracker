@@ -132,6 +132,8 @@ const normalizeExpense = (e: Expense): Expense => ({
   reimbursable: e.reimbursable === true,
   recurringId: e.recurringId ?? null,
   recurringPeriod: e.recurringPeriod ?? null,
+  statementLineId: e.statementLineId ?? null,
+  reconciledAt: e.reconciledAt ?? null,
 });
 
 /**
@@ -164,6 +166,8 @@ const normalizeCashflow = (c: Cashflow): Cashflow => ({
   isSalary: c.isSalary === true,
   recurringId: c.recurringId ?? null,
   recurringPeriod: c.recurringPeriod ?? null,
+  statementLineId: c.statementLineId ?? null,
+  reconciledAt: c.reconciledAt ?? null,
 });
 
 // ============ ACCOUNT OPERATIONS ============
@@ -963,6 +967,39 @@ export const deleteExpenseGroup = async (
     transaction.objectStore(STORES.EXPENSES).delete(expenseId);
     const cashflowStore = transaction.objectStore(STORES.CASHFLOWS);
     cashflowIds.forEach((id) => cashflowStore.delete(id));
+  });
+};
+
+// ============ BANK RECONCILIATION ============
+
+/**
+ * Apply the reconciliation changes (updates, creations and deletions) in a
+ * single atomic transaction across both stores: all-or-nothing, so a failure
+ * leaves the previous data untouched (see `src/utils/reconciliation.ts`).
+ */
+export const applyReconciliationChanges = async (changes: {
+  expensePuts?: Expense[];
+  cashflowPuts?: Cashflow[];
+  expenseDeletes?: string[];
+  cashflowDeletes?: string[];
+}): Promise<void> => {
+  const database = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(
+      [STORES.EXPENSES, STORES.CASHFLOWS],
+      'readwrite'
+    );
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error);
+
+    const expenses = transaction.objectStore(STORES.EXPENSES);
+    const cashflows = transaction.objectStore(STORES.CASHFLOWS);
+
+    (changes.expensePuts ?? []).forEach((expense) => expenses.put(expense));
+    (changes.cashflowPuts ?? []).forEach((cashflow) => cashflows.put(cashflow));
+    (changes.expenseDeletes ?? []).forEach((id) => expenses.delete(id));
+    (changes.cashflowDeletes ?? []).forEach((id) => cashflows.delete(id));
   });
 };
 

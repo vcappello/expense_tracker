@@ -787,6 +787,136 @@ are included.
 Deleting an Account also deletes its balance adjustments. The account deletion confirmation
 includes the number of adjustments that will be removed.
 
+## Bank statement reconciliation
+
+Purpose: realign the app data with the real bank account, which is not trustworthy when the
+calculated balance does not match. The bank lets the user download the movements list as a
+CSV file; the app reconciles that file with the stored movements.
+
+The feature is entered from the Main view "Azioni" menu and works on **one account at a
+time** (the bank account of the statement) and on the **period covered by the file**.
+
+### Input file
+
+The CSV exported by the bank has a fixed shape:
+
+`DATA CONTABILE,DATA VALUTA,USCITE,ENTRATE,CAUSALE,DESCRIZIONE OPERAZIONE`
+
+- accounting date (contabile) = the day the bank posts the movement;
+- **value date (valuta) = the date compared with the app movement**, because for card
+  payments it is the purchase day, also for foreign-currency transactions;
+- amounts in Italian format (`+8.102,60`, `-5,95`) split in two columns (USCITE negative,
+  ENTRATE positive); commas inside a field are quoted;
+- the description carries the merchant (`presso …`), the operation date/time
+  (`del … alle ore …`), the original currency and amount (`Div=`, `Importo in divisa=`) and
+  the card digits;
+- two anchor rows (`Saldo iniziale` / `Saldo finale`) carry the opening and closing balances
+  of the period and are not movements.
+
+Malformed rows are skipped with a warning; invalid files show an `AlertModal`.
+
+### Reconciliation
+
+The comparison is **bidirectional** and **one-to-one**: every bank row is matched against the
+app movements, and every app movement of the account inside the period is checked against the
+bank rows. Matching uses the amount (expenses are stored positive, so their signed effect on
+the account is negative), the **value date** and a textual similarity (merchant/location).
+A conservative link window (7 days) avoids linking equal amounts far apart; dates within
+3 days are congruent.
+
+Each bank row ends in one of these states, each with a proposed action:
+
+| State | Meaning | Action |
+|---|---|---|
+| `matched` | amount **and** date congruent | link |
+| `ambiguous` | several equivalent candidates (possible duplicate) | link the best, show the alternatives |
+| `date-mismatch` | amount ok, date too far | update date/time from the value date |
+| `amount-mismatch` | same identity but a different amount (typo or foreign currency) | update the amount |
+| `wrong-account` | exact amount but on another account | **move** the movement to the reconciled account |
+| `unmatched` | no candidate | **create** the movement |
+
+The reverse direction reports the movements of the reconciled account inside the period that
+have no bank row (`appOnly`): duplicates, missing amounts, wrong account or movements that do
+not exist in the statement. This is where entry mistakes that a one-way comparison would
+miss are surfaced.
+
+Records that do not correspond to a real bank movement are handled explicitly: the internal
+receiving leg of a coin-split group is not matched (it exists only in the app) and a
+coin-split expense is compared with its amount net of the part paid from the untracked stash
+(the bank charges only the remainder). Real routing legs (e.g. an ATM withdrawal) are matched
+normally.
+
+Creating a missing row produces an Expense (outgoing), a Cashflow (incoming; `isSalary` when
+the causale says salary/pension) or a routing cashflow when the description is an internal
+transfer (withdrawal, prepaid-card top-up, outgoing transfer). The user can also ignore a row.
+
+### Review view
+
+The feature is reached from the Main view "Azioni" menu as **"🏦 Riconcilia estratto conto"**
+(route `/reconcile`). The view is mobile-first and divided in steps:
+
+1. **File and account**: the account to reconcile (default: the first preferred normal
+   account, the same rule as the forms), the CSV file picker and two options (amount
+   tolerance, date window). The selected file name is shown; the balance anchors are read
+   from it.
+2. **Statement**: number of movements, opening/closing balance, sum of the movements and the
+   check against `closing − opening`.
+3. **Congruences**: a counter per state and, for every bank row, the value date (and the
+   accounting date when different), the merchant, the amount and the matched app movement
+   with the reason of the mismatch. A final section lists the account movements that no bank
+   row covers (duplicates and movements missing from the statement).
+
+Invalid files show an `AlertModal`. Positions in the list are rendered as cards (not a
+table), with the amount always visible on small screens. File parsing and matching are
+performed locally: the statement content is never sent anywhere.
+
+### Applying the changes
+
+Each bank row offers an explicit action, applied per row:
+
+- **matched / ambiguous**: "Conferma congruenza" marks the movement as reconciled (it gets
+  the `statementLineId`/`reconciledAt` and the "✓" badge in the Main view);
+- **date-mismatch / amount-mismatch**: "Correggi importo" / "Correggi data" applies the
+  suggested value (the bank EUR amount and/or the value date);
+- **wrong-account**: "Sposta su questo conto" moves the movement to the reconciled account;
+- **unmatched**: "Crea…" opens an inline editor — category for an expense, "Stipendio" for an
+  income, or "Trasferimento verso un altro conto" plus the destination account for a routing
+  transfer. The created movement uses the **value date**, the operation time (falling back to
+  00:00:00) and the merchant as location (`Online / nessun luogo` when there is none);
+- the movements found only in the app can be **deleted** (not the ones with a `routingPairId`,
+  which must be handled from the edit view to keep the pair consistent).
+
+The chosen changes are applied with a single **"✓ Applica N"** action in the title bar,
+confirmed by a `ConfirmModal` (movement corrections, new movements, deletions) and written in
+a **single atomic transaction** (all-or-nothing); afterwards the app state is reloaded and a
+`Toast` reports the result.
+
+### Balance check and realignment
+
+The view shows, next to the bank opening and closing balances, the balance the app calculates
+on the day before the first accounting date and on the last accounting date. The opening
+comparison is **indicative only**: the app dates its movements by value date while the bank
+uses the accounting date, so the two bases can legitimately differ.
+
+When the app balance at the last accounting date differs from the bank closing balance, the
+view offers **"Riallinea il saldo"**: a `ConfirmModal` shows the target, the app balance and
+the difference, and on confirm an `AccountBalanceAdjustment` (note "Riconciliazione estratto
+conto") is created, dated at the last accounting date, for that difference. The app balance
+then matches the statement and the action disappears.
+
+### Tracking
+
+Confirming a row (of any kind) stores on the reconciled movement the reference of the bank
+row (`statementLineId`) and the confirmation time (`reconciledAt`); the Main view shows a
+compact **"✓"** badge on those movements. Both fields are optional, normalized on read and on
+backup import without a `DB_VERSION` bump, and preserved when a movement is edited.
+
+### Implementation notes
+
+The CSV parsing and the matching live in two pure modules (`src/utils/bankStatement.ts`,
+`src/utils/reconciliation.ts`) so they can be validated on their own; the matching module
+never writes to the database.
+
 ## Analytics
 
 Filters:

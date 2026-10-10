@@ -309,6 +309,20 @@
   line-height: 1.5;
 }
 
+/* Marker of a movement reconciled with a bank statement (kept compact: on
+   smartphones the row already hosts the category/account and the amount). */
+.reconciled-badge {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  border-radius: 999px;
+  padding: 1px 7px;
+  line-height: 1.5;
+}
+
 .movement-place {
   /* Il luogo può essere lungo ma non deve spingere l'importo: la colonna
      sinistra ha larghezza limitata (minmax(0,1fr)) e il testo va a capo.

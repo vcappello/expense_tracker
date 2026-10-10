@@ -129,6 +129,10 @@ export default function MainView() {
     navigate('/reimbursements');
   };
 
+  const handleReconcile = () => {
+    navigate('/reconcile');
+  };
+
   const handleHomeLocationSettings = () => {
     setShowHomeLocationSettings(true);
   };
@@ -501,6 +505,15 @@ export default function MainView() {
               {isExpense && movement.reimbursable && (
                 <span className="reimbursable-badge">da rimborsare</span>
               )}
+              {movement.reconciledAt && (
+                <span
+                  className="reconciled-badge"
+                  title="Riconciliato con l'estratto conto"
+                  aria-label="Riconciliato con l'estratto conto"
+                >
+                  ✓
+                </span>
+              )}
             </div>
             {isExpense && movement.location && (
               <div className="movement-place">📍 {movement.location}</div>
@@ -689,6 +702,7 @@ export default function MainView() {
               { label: '🏷️ Categorie', onClick: handleExpenseTypes },
               { label: '🔁 Ricorrenti', onClick: handleRecurring },
               { label: '💶 Rimborsi in attesa', onClick: handleReimbursements },
+              { label: '🏦 Riconcilia estratto conto', onClick: handleReconcile },
               { label: '🏠 Posizione casa', onClick: handleHomeLocationSettings },
               { label: '💾 Esporta backup', onClick: handleExportBackup },
               { label: '📥 Ripristina backup', onClick: () => fileInputRef.current?.click() },
