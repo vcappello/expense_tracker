@@ -337,12 +337,14 @@ i# Plan — Expense Tracker AI
 - [x] **Ricorrenze — azione "Registra ora"** (08/10/2026): registrare un movimento ricorrente **in anticipo** (prima della scadenza) dall'elenco Ricorrenti; consuma il periodo della scadenza, così non viene riproposto (dettaglio sotto)
 - [x] **Riconciliazione estratto conto bancario** (10/10/2026): import del CSV della banca
       (parser RFC 4180 senza dipendenze) e **matching bidirezionale** con le spese/entrate,
-      sulla **data valuta**; per ogni riga un'azione (correggi importo/data, sposta conto, crea
-      spesa/entrata/routing, elimina i movimenti presenti solo nell'app) applicata in **una sola
-      transazione atomica**, conferma dei congruenti, **riallineamento del saldo** al saldo
-      finale con `AccountBalanceAdjustment` e badge **"✓"** sui movimenti riconciliati
-      (`statementLineId`/`reconciledAt`). Pagina `/reconcile` dal menu Azioni; analisi in
-      `docs/bank-reconciliation.md`, dettaglio step sotto.
+      sulla **data valuta**; **view a 3 passi** (parametri → riepilogo → dettaglio) con
+      confronto saldi banca/app, tabella per stato (righe, importo, Δ saldo) e azioni per riga
+      (correggi importo/data, sposta conto, crea spesa/entrata/routing, elimina i movimenti
+      presenti solo nell'app) applicate in **una sola transazione atomica**; **confine dello
+      storico** per le righe precedenti all'uso dell'app, **filtro sull'esito**, chiusura con
+      **riallineamento del saldo** (`AccountBalanceAdjustment`) e badge **"✓"** sui movimenti
+      riconciliati (`statementLineId`/`reconciledAt`). Pagina `/reconcile` dal menu Azioni;
+      analisi in `docs/bank-reconciliation.md`, dettaglio step sotto.
 
 ### Rifiniture UX: chip "Ripeti una spesa" e registrazione in anticipo delle ricorrenze — implementate l'08/10/2026
 

@@ -102,12 +102,14 @@ across repositories of the same user).
   for the matching role
 - **Balance realignment** for cash and bank accounts, with dated adjustments and history; they
   update the balance and the Andamento chart without affecting incomes or expenses
-- **Bank statement reconciliation**: import the bank's CSV, match every row against the app
-  movements (using the value date), review the congruences — including the mistakes that live
-  only in the app (duplicates, mistyped amounts, wrong account) — then correct, create, move or
-  delete the movements in one atomic step and realign the account balance to the statement's
-  closing balance. Reconciled movements get a "✓" badge in the main view. Parsing and matching
-  run locally: the file is never sent anywhere
+- **Bank statement reconciliation**: a **3-step flow** (parameters → summary → detail) to import
+  the bank's CSV and match every row against the app movements (using the value date). The
+  summary compares the bank and app balances (clear success/warning) and shows a per-state table
+  with row counts, amounts and the balance effect of the proposed corrections; the detail lists
+  only the incongruences and lets you correct, create, move or delete the movements in one
+  atomic step, then realign the account balance to the statement's closing balance. Rows before
+  the tracked history can be excluded, and reconciling movements get a "✓" badge in the main
+  view. Parsing and matching run locally: the file is never sent anywhere
 - **Analytics** with a summary (total expenses/incomes, balance, average, top categories) and
   **CSV export** (Italian Excel format)
 - **Charts** in Analytics: **Report**, **Grafico** (bars per day or per category/account),

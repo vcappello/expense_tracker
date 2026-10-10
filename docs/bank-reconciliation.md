@@ -205,7 +205,41 @@ file reale:
    view — ✅ fatto, verificato.
 6. **Chiusura**: `spec.md`, `plan.md`, `AGENTS.md`, `README.md`, `npm run build`.
 
-## 10. Punti aperti residui (non bloccanti)
+## 10. UI finale e rifiniture successive (10/10/2026)
+
+La prima versione era **una sola schermata lunga** (parametri, saldi, contatori e 167 card):
+il riscontro d'uso è stato "troppo confusionaria", con il confronto dei saldi sepolto in mezzo
+e i badge che dicevano *quante* righe ma non *quanto pesavano*. La view è quindi diventata un
+**wizard a 3 passi** su una sola route, con stepper tappabile:
+
+1. **File e conto** — conto, file CSV, tolleranze e confine dello storico. Il Back esce dalla view.
+2. **Riepilogo** — confronto saldi banca/app in evidenza (messaggio di **successo** se coincidono,
+   di **warning** con la differenza altrimenti); tabella **per stato** con righe, importo
+   dell'estratto e **Δ saldo** (effetto delle azioni proposte) più riga di totale e voce "non
+   nell'estratto"; in fondo **"Avanti: dettaglio incongruenze (N)"** e **"Riallinea solo il
+   saldo (Δ)"**, con la nota che il riallineamento è l'ultimo passo.
+3. **Dettaglio** — di default **solo le incongruenze** (chip per filtrare qualsiasi combinazione,
+   scorciatoia "Solo da controllare"), azioni per riga e conferma nella title bar; **dopo
+   l'applicazione si torna al riepilogo** con i numeri aggiornati.
+
+Rifiniture applicate nella stessa giornata, dopo il primo uso sul campo:
+
+- **"Tolleranza date"** (era "Finestra date"): l'etichetta faceva credere che limitasse il
+  periodo. Il **margine del periodo dei candidati** ora deriva dall'**offset massimo
+  contabile↔valuta del file** invece di essere fisso a 2 giorni (una carta può essere
+  contabilizzata giorni dopo l'acquisto);
+- **filtro sull'esito**: i contatori sono diventati filtri cliccabili (selezione multipla,
+  insieme vuoto = tutte) con la scorciatoia **"Solo da controllare"** che nasconde le sole
+  righe congruenti;
+- **confine dello storico**: le righe precedenti all'inizio dello storico tracciato non hanno
+  corrispondenti e finivano tutte tra i "da creare"; ora sono lo stato `before-history`
+  (contatore dedicato, fuori dal matching e dal "da controllare"), con data suggerita = primo
+  movimento sul conto (o data di creazione del conto) e attiva **di default quando il conto ha
+  già movimenti**;
+- **Δ saldo nella tabella**: chiarisce l'effetto delle azioni proposte, così il riepilogo
+  risponde sia a "quanto resta da sistemare" sia a "cosa cambierà sul saldo".
+
+## 11. Punti aperti residui (non bloccanti)
 
 - badge in Main view: risolto con un **"✓"** compatto (`reconciled-badge`), con
   `title`/`aria-label` "Riconciliato con l'estratto conto";
@@ -216,4 +250,6 @@ file reale:
 - il confronto col **saldo iniziale** è indicativo (valuta vs contabile) → documentato come
   limite noto sia in `AGENTS.md` sia nella UI;
 - eventuali rifiniture future: selezione in blocco dei congruenti, cambio manuale della
-  corrispondenza tra le alternative, memoria delle righe "da ignorare" tra un import e l'altro.
+  corrispondenza tra le alternative, memoria delle righe "da ignorare" tra un import e l'altro,
+  persistenza del wizard (oggi file elaborato e scelte vivono **solo in memoria**: ricaricando
+  la pagina si riparte dal passo 1).

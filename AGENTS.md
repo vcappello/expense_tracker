@@ -470,7 +470,10 @@ Limiti noti della **riconciliazione estratto conto** (non bloccanti, decisi il 1
 - l'azione **"Elimina"** dei movimenti presenti solo nell'app non è disponibile per i movimenti
   con `routingPairId` (si gestiscono dalla modifica, per non orfanare le coppie);
 - dopo l'applicazione l'elenco si ricalcola dai dati aggiornati; le righe con azione non
-  applicata non vengono ricordate tra un import e l'altro.
+  applicata non vengono ricordate tra un import e l'altro;
+- lo **stato del wizard è solo in memoria** (file elaborato e scelte): ricaricando la pagina si
+  riparte dal passo 1 e va riselezionato il file; non è persistito di proposito (nessuna scrittura
+  su IndexedDB prima dell'applicazione).
 
 ## Note di database (da `spec.md`)
 - Tabelle: `Expense`, `Cashflow`, `ExpenseType`, `Account` (DB locale); `RecurringExpense` (store `recurringExpenses`) da `DB_VERSION` 2 e `AccountBalanceAdjustment` (store `accountBalanceAdjustments`) da `DB_VERSION` 3.
