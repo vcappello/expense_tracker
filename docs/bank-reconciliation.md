@@ -110,6 +110,7 @@ Quattro pezzi, con la **logica pura separata dalla UI**:
 | `amount-mismatch` | stessa identità (giorno + testo) ma importo diverso | aggiorna **importo** (EUR) |
 | `wrong-account` | importo esatto ma su un altro conto | **sposta** sul conto banca |
 | `unmatched` | nessun candidato | **crea** (spesa / entrata / routing) |
+| `before-history` | precedente allo storico tracciato | nulla (creabile su richiesta) |
 
 ### Algoritmo di matching
 

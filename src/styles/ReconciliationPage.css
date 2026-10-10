@@ -508,3 +508,44 @@
 .recon-counter.active {
   box-shadow: inset 0 0 0 2px currentColor;
 }
+
+/* Tracked-history boundary: rows before it have no counterpart by definition */
+.recon-history {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.recon-history input[type='date'] {
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #e5eefb;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  align-self: flex-start;
+}
+
+.recon-history input[type='date']:disabled {
+  opacity: 0.45;
+}
+
+.recon-hint {
+  color: #94a3b8;
+  font-size: 0.78rem;
+}
+
+.recon-counter.recon-history {
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.3);
+  color: #94a3b8;
+}
+
+.recon-item.recon-history {
+  border-left-color: #475569;
+  opacity: 0.75;
+}

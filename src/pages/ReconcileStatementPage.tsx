@@ -36,6 +36,7 @@ const STATUS_LABELS: Record<ReconcileStatus, string> = {
   'amount-mismatch': '⚠ importo diverso',
   'wrong-account': '🔀 altro conto',
   unmatched: '➕ da creare',
+  'before-history': '⏳ prima dello storico',
 };
 
 const STATUS_TONE: Record<ReconcileStatus, string> = {
@@ -45,6 +46,7 @@ const STATUS_TONE: Record<ReconcileStatus, string> = {
   'amount-mismatch': 'warn',
   'wrong-account': 'info',
   unmatched: 'missing',
+  'before-history': 'history',
 };
 
 const AMOUNT_TOLERANCES = [0, 0.01, 0.05, 0.1];
@@ -52,12 +54,12 @@ const LINK_WINDOWS = [3, 5, 7, 14];
 
 /**
  * Rows the "Solo da controllare" shortcut keeps visible: everything that is not
- * a plain congruence (a duplicate candidate, a wrong date/amount, a wrong
- * account or a movement to create).
+ * a plain congruence and not a historical row (nothing is expected before the
+ * tracked history).
  */
 const ACTIONABLE_STATUSES: ReconcileStatus[] = (
   Object.keys(STATUS_LABELS) as ReconcileStatus[]
-).filter((status) => status !== 'matched');
+).filter((status) => status !== 'matched' && status !== 'before-history');
 
 /** Values of the result filter: the row states plus the app-only section. */
 type FilterValue = ReconcileStatus | 'appOnly';
@@ -85,6 +87,19 @@ const rowTime = (row: BankStatementRow): string => {
   ]
     .map((part) => String(part).padStart(2, '0'))
     .join(':');
+};
+
+/** `YYYY-MM-DD` value for a date input (local date). */
+const toInputDate = (date: Date): string =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+    date.getDate()
+  ).padStart(2, '0')}`;
+
+/** Parse a `YYYY-MM-DD` value coming from a date input as a local date. */
+const parseInputDate = (value: string): Date | null => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
 };
 
 /**
@@ -124,6 +139,9 @@ export default function ReconcileStatementPage() {
   const [applying, setApplying] = useState(false);
   const [realignOpen, setRealignOpen] = useState(false);
   const [balanceRefresh, setBalanceRefresh] = useState(0);
+  const [excludeBeforeHistory, setExcludeBeforeHistory] = useState(false);
+  /** '' = use the suggested boundary (first tracked movement / account creation). */
+  const [fromDateInput, setFromDateInput] = useState('');
   const [balances, setBalances] = useState<{
     beforeOpening: number | null;
     afterClosing: number | null;
@@ -148,13 +166,50 @@ export default function ReconcileStatementPage() {
     [accounts, accountId]
   );
 
+  /** Start of the tracked history: earliest movement on the account, else its creation date. */
+  const suggestedFromDate = useMemo(() => {
+    if (!account) return null;
+    const accountMovements = movements.filter(
+      (movement) => movement.accountId === account.id
+    );
+    if (accountMovements.length === 0) return account.createdAt;
+    return new Date(
+      accountMovements.reduce(
+        (earliest, movement) =>
+          new Date(movement.date).getTime() < earliest
+            ? new Date(movement.date).getTime()
+            : earliest,
+        new Date(accountMovements[0].date).getTime()
+      )
+    );
+  }, [account, movements]);
+
+  // The override is dropped when the user switches account.
+  useEffect(() => {
+    setFromDateInput('');
+  }, [accountId]);
+
+  const fromDateValue =
+    fromDateInput || (suggestedFromDate ? toInputDate(suggestedFromDate) : '');
+  const effectiveFromDate = excludeBeforeHistory
+    ? parseInputDate(fromDateValue) ?? undefined
+    : undefined;
+
   const report: ReconciliationReport | null = useMemo(() => {
     if (!statement || !account) return null;
     return reconcileStatement(statement.movements, movements, account, {
       amountTolerance,
       linkWindowDays,
+      fromDate: effectiveFromDate,
     });
-  }, [statement, account, movements, amountTolerance, linkWindowDays]);
+  }, [
+    statement,
+    account,
+    movements,
+    amountTolerance,
+    linkWindowDays,
+    effectiveFromDate,
+  ]);
 
   const displayRows: ReconcileRow[] = useMemo(
     () =>
@@ -231,6 +286,11 @@ export default function ReconcileStatementPage() {
     statement?.closingBalance && balances.afterClosing !== null
       ? Math.round((statement.closingBalance.amount - balances.afterClosing) * 100) / 100
       : null;
+
+  const hasAccountMovements = useMemo(
+    () => (account ? movements.some((movement) => movement.accountId === account.id) : false),
+    [account, movements]
+  );
 
   const categoryName = (id: string): string =>
     expenseTypes.find((type) => type.id === id)?.name ?? 'Spesa';
@@ -418,6 +478,13 @@ export default function ReconcileStatementPage() {
 
   const renderMatch = (entry: ReconcileRow) => {
     const { best, status, row } = entry;
+    if (status === 'before-history') {
+      return (
+        <span className="recon-match recon-match-missing">
+          Precedente all'inizio dello storico — nessun corrispondente atteso
+        </span>
+      );
+    }
     if (status === 'unmatched' || !best) {
       return (
         <span className="recon-match recon-match-missing">
@@ -739,6 +806,31 @@ export default function ReconcileStatementPage() {
             La tolleranza date vale solo per l'accoppiamento riga ↔ movimento (data valuta):
             <b> l'intero estratto viene sempre riconciliato</b>, qualunque sia il valore scelto.
           </p>
+
+          <div className="recon-history">
+            <label className="recon-create-check">
+              <input
+                type="checkbox"
+                checked={excludeBeforeHistory}
+                onChange={(event) => setExcludeBeforeHistory(event.target.checked)}
+              />
+              Escludi le righe precedenti allo storico
+            </label>
+            <input
+              type="date"
+              value={fromDateValue}
+              disabled={!excludeBeforeHistory}
+              aria-label="Data di inizio dello storico"
+              onChange={(event) => setFromDateInput(event.target.value)}
+            />
+            {suggestedFromDate && (
+              <span className="recon-hint">
+                Suggerito {formatDate(suggestedFromDate)} —{' '}
+                {hasAccountMovements ? 'primo movimento sul conto' : 'creazione del conto'}: le
+                righe precedenti non hanno un corrispondente.
+              </span>
+            )}
+          </div>
         </section>
 
         {warnings.length > 0 && (
@@ -1105,7 +1197,8 @@ const statusToSummaryKey = (
   | 'dateMismatch'
   | 'amountMismatch'
   | 'wrongAccount'
-  | 'unmatched' => {
+  | 'unmatched'
+  | 'beforeHistory' => {
   switch (status) {
     case 'date-mismatch':
       return 'dateMismatch';
@@ -1117,6 +1210,8 @@ const statusToSummaryKey = (
       return 'ambiguous';
     case 'unmatched':
       return 'unmatched';
+    case 'before-history':
+      return 'beforeHistory';
     default:
       return 'matched';
   }

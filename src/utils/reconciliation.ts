@@ -47,7 +47,9 @@ export type ReconcileStatus =
   | 'date-mismatch'
   | 'amount-mismatch'
   | 'wrong-account'
-  | 'unmatched';
+  | 'unmatched'
+  /** Before the tracked history (before `fromDate`): no counterpart is expected. */
+  | 'before-history';
 
 export interface ReconcileCandidate {
   movement: Movement;
@@ -116,6 +118,8 @@ export interface ReconciliationSummary {
   amountMismatch: number;
   wrongAccount: number;
   unmatched: number;
+  /** Rows before the tracked history (excluded from the pending work). */
+  beforeHistory: number;
   appOnly: number;
 }
 
@@ -147,6 +151,12 @@ export interface ReconcileOptions {
    * The largest contabile/valuta gap of the file is always added on top.
    */
   periodMarginDays?: number;
+  /**
+   * Start of the tracked history (usually the account creation date or the
+   * first recorded movement): rows before it cannot have a counterpart and are
+   * reported as `before-history` instead of "to create".
+   */
+  fromDate?: Date;
 }
 
 const startOfDay = (date: Date): Date => {
@@ -306,6 +316,7 @@ export const reconcileStatement = (
   const linkWindowDays = options.linkWindowDays ?? DEFAULT_LINK_WINDOW_DAYS;
   const maxCandidates = options.maxCandidates ?? 4;
   const periodMarginDays = options.periodMarginDays ?? 2;
+  const fromDate = options.fromDate;
 
   const emptyReport = (): ReconciliationReport => ({
     rows: [],
@@ -318,6 +329,7 @@ export const reconcileStatement = (
       amountMismatch: 0,
       wrongAccount: 0,
       unmatched: 0,
+      beforeHistory: 0,
       appOnly: 0,
     },
     balances: {
@@ -354,6 +366,23 @@ export const reconcileStatement = (
   const isInWindow = (movement: Movement): boolean => {
     const time = startOfDay(new Date(movement.date)).getTime();
     return time >= windowStart && time <= windowEnd;
+  };
+
+  // Rows before the tracked history have no counterpart by definition.
+  const fromTime = fromDate ? startOfDay(fromDate).getTime() : null;
+  const isBeforeHistory = (row: BankStatementRow): boolean =>
+    fromTime !== null && startOfDay(rowComparisonDate(row)).getTime() < fromTime;
+
+  /** Decision proposed for a row with no counterpart (to create or to skip). */
+  const buildCreateDecision = (row: BankStatementRow): ReconcileDecision => {
+    const isIncome = row.amount > 0;
+    return {
+      type: 'create',
+      kind: isIncome ? 'cashflow' : 'expense',
+      amount: suggestedAmount(isIncome ? 'cashflow' : 'expense', row.amount),
+      isSalary: /stipendio|pensione/i.test(`${row.causale} ${row.description}`),
+      couldBeRouting: !isIncome && looksLikeTransfer(row),
+    };
   };
 
   // Only movements with a real counterpart in the statement take part in the
@@ -426,6 +455,7 @@ export const reconcileStatement = (
   // One-to-one assignment on the reconciled account (amount-congruent pairs).
   const pairPool: { rowIndex: number; candidate: ReconcileCandidate }[] = [];
   candidatesByRow.forEach((candidates, rowIndex) => {
+    if (isBeforeHistory(rows[rowIndex])) return;
     candidates.forEach((candidate) => {
       if (
         candidate.amountMatches &&
@@ -452,6 +482,17 @@ export const reconcileStatement = (
   const reconcileRows: ReconcileRow[] = rows.map((row, rowIndex) => {
     const candidates = candidatesByRow[rowIndex];
     const linked = linkedByRow.get(rowIndex);
+
+    if (isBeforeHistory(row)) {
+      return {
+        row,
+        status: 'before-history',
+        best: null,
+        alternatives: [],
+        equivalentCount: 0,
+        suggested: buildCreateDecision(row),
+      };
+    }
 
     if (linked) {
       const equivalent = candidates.filter(
@@ -548,20 +589,13 @@ export const reconcileStatement = (
       };
     }
 
-    const isIncome = row.amount > 0;
     return {
       row,
       status: 'unmatched',
       best: null,
       alternatives: candidates,
       equivalentCount: 0,
-      suggested: {
-        type: 'create',
-        kind: isIncome ? 'cashflow' : 'expense',
-        amount: suggestedAmount(isIncome ? 'cashflow' : 'expense', row.amount),
-        isSalary: /stipendio|pensione/i.test(`${row.causale} ${row.description}`),
-        couldBeRouting: !isIncome && looksLikeTransfer(row),
-      },
+      suggested: buildCreateDecision(row),
     };
   });
 
@@ -602,6 +636,7 @@ export const reconcileStatement = (
       amountMismatch: countStatus('amount-mismatch'),
       wrongAccount: countStatus('wrong-account'),
       unmatched: countStatus('unmatched'),
+      beforeHistory: countStatus('before-history'),
       appOnly: appOnly.length,
     },
     balances: {

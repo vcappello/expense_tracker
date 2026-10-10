@@ -836,6 +836,18 @@ Each bank row ends in one of these states, each with a proposed action:
 | `amount-mismatch` | same identity but a different amount (typo or foreign currency) | update the amount |
 | `wrong-account` | exact amount but on another account | **move** the movement to the reconciled account |
 | `unmatched` | no candidate | **create** the movement |
+| `before-history` | before the tracked history (before the chosen boundary): no counterpart is expected | nothing (still creatable on demand) |
+
+### Tracked-history boundary
+
+A statement can start before the app was used (e.g. before the account was created): those
+rows cannot have a counterpart, so by default they would all be listed as "to create". The
+review view offers **"Escludi le righe precedenti allo storico"** with a date suggested
+automatically — the **first movement recorded on the account**, or the **account creation
+date** when the account has no movements — and editable by the user. Rows before that date are
+reported as `before-history` (the excluded counter), take no part in the matching and are left
+out of the "Solo da controllare" shortcut, so the pending work stays focused. The check is off
+by default: nothing is hidden unless the user asks for it.
 
 The reverse direction reports the movements of the reconciled account inside the period that
 have no bank row (`appOnly`): duplicates, missing amounts, wrong account or movements that do

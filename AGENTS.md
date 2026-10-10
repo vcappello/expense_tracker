@@ -411,6 +411,14 @@
     ricarica lo stato). ⚠️ Nel costruire il batch, la guardia sul candidato va fatta **dopo**
     il caso `create`: le righe da creare hanno `best === null` e una guardia anticipata
     (`if (!decision || !best) return`) le scarta silenziosamente (bug reale trovato in test);
+  - **righe precedenti allo storico**: l'opzione `fromDate` di `reconcileStatement` (dalla
+    pagina, checkbox "Escludi le righe precedenti allo storico") marca come `before-history` le
+    righe con data confronto < `fromDate`: non entrano nel matching (non consumano movimenti),
+    hanno un contatore dedicato ed è **escluso** da `ACTIONABLE_STATUSES` (scorciatoia "Solo da
+    controllare"), altrimenti resterebbe il rumore delle righe mai tracciate. Data suggerita =
+    primo movimento sul conto, altrimenti `account.createdAt`; default **non attivo** per non
+    nascondere righe senza scelta esplicita. La classificazione usa la **data valuta**
+    (fallback contabile), coerente col matching;
   - **saldi e riallineamento**: la pagina mostra il saldo app al giorno prima della prima
     contabile e all'ultima contabile (`getAccountBalanceAtDate`) accanto ai saldi banca; il
     confronto sul saldo **iniziale è indicativo** (l'app data con la valuta, la banca con la
