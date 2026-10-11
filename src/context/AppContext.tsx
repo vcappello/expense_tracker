@@ -259,6 +259,12 @@ interface AppContextType {
   isLoading: boolean;
   /** False until the first movements load has completed (see loadMovements). */
   movementsLoaded: boolean;
+  /**
+   * False until the initial accounts/categories load has completed. Views that
+   * resolve data by id (e.g. the duplicate pre-fill) must wait for it, or the
+   * record being looked up would be dropped as "deleted".
+   */
+  catalogsLoaded: boolean;
   error: string | null;
 }
 
@@ -289,6 +295,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // "not loaded yet" (show the spinner) from "loaded and empty" (empty state)
   // even before any load starts (the very first paint).
   const [movementsLoaded, setMovementsLoaded] = useState(false);
+  // False until the initial accounts/categories load completes (see the mount
+  // effect below): the duplicate pre-fill must not run before the categories
+  // are available, otherwise the copied category is dropped as "deleted".
+  const [catalogsLoaded, setCatalogsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const clearError = () => setError(null);
@@ -306,6 +316,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         const typesData = await db.getExpenseTypes();
         setExpenseTypes(typesData);
+        setCatalogsLoaded(true);
       } catch (err) {
         console.error('Failed to initialize app context:', err);
       }
@@ -1513,6 +1524,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // State
     isLoading,
     movementsLoaded,
+    catalogsLoaded,
     error,
   };
 

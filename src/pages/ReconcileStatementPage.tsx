@@ -145,6 +145,7 @@ export default function ReconcileStatementPage() {
   const [linkWindowDays, setLinkWindowDays] = useState(7);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
   const [decisions, setDecisions] = useState<Record<number, RowDecision>>({});
   const [appOnlyDeletes, setAppOnlyDeletes] = useState<Record<string, boolean>>({});
   /** Result filter (empty = show everything, the project's convention). */
@@ -167,6 +168,20 @@ export default function ReconcileStatementPage() {
     afterClosing: number | null;
   }>({ beforeOpening: null, afterClosing: null });
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Transient toast (auto-hidden), resetting any pending timer; cleared on unmount.
+  const showToast = (message: string) => {
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    setToast(message);
+    toastTimerRef.current = window.setTimeout(() => setToast(null), 2500);
+  };
+
+  useEffect(
+    () => () => {
+      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    },
+    []
+  );
 
   useEffect(() => {
     loadMovements({ dateRange: 'all' });
@@ -474,7 +489,7 @@ export default function ReconcileStatementPage() {
       setBalanceRefresh((value) => value + 1);
       // Back to the summary with the updated numbers (the realign closes the loop).
       setStep('summary');
-      setToast(`${applied} modifiche applicate`);
+      showToast(`${applied} modifiche applicate`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Applicazione non riuscita.');
     } finally {
@@ -489,7 +504,7 @@ export default function ReconcileStatementPage() {
     try {
       const delta = closingDelta ?? 0;
       if (Math.abs(delta) < 0.01) {
-        setToast('Nessuna differenza da riallineare');
+        showToast('Nessuna differenza da riallineare');
         return;
       }
       const now = new Date();
@@ -504,7 +519,7 @@ export default function ReconcileStatementPage() {
       };
       await createAccountBalanceAdjustment(adjustment);
       setBalanceRefresh((value) => value + 1);
-      setToast(`Saldo riallineato (${formatCurrency(delta)})`);
+      showToast(`Saldo riallineato (${formatCurrency(delta)})`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Riallineamento non riuscito.');
     } finally {

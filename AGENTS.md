@@ -473,6 +473,21 @@
   UI dedicata per ora. ⚠️ Attenzione: l'editor della riconciliazione **non** deve avvolgere il
   picker in un `<label>` (il click su una voce del dropdown rifocalizzerebbe l'input e
   riaprirebbe la tendina).
+- **Fix prefill di "Duplica" in dev + timer del toast in riconciliazione (11/10/2026)**: due bug
+  preesistenti, trovati verificando la feature sopra e risolti.
+  (1) `CreateExpensePage` — effetto `?from=<id>`: `quickFillAppliedRef.current = true` va
+  impostato **dentro il `.then()` dopo il check `if (!active) return`** (non prima della
+  `getExpense`), perché con `React.StrictMode` in dev l'effetto gira due volte, la prima
+  esecuzione viene annullata e la seconda usciva subito per la guardia → nessun prefill (in
+  produzione funzionava, per cui era invisibile). Inoltre l'effetto ora attende il nuovo flag di
+  contesto **`catalogsLoaded`** (AppContext, true dopo il load iniziale di account+categorie):
+  senza di esso, su **caricamento a freddo** della URL `#/expense/new?from=<id>` la copia scartava
+  la categoria e il conto (le guardie `expenseTypes.some(...)`/`accounts.some(...)` li vedevano
+  come "eliminati"). Usare `catalogsLoaded` (non `expenseTypes.length > 0`) per ogni view che
+  risolve record per id all'avvio.
+  (2) `ReconcileStatementPage` — il toast non si auto-nascondeva: `setToast` era chiamato diretto,
+  senza timer. Ora c'è un helper **`showToast`** (timer 2.5 s + `clearTimeout` del precedente,
+  cleanup all'unmount) come nelle altre pagine; usarlo al posto di `setToast` diretto.
 
 ## Limiti noti (non bloccanti)
 *(Nessun limite noto aperto al 19/09/2026: quello della Main view al primo load freddo è
@@ -492,20 +507,6 @@ Limiti noti della **riconciliazione estratto conto** (non bloccanti, decisi il 1
 - lo **stato del wizard è solo in memoria** (file elaborato e scelte): ricaricando la pagina si
   riparte dal passo 1 e va riselezionato il file; non è persistito di proposito (nessuna scrittura
   su IndexedDB prima dell'applicazione).
-
-Limiti noti **di sviluppo** (preesistenti, non causati dal picker condiviso — verificati l'11/10/2026):
-
-- **"Duplica" non pre-compila in dev** (in produzione sì): l'effetto `?from=<id>` di
-  `CreateExpensePage` imposta `quickFillAppliedRef.current = true` **prima** della `getExpense`
-  asincrona; con `React.StrictMode` l'effetto gira due volte in dev (monta/smonta/rimonta), la
-  prima esecuzione viene annullata (`active = false`) e la seconda esce subito per la guardia →
-  nessun prefill e nessun toast. Verificato con un test A/B (stash del refactor: stesso
-  comportamento) e sul build di produzione, dove il prefill **funziona**. Fix possibile: spostare
-  `quickFillAppliedRef.current = true` dentro il `.then()` dopo il controllo `active`.
-- **Il `Toast` della pagina di riconciliazione non si auto-nasconde** (`setToast` non viene mai
-  azzerato, nessun timer, a differenza di `showToast` del form spesa): i messaggi di
-  applicazione/riallineamento restano a schermo. Il toast di creazione categoria del picker ha
-  invece il proprio timer interno e sparisce normalmente.
 
 ## Note di database (da `spec.md`)
 - Tabelle: `Expense`, `Cashflow`, `ExpenseType`, `Account` (DB locale); `RecurringExpense` (store `recurringExpenses`) da `DB_VERSION` 2 e `AccountBalanceAdjustment` (store `accountBalanceAdjustments`) da `DB_VERSION` 3.

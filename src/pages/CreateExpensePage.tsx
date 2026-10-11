@@ -106,6 +106,7 @@ export default function CreateExpensePage() {
     deleteExpense,
     saveExpenseWithCoins,
     getCashflows,
+    catalogsLoaded,
   } = useApp();
   const sortedAccounts = sortAccountsPreferred(accounts);
   const coinAccounts = sortedAccounts.filter((a) => a.isCoinAccount);
@@ -462,11 +463,17 @@ export default function CreateExpensePage() {
   const quickFillAppliedRef = useRef(false);
   useEffect(() => {
     if (!duplicateFromId || quickFillAppliedRef.current) return;
-    quickFillAppliedRef.current = true;
+    // Wait for accounts/categories: the copy keeps the values only when they
+    // still exist, so running before the load would drop them.
+    if (!catalogsLoaded) return;
     let active = true;
     getExpense(duplicateFromId)
       .then((expense) => {
         if (!active) return;
+        // Mark only after a successful run: with React.StrictMode the effect
+        // mounts twice in dev and the first run is discarded, so marking it
+        // upfront would skip the pre-fill silently.
+        quickFillAppliedRef.current = true;
         if (!expense) {
           showToast('Spesa da duplicare non trovata', '⚠️');
           return;
@@ -481,7 +488,7 @@ export default function CreateExpensePage() {
     return () => {
       active = false;
     };
-  }, [duplicateFromId, getExpense]);
+  }, [duplicateFromId, getExpense, catalogsLoaded]);
 
   const handleLocationSuggestionSelect = (suggestion: LocationSuggestion) => {
     cancelLocationDetection();

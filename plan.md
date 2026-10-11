@@ -352,6 +352,11 @@ i# Plan — Expense Tracker AI
       **`createdFromReconciliation`** (boolean, default false, normalizzato in lettura/import,
       nessun bump `DB_VERSION`, preservato in modifica) per distinguerli dagli abbinati
       (dettaglio sotto).
+- [x] **Due bug corretti in verifica** (11/10/2026): il prefill di **"Duplica"** ora funziona
+      anche in dev (`React.StrictMode`) e su **caricamento a freddo** della URL
+      (`?from=<id>`, grazie al nuovo flag di contesto `catalogsLoaded`); il **`Toast` della
+      riconciliazione** si auto-nasconde (helper `showToast` con timer 2,5 s) come nelle altre
+      pagine.
 
 ### Rifiniture UX: chip "Ripeti una spesa" e registrazione in anticipo delle ricorrenze — implementate l'08/10/2026
 
@@ -777,9 +782,10 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
       riconciliazione), quick-fill, duplica sul build di produzione, flag verificato in
       IndexedDB (`true` sui creati dalla riconciliazione, `false` sugli altri, preservato dopo
       la modifica)
-- [x] Aggiornati `spec.md`, `README.md`, `AGENTS.md` (due **limiti noti di sviluppo**
-      preesistenti documentati: prefill di "Duplica" assente in dev e toast della
-      riconciliazione che non si auto-nasconde)
+- [x] Aggiornati `spec.md`, `README.md`, `AGENTS.md`. In verifica sono emersi e sono stati
+      **corretti due bug preesistenti**: il prefill assente di "Duplica" in dev (+ corsa sul
+      caricamento a freddo dei cataloghi) e il toast della riconciliazione che non si
+      auto-nascondeva (vedi "🐛 Bug da correggere" e il blocco "Fix prefill…" qui sotto)
 
 ### Riconciliazione estratto conto bancario — implementata il 10/10/2026
 
@@ -1319,6 +1325,25 @@ Decisioni utente:
       helper `parseAmount` locale che ora riusa `parseAmountInput`). Verificato nel browser:
       entrata con routing `50,50` → due leg a ±50.50, ricorrenza `9,90` → template a 9.9,
       conferma `11,20` → spesa 11.2, giacenza iniziale `120,75` → saldo 120.75.
+
+- [x] **(corretto l'11/10/2026) "Duplica" non pre-compilava in dev**: l'effetto `?from=<id>` di
+      `CreateExpensePage` marcava `quickFillAppliedRef.current = true` **prima** della `getExpense`
+      asincrona; con `React.StrictMode` in dev l'effetto gira due volte, la prima esecuzione viene
+      annullata e la seconda usciva subito per la guardia → niente prefill (invisibile in
+      produzione, dove l'effetto gira una volta). Ora il ref si marca **dentro il `.then()`** dopo
+      il check di attività. Verificato in dev: categoria e luogo copiati, importo vuoto e a fuoco,
+      toast mostrato.
+- [x] **(corretto l'11/10/2026) Copia incompleta con "Duplica" su caricamento a freddo**: sulla
+      URL `#/expense/new?from=<id>` aperta da zero (refresh, PWA) la categoria e il conto non
+      venivano copiati, perché le guardie `expenseTypes.some(...)`/`accounts.some(...)` li
+      vedevano come "eliminati" (liste del context ancora vuote). Aggiunto in `AppContext` il flag
+      **`catalogsLoaded`** (true dopo il load iniziale di account+categorie) e l'effetto ora
+      attende quel flag. Verificato con un caricamento a freddo: categoria e luogo copiati.
+- [x] **(corretto l'11/10/2026) Toast della riconciliazione sempre a schermo**: `ReconcileStatementPage`
+      chiamava `setToast` diretto, senza timer (a differenza di `showToast` del form spesa), quindi
+      i messaggi di applicazione/riallineamento restavano visibili. Aggiunto l'helper `showToast`
+      (timer 2.5 s, reset del precedente, cleanup all'unmount). Verificato: "1 modifiche applicate"
+      sparisce dopo ~2,5 s.
 
 ## 👀 Osservazioni (limiti noti, da tenere d'occhio)
 
