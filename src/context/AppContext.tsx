@@ -625,6 +625,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             recurringPeriod: current?.recurringPeriod ?? null,
             statementLineId: current?.statementLineId ?? null,
             reconciledAt: current?.reconciledAt ?? null,
+            createdFromReconciliation: current?.createdFromReconciliation === true,
             createdAt: current?.createdAt ?? now,
             updatedAt: now,
           };
@@ -671,6 +672,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           recurringPeriod: null,
           statementLineId: null,
           reconciledAt: null,
+          createdFromReconciliation: false,
           createdAt: now,
           updatedAt: now,
         };
@@ -1026,6 +1028,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             recurringPeriod: periodKey,
             statementLineId: null,
             reconciledAt: null,
+            createdFromReconciliation: false,
             createdAt: now,
             updatedAt: now,
           };
@@ -1050,6 +1053,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             recurringPeriod: periodKey,
             statementLineId: null,
             reconciledAt: null,
+            createdFromReconciliation: false,
             createdAt: now,
             updatedAt: now,
           };
@@ -1333,6 +1337,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               recurringPeriod: null,
               statementLineId: create.statementLineId ?? null,
               reconciledAt: now,
+              createdFromReconciliation: true,
               createdAt: now,
               updatedAt: now,
             });
@@ -1349,6 +1354,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               recurringPeriod: null,
               statementLineId: create.statementLineId ?? null,
               reconciledAt: now,
+              createdFromReconciliation: true,
               createdAt: now,
               updatedAt: now,
             });
@@ -1366,6 +1372,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               recurringPeriod: null,
               statementLineId: create.statementLineId ?? null,
               reconciledAt: now,
+              createdFromReconciliation: true,
               createdAt: now,
               updatedAt: now,
             });
@@ -1385,6 +1392,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               recurringPeriod: null,
               statementLineId: create.statementLineId ?? null,
               reconciledAt: now,
+              createdFromReconciliation: true,
               createdAt: now,
               updatedAt: now,
             });

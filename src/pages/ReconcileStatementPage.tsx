@@ -10,6 +10,7 @@ import { v4 as uuidv4 } from 'uuid';
 import TitleBar from '../components/TitleBar';
 import AlertModal from '../components/AlertModal';
 import ConfirmModal from '../components/ConfirmModal';
+import ExpenseTypePicker from '../components/ExpenseTypePicker';
 import Toast from '../components/Toast';
 import {
   BankStatement,
@@ -636,24 +637,15 @@ export default function ReconcileStatementPage() {
           {editing && (
             <div className="recon-create-editor">
               {createDraft.kind === 'expense' && (
-                <label className="recon-create-field">
-                  Categoria
-                  <select
+                <div className="recon-create-field">
+                  <span>Categoria</span>
+                  <ExpenseTypePicker
                     value={createDraft.expenseTypeId}
-                    onChange={(event) =>
-                      setCreateDraft({
-                        ...createDraft,
-                        expenseTypeId: event.target.value,
-                      })
+                    onChange={(typeId) =>
+                      setCreateDraft({ ...createDraft, expenseTypeId: typeId })
                     }
-                  >
-                    {expenseTypes.map((type) => (
-                      <option key={type.id} value={type.id}>
-                        {type.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  />
+                </div>
               )}
 
               {createDraft.kind === 'cashflow' && (

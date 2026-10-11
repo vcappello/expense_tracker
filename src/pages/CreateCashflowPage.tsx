@@ -214,6 +214,7 @@ export default function CreateCashflowPage() {
             recurringPeriod: null,
             statementLineId: current?.statementLineId ?? null,
             reconciledAt: current?.reconciledAt ?? null,
+            createdFromReconciliation: current?.createdFromReconciliation === true,
             createdAt: new Date(),
             updatedAt: new Date(),
           };
@@ -230,6 +231,7 @@ export default function CreateCashflowPage() {
             recurringPeriod: null,
             statementLineId: current?.statementLineId ?? null,
             reconciledAt: current?.reconciledAt ?? null,
+            createdFromReconciliation: current?.createdFromReconciliation === true,
             createdAt: new Date(),
             updatedAt: new Date(),
           };
@@ -254,6 +256,7 @@ export default function CreateCashflowPage() {
             recurringPeriod: null,
             statementLineId: null,
             reconciledAt: null,
+            createdFromReconciliation: false,
             createdAt: new Date(),
             updatedAt: new Date(),
           };
@@ -270,6 +273,7 @@ export default function CreateCashflowPage() {
             recurringPeriod: null,
             statementLineId: null,
             reconciledAt: null,
+            createdFromReconciliation: false,
             createdAt: new Date(),
             updatedAt: new Date(),
           };
@@ -294,6 +298,7 @@ export default function CreateCashflowPage() {
           recurringPeriod: current?.recurringPeriod ?? null,
           statementLineId: current?.statementLineId ?? null,
           reconciledAt: current?.reconciledAt ?? null,
+          createdFromReconciliation: current?.createdFromReconciliation === true,
           createdAt: new Date(),
           updatedAt: new Date(),
         };

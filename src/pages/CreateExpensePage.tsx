@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { Expense, ExpenseType } from '../types';
+import { Expense } from '../types';
 import { sortAccountsPreferred, getDefaultPrimaryAccount } from '../utils/accounts';
 import {
   ONLINE_LOCATION_VALUE,
@@ -17,11 +17,11 @@ import { useNavigateBack } from '../utils/navigation';
 import { AMOUNT_INPUT_PATTERN, parseAmountInput, toDateTime } from '../utils/formatting';
 import TitleBar, { TitleBarAction } from '../components/TitleBar';
 import { CheckIcon, TrashIcon, LocateIcon, CopyIcon } from '../components/icons';
+import ExpenseTypePicker from '../components/ExpenseTypePicker';
 import Toast from '../components/Toast';
 import ConfirmModal from '../components/ConfirmModal';
 import AlertModal from '../components/AlertModal';
 import '../styles/ExpenseForm.css';
-import { v4 as uuidv4 } from 'uuid';
 
 const formatTimeToHHMMSS = (date: Date): string => {
   const hours = String(date.getHours()).padStart(2, '0');
@@ -102,7 +102,6 @@ export default function CreateExpensePage() {
     expenseTypes,
     expenses,
     loadExpenses,
-    createExpenseType,
     getExpense,
     deleteExpense,
     saveExpenseWithCoins,
@@ -129,16 +128,16 @@ export default function CreateExpensePage() {
     reimbursable: false,
   });
 
-  const [expenseTypeSearch, setExpenseTypeSearch] = useState('');
-  const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  // Bumped to reset the category picker (dropping any typed text) when a
+  // quick-fill copies a category.
+  const [categoryPickerKey, setCategoryPickerKey] = useState(0);
   // Optional fields (date, time, notes, reimbursable, secondary account) start
   // collapsed on create to keep the form focused on amount + place + category,
   // and expanded on edit so the stored values are visible right away.
   const [showDetails, setShowDetails] = useState(Boolean(expenseId));
   // Mount-time defaults, used to tell whether the user changed date/time.
   const initialDateTimeRef = useRef({ date: formData.date, time: formData.time });
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const amountInputRef = useRef<HTMLInputElement>(null);
   const [toast, setToast] = useState<{ message: string; icon?: string } | null>(null);
@@ -302,21 +301,6 @@ export default function CreateExpensePage() {
     }
   }, [accounts, expenseId]);
 
-  // Handle outside click
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target as Node)
-      ) {
-        setShowTypeDropdown(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
   // Show a transient toast (default success ✅, pass ⚠️ for warnings), resetting any pending timer
   const showToast = (message: string, icon = '✅') => {
     if (toastTimerRef.current) {
@@ -451,8 +435,9 @@ export default function CreateExpensePage() {
       notes: source.notes ?? '',
       reimbursable: source.reimbursable === true,
     }));
-    setExpenseTypeSearch('');
-    setShowTypeDropdown(false);
+    // Remount the picker so any typed text is dropped even when the copied
+    // category equals the current one.
+    setCategoryPickerKey((key) => key + 1);
     amountInputRef.current?.focus();
   };
 
@@ -668,8 +653,6 @@ export default function CreateExpensePage() {
       ...prev,
       expenseTypeId: suggestedExpenseType.expenseTypeId,
     }));
-    setExpenseTypeSearch('');
-    setShowTypeDropdown(false);
     showToast(`Categoria "${suggestedType.name}" individuata dal luogo`);
   }, [
     expenseHistoryLoaded,
@@ -695,7 +678,7 @@ export default function CreateExpensePage() {
     }));
   };
 
-  const handleExpenseTypeSearch = (value: string) => {
+  const handleCategoryManualInput = (value: string) => {
     if (value.trim()) {
       const clearInferredCategory =
         categorySelectionOriginRef.current === 'location';
@@ -704,42 +687,14 @@ export default function CreateExpensePage() {
         setFormData((prev) => ({ ...prev, expenseTypeId: '' }));
       }
     }
-    setExpenseTypeSearch(value);
-    setShowTypeDropdown(true);
   };
 
-  const filteredTypes = expenseTypes.filter((type) =>
-    type.name.toLowerCase().includes(expenseTypeSearch.toLowerCase())
-  );
-
-  const selectExpenseType = (typeId: string) => {
+  const handleCategorySelect = (typeId: string) => {
     categorySelectionOriginRef.current = 'manual';
     setFormData((prev) => ({
       ...prev,
       expenseTypeId: typeId,
     }));
-    setExpenseTypeSearch('');
-    setShowTypeDropdown(false);
-  };
-
-  const createNewExpenseType = async () => {
-    if (!expenseTypeSearch.trim()) return;
-
-    try {
-      const newType: ExpenseType = {
-        id: uuidv4(),
-        name: expenseTypeSearch,
-        parentId: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      await createExpenseType(newType);
-      selectExpenseType(newType.id);
-      showToast(`Categoria "${newType.name}" creata`);
-    } catch (err) {
-      console.error('Failed to create expense type:', err);
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -857,48 +812,16 @@ export default function CreateExpensePage() {
     disabled: isLoading,
   });
 
-  const selectedType = expenseTypes.find((t) => t.id === formData.expenseTypeId);
   const categoryField = (
     <div className="form-group">
       <label htmlFor="expenseType">Categoria *</label>
-      <div className="expense-type-container" ref={dropdownRef}>
-        <input
-          type="text"
-          id="expenseType"
-          placeholder="Cerca o scrivi una categoria..."
-          value={expenseTypeSearch || selectedType?.name || ''}
-          onChange={(e) => handleExpenseTypeSearch(e.target.value)}
-          onFocus={() => setShowTypeDropdown(true)}
-          className="form-input"
-        />
-        {showTypeDropdown && (
-          <div className="dropdown-menu">
-            {filteredTypes.length > 0 && (
-              <>
-                {filteredTypes.map((type) => (
-                  <div
-                    key={type.id}
-                    className="dropdown-item"
-                    onClick={() => selectExpenseType(type.id)}
-                  >
-                    {type.name}
-                  </div>
-                ))}
-                <div className="dropdown-divider"></div>
-              </>
-            )}
-            {expenseTypeSearch.trim() &&
-              !filteredTypes.find((t) => t.name === expenseTypeSearch) && (
-                <div
-                  className="dropdown-item new-item"
-                  onClick={createNewExpenseType}
-                >
-                  <span className="badge">nuovo</span> {expenseTypeSearch}
-                </div>
-              )}
-          </div>
-        )}
-      </div>
+      <ExpenseTypePicker
+        key={categoryPickerKey}
+        inputId="expenseType"
+        value={formData.expenseTypeId}
+        onChange={handleCategorySelect}
+        onManualInput={handleCategoryManualInput}
+      />
     </div>
   );
   const locationField = (

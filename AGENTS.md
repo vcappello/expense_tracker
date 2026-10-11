@@ -455,6 +455,24 @@
     temporaneo (transpilando i file con il `tsc` locale, nessuna dipendenza aggiunta), poi il
     test è manuale nel browser. Validazione fase 1-2 sul file reale: 167 movimenti, 0 warning,
     `Σ = Saldo finale − Saldo iniziale` ✔.
+- **Picker categoria condiviso (`ExpenseTypePicker`) + flag di origine (11/10/2026)**: il
+  controllo categoria del form spesa (input di ricerca + dropdown con creazione inline della
+  categoria e toast) è ora il componente condiviso **`src/components/ExpenseTypePicker.tsx`**
+  (stili in `src/styles/ExpenseTypePicker.css`, spostati da `ExpenseForm.css`): props
+  `value`/`onChange`/`onManualInput`/`inputId`. Lo usa sia `CreateExpensePage` (che passa
+  `onManualInput` per marcare l'origine 'manual' e la `key` `categoryPickerKey` per svuotare il
+  testo digitato dopo un quick-fill) sia l'editor di creazione della riconciliazione (al posto
+  della `<select>`). Il componente svuota il testo e chiude il dropdown quando `value` cambia
+  dall'esterno (categoria suggerita dal luogo, quick-fill, duplica) e mostra da solo il toast
+  "Categoria … creata". In più i movimenti **creati** dalla riconciliazione hanno
+  `createdFromReconciliation: true` (boolean, default false): campo nuovo su `Expense`/`Cashflow`
+  normalizzato in lettura (`database.ts`) e in import (`backup.ts`), **nessun bump
+  `DB_VERSION`**, `false` in ogni altro percorso di creazione e **preservato in modifica**
+  (form spesa/entrata e controparti dei routing). Serve a distinguere i movimenti *creati* dalla
+  riconciliazione da quelli solo *abbinati* (che hanno `statementLineId`/`reconciledAt`): nessuna
+  UI dedicata per ora. ⚠️ Attenzione: l'editor della riconciliazione **non** deve avvolgere il
+  picker in un `<label>` (il click su una voce del dropdown rifocalizzerebbe l'input e
+  riaprirebbe la tendina).
 
 ## Limiti noti (non bloccanti)
 *(Nessun limite noto aperto al 19/09/2026: quello della Main view al primo load freddo è
@@ -474,6 +492,20 @@ Limiti noti della **riconciliazione estratto conto** (non bloccanti, decisi il 1
 - lo **stato del wizard è solo in memoria** (file elaborato e scelte): ricaricando la pagina si
   riparte dal passo 1 e va riselezionato il file; non è persistito di proposito (nessuna scrittura
   su IndexedDB prima dell'applicazione).
+
+Limiti noti **di sviluppo** (preesistenti, non causati dal picker condiviso — verificati l'11/10/2026):
+
+- **"Duplica" non pre-compila in dev** (in produzione sì): l'effetto `?from=<id>` di
+  `CreateExpensePage` imposta `quickFillAppliedRef.current = true` **prima** della `getExpense`
+  asincrona; con `React.StrictMode` l'effetto gira due volte in dev (monta/smonta/rimonta), la
+  prima esecuzione viene annullata (`active = false`) e la seconda esce subito per la guardia →
+  nessun prefill e nessun toast. Verificato con un test A/B (stash del refactor: stesso
+  comportamento) e sul build di produzione, dove il prefill **funziona**. Fix possibile: spostare
+  `quickFillAppliedRef.current = true` dentro il `.then()` dopo il controllo `active`.
+- **Il `Toast` della pagina di riconciliazione non si auto-nasconde** (`setToast` non viene mai
+  azzerato, nessun timer, a differenza di `showToast` del form spesa): i messaggi di
+  applicazione/riallineamento restano a schermo. Il toast di creazione categoria del picker ha
+  invece il proprio timer interno e sparisce normalmente.
 
 ## Note di database (da `spec.md`)
 - Tabelle: `Expense`, `Cashflow`, `ExpenseType`, `Account` (DB locale); `RecurringExpense` (store `recurringExpenses`) da `DB_VERSION` 2 e `AccountBalanceAdjustment` (store `accountBalanceAdjustments`) da `DB_VERSION` 3.

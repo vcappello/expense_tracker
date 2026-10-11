@@ -239,6 +239,29 @@ Rifiniture applicate nella stessa giornata, dopo il primo uso sul campo:
 - **Δ saldo nella tabella**: chiarisce l'effetto delle azioni proposte, così il riepilogo
   risponde sia a "quanto resta da sistemare" sia a "cosa cambierà sul saldo".
 
+### Rifinitura successiva: categoria con il picker condiviso + flag di origine (11/10/2026)
+
+Richiesta dell'utente dopo il primo uso: nell'editor di creazione del passo Dettaglio la
+categoria era una `<select>` piatta, mentre il form spesa ha un controllo con **ricerca e
+creazione inline** della categoria. Il controllo del form spesa è stato quindi estratto nel
+componente condiviso **`ExpenseTypePicker`** (`src/components/ExpenseTypePicker.tsx`, stili in
+`src/styles/ExpenseTypePicker.css`) e usato in entrambe le viste; il CSS del dropdown è stato
+spostato da `ExpenseForm.css` (le classi `.expense-type-container`/`.dropdown-*`/`.badge` erano
+usate solo lì, quindi nessuna collisione). Nota di integrazione: nell'editor della
+riconciliazione il picker **non** va avvolto in un `<label>` (il click su una voce del dropdown
+rifocalizzerebbe l'input e riaprirebbe la tendina).
+
+È stato poi aggiunto il flag **`createdFromReconciliation`** (boolean, default `false`) sui
+movimenti **creati** dall'azione "Crea…": serve a distinguerli dai movimenti solo **abbinati**
+(che hanno `statementLineId`/`reconciledAt`). Il campo è normalizzato in lettura (`database.ts`)
+e in import (`backup.ts`) **senza bump di `DB_VERSION`**, vale `false` in ogni altro percorso di
+creazione ed è **preservato in modifica** (form spesa/entrata). Nessuna UI lo mostra ancora.
+
+Scartata l'idea di **redirigere** al form spesa per la creazione: la pagina di riconciliazione
+verrebbe smontata, perdendo in memoria il file caricato e tutte le decisioni (lo stato del
+wizard non è persistito di proposito), l'apply atomico unico verrebbe spezzato e la redirezione
+coprirebbe solo le spese (non entrate e trasferimenti).
+
 ## 11. Punti aperti residui (non bloccanti)
 
 - badge in Main view: risolto con un **"✓"** compatto (`reconciled-badge`), con

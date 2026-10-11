@@ -134,6 +134,7 @@ const normalizeExpense = (e: Expense): Expense => ({
   recurringPeriod: e.recurringPeriod ?? null,
   statementLineId: e.statementLineId ?? null,
   reconciledAt: e.reconciledAt ?? null,
+  createdFromReconciliation: e.createdFromReconciliation === true,
 });
 
 /**
@@ -168,6 +169,7 @@ const normalizeCashflow = (c: Cashflow): Cashflow => ({
   recurringPeriod: c.recurringPeriod ?? null,
   statementLineId: c.statementLineId ?? null,
   reconciledAt: c.reconciledAt ?? null,
+  createdFromReconciliation: c.createdFromReconciliation === true,
 });
 
 // ============ ACCOUNT OPERATIONS ============

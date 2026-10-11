@@ -107,7 +107,9 @@ across repositories of the same user).
   summary compares the bank and app balances (clear success/warning) and shows a per-state table
   with row counts, amounts and the balance effect of the proposed corrections; the detail lists
   only the incongruences and lets you correct, create, move or delete the movements in one
-  atomic step, then realign the account balance to the statement's closing balance. Rows before
+  atomic step, then realign the account balance to the statement's closing balance. Creating a
+  missing expense picks the category with the same control as the expense form (search field
+  with inline creation of a new category). Rows before
   the tracked history can be excluded, and reconciling movements get a "✓" badge in the main
   view. Parsing and matching run locally: the file is never sent anywhere
 - **Analytics** with a summary (total expenses/incomes, balance, average, top categories) and
@@ -124,6 +126,7 @@ across repositories of the same user).
 - `src/App.tsx`: main routing
 - `src/pages/`: pages (main view, expenses, incomes, categories, accounts, analytics,
   reconciliation)
+- `src/components/`: shared UI (title bar, action menu, modals, charts, expense type picker)
 - `src/context/AppContext.tsx`: global state and CRUD operations
 - `src/db/database.ts`: IndexedDB layer
 - `src/utils/`: pure helpers (bank statement parsing, reconciliation matching, recurrence,

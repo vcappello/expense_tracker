@@ -42,6 +42,7 @@ export interface Expense {
   recurringPeriod: string | null; // period key consumed by the confirmation (see utils/recurrence.ts)
   statementLineId: string | null; // bank statement row reconciled against this expense (null if none)
   reconciledAt: Date | null; // when the reconciliation with the bank statement was confirmed
+  createdFromReconciliation: boolean; // created by the reconciliation view's "create" action (default false)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -59,6 +60,7 @@ export interface Cashflow {
   recurringPeriod: string | null; // period key consumed by the confirmation (see utils/recurrence.ts)
   statementLineId: string | null; // bank statement row reconciled against this cashflow (null if none)
   reconciledAt: Date | null; // when the reconciliation with the bank statement was confirmed
+  createdFromReconciliation: boolean; // created by the reconciliation view's "create" action (default false)
   createdAt: Date;
   updatedAt: Date;
 }

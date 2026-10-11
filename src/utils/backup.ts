@@ -129,6 +129,7 @@ const normalizeExpense = (raw: Record<string, unknown>): Expense => ({
   recurringPeriod: typeof raw.recurringPeriod === 'string' ? raw.recurringPeriod : null,
   statementLineId: typeof raw.statementLineId === 'string' ? raw.statementLineId : null,
   reconciledAt: raw.reconciledAt ? toDate(raw.reconciledAt) : null,
+  createdFromReconciliation: raw.createdFromReconciliation === true,
   createdAt: toDate(raw.createdAt),
   updatedAt: toDate(raw.updatedAt),
 });
@@ -147,6 +148,7 @@ const normalizeCashflow = (raw: Record<string, unknown>): Cashflow => ({
     typeof raw.recurringPeriod === 'string' ? raw.recurringPeriod : null,
   statementLineId: typeof raw.statementLineId === 'string' ? raw.statementLineId : null,
   reconciledAt: raw.reconciledAt ? toDate(raw.reconciledAt) : null,
+  createdFromReconciliation: raw.createdFromReconciliation === true,
   createdAt: toDate(raw.createdAt),
   updatedAt: toDate(raw.updatedAt),
 });

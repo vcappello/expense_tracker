@@ -345,6 +345,13 @@ i# Plan — Expense Tracker AI
       **riallineamento del saldo** (`AccountBalanceAdjustment`) e badge **"✓"** sui movimenti
       riconciliati (`statementLineId`/`reconciledAt`). Pagina `/reconcile` dal menu Azioni;
       analisi in `docs/bank-reconciliation.md`, dettaglio step sotto.
+- [x] **Picker categoria condiviso + flag di origine** (11/10/2026): il controllo categoria del
+      form spesa (ricerca + **creazione inline** della categoria con toast) è ora il componente
+      condiviso `ExpenseTypePicker`, usato anche dall'editor di creazione della riconciliazione;
+      i movimenti **creati** dalla riconciliazione hanno il flag
+      **`createdFromReconciliation`** (boolean, default false, normalizzato in lettura/import,
+      nessun bump `DB_VERSION`, preservato in modifica) per distinguerli dagli abbinati
+      (dettaglio sotto).
 
 ### Rifiniture UX: chip "Ripeti una spesa" e registrazione in anticipo delle ricorrenze — implementate l'08/10/2026
 
@@ -744,6 +751,35 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 > implementate, poi marcate `[x]` e riepilogate in ✅ Completati.
 > ⚠️ **Prima del `git push` chiedere sempre conferma all'utente**: il push fa partire il
 > deploy automatico su GitHub Pages e pubblica subito la nuova versione.
+
+### Picker categoria condiviso nella riconciliazione + flag di provenienza — implementata l'11/10/2026
+
+> Richiesta utente (11/10/2026): nel passo Dettaglio della riconciliazione, quando si crea
+> un movimento mancante, scegliere la categoria con lo **stesso controllo del form spesa**
+> (ricerca + creazione inline di una nuova categoria). Analisi: il controllo è autocontenuto
+> (non è complicato) → si estrae in un componente condiviso. In più, un **flag in DB** che
+> indica che il movimento è stato **creato dalla riconciliazione** (utile in futuro; oggi
+> `statementLineId`/`reconciledAt` non distinguono i creati dagli abbinati).
+> Scartata l'ipotesi di **redirigere** al form spesa: smonta la pagina e perde in memoria lo
+> stato del wizard (file + decisioni), rompe l'apply atomico unico e copre solo le spese.
+
+- [x] Estratto `ExpenseTypePicker` (ricerca + creazione inline categoria + toast) in un
+      componente condiviso (`src/components/ExpenseTypePicker.tsx` +
+      `src/styles/ExpenseTypePicker.css`, CSS del dropdown spostato da `ExpenseForm.css`)
+- [x] Refactor di `CreateExpensePage` sul picker preservando il comportamento (origine manuale
+      vs suggerimento dal luogo, quick-fill con `categoryPickerKey`, duplica, autofocus)
+- [x] Picker usato nel passo Dettaglio della riconciliazione al posto della `<select>`
+- [x] Flag `createdFromReconciliation` su `Expense`/`Cashflow`: tipi, normalizzazione in
+      lettura (`database.ts`) e import (`backup.ts`), tutti gli object literal; `true` solo
+      per i movimenti creati dalla riconciliazione; preservato in modifica; nessun bump
+      `DB_VERSION`
+- [x] `npm run build` + test nel browser: creazione inline della categoria (form spesa e
+      riconciliazione), quick-fill, duplica sul build di produzione, flag verificato in
+      IndexedDB (`true` sui creati dalla riconciliazione, `false` sugli altri, preservato dopo
+      la modifica)
+- [x] Aggiornati `spec.md`, `README.md`, `AGENTS.md` (due **limiti noti di sviluppo**
+      preesistenti documentati: prefill di "Duplica" assente in dev e toast della
+      riconciliazione che non si auto-nasconde)
 
 ### Riconciliazione estratto conto bancario — implementata il 10/10/2026
 

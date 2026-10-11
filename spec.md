@@ -906,8 +906,11 @@ Each bank row offers an explicit action, applied per row:
 - **wrong-account**: "Sposta su questo conto" moves the movement to the reconciled account;
 - **unmatched**: "Crea…" opens an inline editor — category for an expense, "Stipendio" for an
   income, or "Trasferimento verso un altro conto" plus the destination account for a routing
-  transfer. The created movement uses the **value date**, the operation time (falling back to
-  00:00:00) and the merchant as location (`Online / nessun luogo` when there is none);
+  transfer. The category is chosen with the same control as the expense form (search field
+  with dropdown and inline creation of a new category, shared `ExpenseTypePicker`). The
+  created movement uses the **value date**, the operation time (falling back to
+  00:00:00) and the merchant as location (`Online / nessun luogo` when there is none), and is
+  flagged as created from the reconciliation (see "Tracking");
 - the movements found only in the app can be **deleted** (not the ones with a `routingPairId`,
   which must be handled from the edit view to keep the pair consistent).
 
@@ -935,6 +938,13 @@ Confirming a row (of any kind) stores on the reconciled movement the reference o
 row (`statementLineId`) and the confirmation time (`reconciledAt`); the Main view shows a
 compact **"✓"** badge on those movements. Both fields are optional, normalized on read and on
 backup import without a `DB_VERSION` bump, and preserved when a movement is edited.
+
+Movements **created** by the "Crea…" action additionally carry a boolean flag
+(`createdFromReconciliation`, default `false`) that records their origin: it stays `true`
+when they are later edited, so creations from the reconciliation remain distinguishable from
+movements simply matched against the statement (which only get `statementLineId`/
+`reconciledAt`). Like the other reconciliation fields it is optional, normalized on read and
+on backup import without a `DB_VERSION` bump, and it has no UI of its own yet.
 
 ### Implementation notes
 
