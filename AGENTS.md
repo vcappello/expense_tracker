@@ -488,6 +488,21 @@
   (2) `ReconcileStatementPage` — il toast non si auto-nascondeva: `setToast` era chiamato diretto,
   senza timer. Ora c'è un helper **`showToast`** (timer 2.5 s + `clearTimeout` del precedente,
   cleanup all'unmount) come nelle altre pagine; usarlo al posto di `setToast` diretto.
+- **Filtro dell'esito del passo 3 unificato in un solo pulsante (11/10/2026)**: gli 8 chip
+  contatore impilati su ~5 righe (con "Mostra tutte" e la pill "Solo da controllare") rendevano
+  il box "Incongruenze" confuso su mobile. Ora c'è **un solo controllo**, il `MultiSelectFilter`
+  condiviso, in riga col titolo della card (`.recon-card-header`): pannello a checkbox con una
+  voce per stato **e il suo contatore** ("➕ da creare (1)", "💰 non nell'estratto (2)"…), più
+  "Tutte le righe" (selezione vuota = tutte) e l'azione rapida   **"🔧 Solo da controllare"** in cima al pannello (`quickAction`, sempre visibile senza
+  scorrere, separata dal resto, e riceve la `close`). Il trigger mostra un riepilogo compatto
+  ("Solo da controllare" / "Tutte le righe" / "1 stato" / "N stati") via la prop `summarize`.
+  Sotto resta **una sola riga** "Mostro X di Y righe". NON reintrodurre i chip: il CSS
+  `.recon-counter(s)`/`.recon-filters`/`.recon-clear` è stato rimosso. `MultiSelectFilter` ha
+  ora props **opzionali e retrocompatibili** (`summarize`, `allLabel`, `quickAction(close)`,
+  `closeOnSelect`): Analytics non è cambiata (default `closeOnSelect: false`, il pannello resta
+  aperto), mentre la riconciliazione lo attiva (tap → applica e chiude, più adatto a "filtra ed
+  elenca"). I poteri di tono/colore dei chip sono spariti: gli stati sono riconoscibili dal
+  prefisso della voce (✓ / ⚠ / 🔀 / ➕ / ⏳ / 💰).
 
 ## Limiti noti (non bloccanti)
 *(Nessun limite noto aperto al 19/09/2026: quello della Main view al primo load freddo è

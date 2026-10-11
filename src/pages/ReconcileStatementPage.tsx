@@ -11,6 +11,9 @@ import TitleBar from '../components/TitleBar';
 import AlertModal from '../components/AlertModal';
 import ConfirmModal from '../components/ConfirmModal';
 import ExpenseTypePicker from '../components/ExpenseTypePicker';
+import MultiSelectFilter, {
+  MultiSelectOption,
+} from '../components/MultiSelectFilter';
 import Toast from '../components/Toast';
 import {
   BankStatement,
@@ -21,6 +24,7 @@ import {
   ReconcileRow,
   ReconcileStatus,
   ReconciliationReport,
+  ReconciliationSummary,
   reconcileStatement,
   rowComparisonDate,
   statementLineRef,
@@ -79,6 +83,34 @@ const STEPS: { value: Step; label: string }[] = [
  * (the step exists to work on what needs attention).
  */
 const DEFAULT_FILTER: FilterValue[] = [...ACTIONABLE_STATUSES, 'appOnly'];
+
+/**
+ * Options of the detail-step filter (see MultiSelectFilter): one entry per row
+ * state plus the app-only section, each with the number of rows it covers (the
+ * counts used to live in a wrapping row of chips).
+ */
+const buildStatusFilterOptions = (
+  summary: ReconciliationSummary
+): MultiSelectOption[] => [
+  ...(Object.keys(STATUS_LABELS) as ReconcileStatus[]).map((status) => ({
+    value: status,
+    label: `${STATUS_LABELS[status]} (${summary[statusToSummaryKey(status)]})`,
+  })),
+  { value: 'appOnly', label: `💰 non nell'estratto (${summary.appOnly})` },
+];
+
+/** Compact summary shown on the filter trigger. */
+const summarizeStatusFilter = (
+  values: string[],
+  focusMode: boolean
+): string => {
+  if (values.length === 0) return 'Tutte le righe';
+  if (focusMode) return 'Solo da controllare';
+  if (values.length > 1) return `${values.length} stati`;
+  return values[0] === 'appOnly'
+    ? "💰 non nell'estratto"
+    : STATUS_LABELS[values[0] as ReconcileStatus];
+};
 
 /** Inline configuration of a movement created from an unmatched bank row. */
 interface CreateConfig {
@@ -271,12 +303,9 @@ export default function ReconcileStatementPage() {
     isFiltered &&
     statusFilter.length === DEFAULT_FILTER.length &&
     DEFAULT_FILTER.every((value) => statusFilter.includes(value));
-  const toggleFilter = (value: FilterValue): void =>
-    setStatusFilter((previous) =>
-      previous.includes(value)
-        ? previous.filter((entry) => entry !== value)
-        : [...previous, value]
-    );
+  const statusFilterOptions = report
+    ? buildStatusFilterOptions(report.summary)
+    : [];
   const toggleFocusMode = (): void =>
     setStatusFilter(focusMode ? [] : [...DEFAULT_FILTER]);
 
@@ -1160,52 +1189,34 @@ export default function ReconcileStatementPage() {
           ) : report && account ? (
             <>
               <section className="recon-card">
-                <h2 className="recon-card-title">Incongruenze</h2>
-                <div className={`recon-counters ${isFiltered ? 'filtering' : ''}`}>
-                  {(Object.keys(STATUS_LABELS) as ReconcileStatus[]).map((status) => (
-                    <button
-                      key={status}
-                      type="button"
-                      className={`recon-counter recon-${STATUS_TONE[status]} ${
-                        statusFilter.includes(status) ? 'active' : ''
-                      }`}
-                      onClick={() => toggleFilter(status)}
-                      aria-pressed={statusFilter.includes(status)}
-                    >
-                      {STATUS_LABELS[status]}:{' '}
-                      <b>{report.summary[statusToSummaryKey(status)]}</b>
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    className={`recon-counter recon-info ${
-                      statusFilter.includes('appOnly') ? 'active' : ''
-                    }`}
-                    onClick={() => toggleFilter('appOnly')}
-                    aria-pressed={statusFilter.includes('appOnly')}
-                  >
-                    non nell'estratto: <b>{report.summary.appOnly}</b>
-                  </button>
-                </div>
-
-                <div className="recon-filters">
-                  <button
-                    type="button"
-                    className={`recon-focus ${focusMode ? 'active' : ''}`}
-                    onClick={toggleFocusMode}
-                    aria-pressed={focusMode}
-                  >
-                    🔧 Solo da controllare
-                  </button>
-                  {isFiltered && (
-                    <button
-                      type="button"
-                      className="recon-clear"
-                      onClick={() => setStatusFilter([])}
-                    >
-                      Mostra tutte le {displayRows.length} righe
-                    </button>
-                  )}
+                <div className="recon-card-header">
+                  <h2 className="recon-card-title">Incongruenze</h2>
+                  <MultiSelectFilter
+                    label="Filtro sull'esito"
+                    options={statusFilterOptions}
+                    selected={statusFilter}
+                    onChange={(values) =>
+                      setStatusFilter(values as FilterValue[])
+                    }
+                    summarize={(values) =>
+                      summarizeStatusFilter(values, focusMode)
+                    }
+                    allLabel="Tutte le righe"
+                    closeOnSelect
+                    quickAction={(close) => (
+                      <button
+                        type="button"
+                        className={`recon-focus ${focusMode ? 'active' : ''}`}
+                        onClick={() => {
+                          toggleFocusMode();
+                          close();
+                        }}
+                        aria-pressed={focusMode}
+                      >
+                        🔧 Solo da controllare
+                      </button>
+                    )}
+                  />
                 </div>
                 {isFiltered && (
                   <p className="recon-filter-info">

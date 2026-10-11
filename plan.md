@@ -357,6 +357,12 @@ i# Plan — Expense Tracker AI
       (`?from=<id>`, grazie al nuovo flag di contesto `catalogsLoaded`); il **`Toast` della
       riconciliazione** si auto-nasconde (helper `showToast` con timer 2,5 s) come nelle altre
       pagine.
+- [x] **Filtro dell'esito del passo 3 unificato** (11/10/2026): nel passo Dettaglio della
+      riconciliazione gli 8 chip contatore + "Mostra tutte" + pill "Solo da controllare" sono
+      sostituiti da **un solo pulsante con dropdown** (`MultiSelectFilter`, in riga col titolo
+      della card) con i contatori per stato dentro al pannello, "Tutte le righe" e l'azione
+      rapida "🔧 Solo da controllare"; su mobile il primo movimento risale di ~130px e il box
+      non è più confuso (dettaglio sotto).
 
 ### Rifiniture UX: chip "Ripeti una spesa" e registrazione in anticipo delle ricorrenze — implementate l'08/10/2026
 
@@ -756,6 +762,28 @@ verificato il 23/08/2026 — vedi sezione ✅ Completati.)*
 > implementate, poi marcate `[x]` e riepilogate in ✅ Completati.
 > ⚠️ **Prima del `git push` chiedere sempre conferma all'utente**: il push fa partire il
 > deploy automatico su GitHub Pages e pubblica subito la nuova versione.
+
+### Filtro dell'esito del passo 3 in un unico pulsante — implementata l'11/10/2026
+
+> Richiesta utente (11/10/2026): il box "Incongruenze" del passo Dettaglio è confusionario,
+> soprattutto su mobile; uniformare il filtro al pattern della Main view (un solo pulsante
+> con dropdown). Scelta concordata: **opzione A** — pill con dropdown a **checkbox multiple**
+> (`MultiSelectFilter`, come Analytics), che conserva la possibilità di combinare più stati;
+> contatori spostati **dentro il pannello**, "Solo da controllare" come azione rapida nel
+> pannello, "Tutte le righe" = selezione vuota.
+
+- [x] Sostituiti gli 8 chip contatore + "Mostra tutte" + pill "Solo da controllare" con un solo
+      `MultiSelectFilter` in riga col titolo della card (`.recon-card-header`)
+- [x] `MultiSelectFilter` esteso con props opzionali retrocompatibili: `summarize`, `allLabel`,
+      `quickAction(close)` e `closeOnSelect` (Analytics invariata)
+- [x] Riepilogo compatto nel trigger ("Solo da controllare" / "Tutte le righe" / "1 stato" /
+      "N stati") e una sola riga "Mostro X di Y righe"
+- [x] Rimossi il CSS dei chip (`.recon-counter(s)`, `.recon-filters`, `.recon-clear`) e il
+      `toggleFilter` non più usato
+- [x] Verificato a 390px: header della card su una riga, pannello con contatori, selezione
+      singola/multipla, "Tutte le righe", azione rapida, card "non nell'estratto" nascosta quando
+      `appOnly` non è selezionato; Analytics invariata (pannello che resta aperto)
+- [x] Aggiornati `spec.md`, `README.md`, `AGENTS.md`, `docs/bank-reconciliation.md`
 
 ### Picker categoria condiviso nella riconciliazione + flag di provenienza — implementata l'11/10/2026
 

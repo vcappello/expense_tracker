@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { ReactNode, useState, useRef, useEffect } from 'react';
 
 export interface MultiSelectOption {
   value: string;
@@ -10,6 +10,18 @@ interface MultiSelectFilterProps {
   options: MultiSelectOption[];
   selected: string[]; // empty array = all
   onChange: (values: string[]) => void;
+  /** Custom summary shown on the trigger (default: "Tutti" / "N selezionati"). */
+  summarize?: (selected: string[]) => string;
+  /** Label of the "no selection" row (default: "Tutti"). */
+  allLabel?: string;
+  /**
+   * Quick action rendered at the top of the panel, always visible above the
+   * options (e.g. a preset) and separated by a divider. Receives a callback
+   * that closes the panel.
+   */
+  quickAction?: (close: () => void) => ReactNode;
+  /** Close the panel after an option is toggled (default: keep it open). */
+  closeOnSelect?: boolean;
 }
 
 /**
@@ -21,6 +33,10 @@ export default function MultiSelectFilter({
   options,
   selected,
   onChange,
+  summarize,
+  allLabel = 'Tutti',
+  quickAction,
+  closeOnSelect = false,
 }: MultiSelectFilterProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -36,20 +52,29 @@ export default function MultiSelectFilter({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const close = () => setOpen(false);
+
   const toggleValue = (value: string) => {
     if (selected.includes(value)) {
       onChange(selected.filter((v) => v !== value));
     } else {
       onChange([...selected, value]);
     }
+    if (closeOnSelect) close();
   };
 
-  const summary =
-    selected.length === 0
-      ? 'Tutti'
-      : selected.length === 1
-      ? '1 selezionato'
-      : `${selected.length} selezionati`;
+  const clearAll = () => {
+    onChange([]);
+    if (closeOnSelect) close();
+  };
+
+  const summary = summarize
+    ? summarize(selected)
+    : selected.length === 0
+    ? 'Tutti'
+    : selected.length === 1
+    ? '1 selezionato'
+    : `${selected.length} selezionati`;
 
   return (
     <div className="multi-select" ref={containerRef}>
@@ -66,9 +91,12 @@ export default function MultiSelectFilter({
 
       {open && (
         <div className="multi-select-panel">
-          <div className="multi-select-option" onClick={() => onChange([])}>
+          {quickAction && (
+            <div className="multi-select-quick">{quickAction(close)}</div>
+          )}
+          <div className="multi-select-option" onClick={clearAll}>
             <input type="checkbox" checked={selected.length === 0} readOnly />
-            <span>Tutti</span>
+            <span>{allLabel}</span>
           </div>
           {options.map((option) => {
             const checked = selected.includes(option.value);

@@ -886,8 +886,10 @@ current step and lets the user jump back):
    figure. At the bottom: **"Avanti: dettaglio incongruenze (N)"** (primary) and
    **"Riallinea solo il saldo (Δ)"** (only when a difference exists). The realignment is the
    last step, so a note reminds that fixing movements afterwards makes the difference reappear.
-3. **Dettaglio**: only the rows that are not plain congruences by default (the filter chips
-   still allow any combination, including the congruences). Here the per-row actions are taken
+3. **Dettaglio**: only the rows that are not plain congruences by default. The result filter is a
+   single **"Esito"** dropdown in the card header (multi-select with checkboxes, every state
+   listed with its row count, plus an "all rows" entry and a "only to check" quick action); an
+   empty selection shows everything. Here the per-row actions are taken
    and applied from the title bar; after applying, the app returns to the summary with the
    updated numbers.
 

@@ -133,42 +133,40 @@
   color: #fcd34d;
 }
 
-.recon-counters {
+/* Filter control in the "Incongruenze" card header: the shared multi-select
+   pill, sized to its content and opening leftwards (the header is right-aligned). */
+.recon-card-header {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   margin-bottom: 10px;
 }
 
-.recon-counter {
-  border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 0.78rem;
-  border: 1px solid transparent;
+.recon-card-header .recon-card-title {
+  margin: 0;
 }
 
-.recon-counter.recon-ok {
-  background: rgba(16, 185, 129, 0.14);
-  border-color: rgba(16, 185, 129, 0.45);
-  color: #6ee7b7;
+.recon-card-header .multi-select {
+  flex: 0 0 auto;
 }
 
-.recon-counter.recon-warn {
-  background: rgba(245, 158, 11, 0.14);
-  border-color: rgba(245, 158, 11, 0.45);
-  color: #fcd34d;
+.recon-card-header .multi-select-toggle {
+  width: auto;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  border-radius: 8px;
 }
 
-.recon-counter.recon-info {
-  background: rgba(56, 189, 248, 0.14);
-  border-color: rgba(56, 189, 248, 0.45);
-  color: #7dd3fc;
+.recon-card-header .multi-select-panel {
+  left: auto;
+  right: 0;
+  min-width: 250px;
+  max-width: min(320px, 84vw);
 }
 
-.recon-counter.recon-missing {
-  background: rgba(148, 163, 184, 0.14);
-  border-color: rgba(148, 163, 184, 0.45);
-  color: #cbd5e1;
+.recon-card-header .multi-select-option {
+  font-size: 0.88rem;
 }
 
 .recon-balance-line {
@@ -451,62 +449,35 @@
   color: #cbd5e1;
 }
 
-/* Result filter: the counters are buttons that filter the list by state */
-.recon-counter {
+/* Quick action at the bottom of the filter panel ("Solo da controllare"). */
+.recon-focus {
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 0.88rem;
   font-family: inherit;
   cursor: pointer;
-  transition: box-shadow 0.15s ease;
-}
-
-.recon-counter.active {
-  box-shadow: inset 0 0 0 1px currentColor;
-  font-weight: 600;
-}
-
-.recon-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 4px 0 10px;
-}
-
-.recon-focus,
-.recon-clear {
-  border-radius: 999px;
-  padding: 5px 12px;
-  font-size: 0.8rem;
-  font-family: inherit;
-  cursor: pointer;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  background: rgba(148, 163, 184, 0.12);
+  border: none;
+  background: transparent;
   color: #cbd5e1;
+  width: 100%;
+  text-align: left;
+}
+
+.recon-focus:hover {
+  background: rgba(148, 163, 184, 0.12);
+  color: #e5eefb;
 }
 
 .recon-focus.active {
-  background: rgba(56, 189, 248, 0.16);
-  border-color: rgba(56, 189, 248, 0.55);
+  background: rgba(56, 189, 248, 0.14);
   color: #7dd3fc;
-}
-
-.recon-clear {
-  background: transparent;
-  color: #94a3b8;
+  font-weight: 600;
 }
 
 .recon-filter-info {
-  margin: 0 0 10px;
+  margin: 0;
   font-size: 0.8rem;
   color: #94a3b8;
-}
-
-/* When a filter is on, the chips that are not selected fade out so the
-   selection is unmistakable (and the tone colour stays readable). */
-.recon-counters.filtering .recon-counter:not(.active) {
-  opacity: 0.5;
-}
-
-.recon-counter.active {
-  box-shadow: inset 0 0 0 2px currentColor;
 }
 
 /* Tracked-history boundary: rows before it have no counterpart by definition */
@@ -537,12 +508,6 @@
 .recon-hint {
   color: #94a3b8;
   font-size: 0.78rem;
-}
-
-.recon-counter.recon-history {
-  background: rgba(148, 163, 184, 0.1);
-  border-color: rgba(148, 163, 184, 0.3);
-  color: #94a3b8;
 }
 
 .recon-item.recon-history {

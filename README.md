@@ -106,7 +106,8 @@ across repositories of the same user).
   the bank's CSV and match every row against the app movements (using the value date). The
   summary compares the bank and app balances (clear success/warning) and shows a per-state table
   with row counts, amounts and the balance effect of the proposed corrections; the detail lists
-  only the incongruences and lets you correct, create, move or delete the movements in one
+  only the incongruences (with a per-state filter in the card header) and lets you correct,
+  create, move or delete the movements in one
   atomic step, then realign the account balance to the statement's closing balance. Creating a
   missing expense picks the category with the same control as the expense form (search field
   with inline creation of a new category). Rows before

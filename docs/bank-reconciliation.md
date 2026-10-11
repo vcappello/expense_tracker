@@ -262,6 +262,27 @@ verrebbe smontata, perdendo in memoria il file caricato e tutte le decisioni (lo
 wizard non è persistito di proposito), l'apply atomico unico verrebbe spezzato e la redirezione
 coprirebbe solo le spese (non entrate e trasferimenti).
 
+### Rifinitura successiva: un solo filtro per l'esito nel passo 3 (11/10/2026)
+
+Riscontro d'uso sul passo Dettaglio: gli **8 chip contatore** (uno per stato, più "non
+nell'estratto"), la pill "Solo da controllare", il pulsante "Mostra tutte" e la riga "Mostro X di
+Y righe" occupavano ~5 righe su smartphone prima del primo movimento, risultando confusi anche
+perché i chip erano sia indicatori (contatori) sia filtri (toggle multipli).
+
+Decisione (opzione concordata con l'utente): **un unico pulsante con dropdown**, riusando il
+`MultiSelectFilter` già usato in Analytics, in riga col titolo della card ("Incongruenze"). Il
+pannello elenca una voce per stato **con il contatore** ("➕ da creare (1)", "✓ congruente (3)",
+"💰 non nell'estratto (2)"…), l'ingresso "Tutte le righe" (selezione vuota = tutte, la semantica
+già usata in Analytics) e in fondo l'azione rapida "🔧 Solo da controllare" (il preset di
+default). Il trigger riassume la selezione ("Solo da controllare" / "Tutte le righe" / "1 stato" /
+"N stati"); resta una sola riga informativa "Mostro X di Y righe".
+
+Effetti: si conserva la **selezione multipla** (combinare più stati) e spariscono chip, "Mostra
+tutte" e la pill separata; i contatori restano a un tap (il riepilogo del passo 2 continua a
+mostrare righe e **importi** per stato). Su mobile il primo movimento passa da ~y=350 a ~y=223.
+`MultiSelectFilter` ha guadagnato props opzionali (`summarize`, `allLabel`, `quickAction`, 
+`closeOnSelect`) senza cambiare il comportamento di Analytics.
+
 ## 11. Punti aperti residui (non bloccanti)
 
 - badge in Main view: risolto con un **"✓"** compatto (`reconciled-badge`), con

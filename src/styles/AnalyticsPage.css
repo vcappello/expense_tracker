@@ -139,6 +139,14 @@
   color: #5eead4;
 }
 
+/* Optional panel quick action (see the `quickAction` prop): stays on top so it
+   is visible without scrolling the option list. */
+.multi-select-quick {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  margin-bottom: 4px;
+  padding-bottom: 4px;
+}
+
 .multi-select-option input[type='checkbox'] {
   accent-color: #14b8a6;
   width: 18px;
