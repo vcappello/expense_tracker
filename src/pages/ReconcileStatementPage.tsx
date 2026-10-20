@@ -430,7 +430,7 @@ export default function ReconcileStatementPage() {
     setExpandedCreate(entry.row.line);
     setCreateDraft({
       kind: entry.suggested.kind,
-      expenseTypeId: expenseTypes[0]?.id ?? '',
+      expenseTypeId: '',
       routingAccountId:
         accounts.find((candidate) => candidate.id !== accountId)?.id ?? '',
       isSalary: entry.suggested.isSalary,

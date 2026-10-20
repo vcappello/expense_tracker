@@ -1,3 +1,7 @@
+-**Categoria nell'editor di riconciliazione**: non preselezionare la prima categoria. Se l'utente
+  cancella completamente il testo nel `ExpenseTypePicker`, azzerare anche l'ID selezionato,
+  altrimenti il nome della categoria torna nel campo e non è possibile ripulirlo.
+**Fix prefill di "Duplica" in dev + timer del toast in riconciliazione (11/10/2026)**: due bug
 # AGENTS.md — Note per agenti AI di sviluppo
 
 > Questo file viene letto automaticamente dagli agenti di coding all'inizio di ogni sessione.

@@ -82,6 +82,7 @@ export default function ExpenseTypePicker({
     onManualInput?.(next);
     setSearch(next);
     setOpen(true);
+    if (!next && value) onChange('');
   };
 
   const selectType = (typeId: string) => {
