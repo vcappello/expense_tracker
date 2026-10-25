@@ -18,6 +18,14 @@ perché è quella confrontabile con la data della spesa (anche per gli acquisti 
 
 File di riferimento analizzato: `/home/vincenzo/Downloads/movimenti_1791624566502.csv`.
 
+Il parser supporta anche l'esportazione movimenti di una carta ricaricabile:
+`DATA OPERAZIONE,DESCRIZIONE OPERAZIONE,IMPORTO IN EURO`. La data operazione viene usata
+come data di confronto; l'importo firmato distingue uscite ed entrate. La riga finale
+`Totale` è esclusa dai movimenti e verificata rispetto alla somma importata. Questo formato
+non contiene saldi iniziale/finale: il confronto e il riallineamento del saldo non sono quindi
+disponibili. Le righe positive di ricarica possono essere create come trasferimenti in entrata
+sul conto carta, selezionando il conto di provenienza.
+
 ## 2. Anatomia del file (verificata sul file reale)
 
 | Aspetto | Rilievo |
@@ -39,6 +47,14 @@ Dati estraibili dalla descrizione (riconosciuti dal parser):
 - **data/ora operazione** da `del GG/MM/AAAA alle ore HH:MM`;
 - **valuta originale** e **importo in divisa** da `Div=XXX` / `Importo in divisa=…`;
 - **ultime 4 cifre carta** da `Carta xxxxxxxxNNNN`.
+
+### Esportazione carta ricaricabile
+
+Il file d'esempio `carta8196-ott26.csv` usa tre colonne: `DATA OPERAZIONE`,
+`DESCRIZIONE OPERAZIONE`, `IMPORTO IN EURO`. Le righe acquisto hanno importo negativo,
+le ricariche positivo; la riga `Totale` è solo un controllo aritmetico e non un saldo. Non
+essendoci ancore di saldo, questo formato permette il confronto dei movimenti ma non
+l'allineamento del saldo.
 
 ## 3. Il problema: il confronto non può essere a senso unico
 

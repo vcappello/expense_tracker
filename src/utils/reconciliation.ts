@@ -246,15 +246,18 @@ const isoDay = (date: Date): string =>
  * (`statementLineId`): it documents the provenance and makes a second import of
  * the same statement recognise the rows already reconciled.
  */
-export const statementLineRef = (row: BankStatementRow): string =>
-  [
+export const statementLineRef = (row: BankStatementRow): string => {
+  const parts = [
     isoDay(row.accountingDate),
     row.valueDate ? isoDay(row.valueDate) : '',
     row.amount.toFixed(2),
     row.causale,
     row.merchant ?? '',
     row.cardLast4 ?? '',
-  ].join('|');
+  ];
+  if (row.format === 'card') parts.push(row.description);
+  return parts.join('|');
+};
 
 const formatTime = (date: Date): string =>
   [date.getHours(), date.getMinutes(), date.getSeconds()]
@@ -381,7 +384,7 @@ export const reconcileStatement = (
       kind: isIncome ? 'cashflow' : 'expense',
       amount: suggestedAmount(isIncome ? 'cashflow' : 'expense', row.amount),
       isSalary: /stipendio|pensione/i.test(`${row.causale} ${row.description}`),
-      couldBeRouting: !isIncome && looksLikeTransfer(row),
+      couldBeRouting: looksLikeTransfer(row),
     };
   };
 

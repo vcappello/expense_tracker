@@ -103,7 +103,10 @@ across repositories of the same user).
 - **Balance realignment** for cash and bank accounts, with dated adjustments and history; they
   update the balance and the Andamento chart without affecting incomes or expenses
 - **Bank statement reconciliation**: a **3-step flow** (parameters → summary → detail) to import
-  the bank's CSV and match every row against the app movements (using the value date). The
+  the bank statement CSV or rechargeable-card movements CSV and match every row against the app
+  movements (using the value date or card operation date). Card top-ups can be recorded as
+  incoming transfers; card files without opening/closing balances do not offer balance
+  comparison or realignment. The
   summary compares the bank and app balances (clear success/warning) and shows a per-state table
   with row counts, amounts and the balance effect of the proposed corrections; the detail lists
   only the incongruences (with a per-state filter in the card header) and lets you correct,

@@ -1,7 +1,7 @@
 /**
- * Parsing of a bank statement CSV (Italian home-banking export).
+ * Parsing of Italian bank statement and rechargeable-card CSV exports.
  *
- * The file format is fixed by the bank:
+ * Bank statement layout:
  *   DATA CONTABILE,DATA VALUTA,USCITE,ENTRATE,CAUSALE,DESCRIZIONE OPERAZIONE
  * - accounting date (contabile): when the bank posts the movement;
  * - value date (valuta): the date comparable with the expense date (for card
@@ -13,17 +13,26 @@
  * - two anchor rows (`Saldo iniziale` / `Saldo finale`) carry the opening and
  *   closing balances and are not movements.
  *
+ * Rechargeable-card layout:
+ *   DATA OPERAZIONE,DESCRIZIONE OPERAZIONE,IMPORTO IN EURO
+ * The signed amount distinguishes expenses and income; the optional `Totale`
+ * row is validated but is not a balance anchor.
+ *
  * Pure module (no DOM, no app types): the parsing can be validated on its own.
  */
 
 type BankStatementRowKind = 'movement' | 'opening-balance' | 'closing-balance';
 
+export type BankStatementFormat = 'bank' | 'card';
+
 export interface BankStatementRow {
   /** 1-based data row number in the file (header excluded). */
   line: number;
-  /** DATA CONTABILE: when the bank posts the movement. */
+  /** Source layout, used to keep card transaction references distinct. */
+  format: BankStatementFormat;
+  /** DATA CONTABILE or DATA OPERAZIONE, depending on the source layout. */
   accountingDate: Date;
-  /** DATA VALUTA: the date comparable with the app movement (null if absent). */
+  /** DATA VALUTA for bank exports (null when the source has no value date). */
   valueDate: Date | null;
   /** Signed amount in EUR: outgoings negative, incoming positive. */
   amount: number;
@@ -49,6 +58,7 @@ export interface BankStatementBalanceAnchor {
 }
 
 export interface BankStatement {
+  format: BankStatementFormat;
   movements: BankStatementRow[];
   openingBalance: BankStatementBalanceAnchor | null;
   closingBalance: BankStatementBalanceAnchor | null;
@@ -63,6 +73,7 @@ export interface BankStatementParseResult {
 }
 
 const HEADER_FIRST_COLUMN = 'DATA CONTABILE';
+const CARD_HEADER = ['DATA OPERAZIONE', 'DESCRIZIONE OPERAZIONE', 'IMPORTO IN EURO'];
 
 /** Split a CSV payload (RFC 4180: quotes, escaped quotes, CRLF and LF, BOM). */
 const splitCsvRows = (text: string): string[][] => {
@@ -186,6 +197,70 @@ const detectKind = (description: string): BankStatementRowKind => {
   return 'movement';
 };
 
+const parseCardStatement = (rawRows: string[][]): BankStatementParseResult => {
+  const warnings: string[] = [];
+  const movements: BankStatementRow[] = [];
+  const declaredTotal: { value: number | null } = { value: null };
+
+  rawRows.slice(1).forEach((cells, index) => {
+    const line = index + 1;
+    const [dateRaw = '', descriptionRaw = '', amountRaw = ''] = cells;
+    const description = descriptionRaw.trim();
+    if (/^totale$/i.test(description)) {
+      declaredTotal.value = parseBankAmount(amountRaw);
+      if (declaredTotal.value === null) {
+        warnings.push(`Riga ${line}: totale dichiarato non valido.`);
+      }
+      return;
+    }
+
+    const date = parseBankDate(dateRaw);
+    const amount = parseBankAmount(amountRaw);
+    if (!date || amount === null || !description) {
+      warnings.push(`Riga ${line}: data, descrizione o importo non validi, riga ignorata.`);
+      return;
+    }
+
+    const recharge = /ricarica/i.test(description);
+    movements.push({
+      line,
+      format: 'card',
+      accountingDate: date,
+      valueDate: null,
+      amount,
+      causale: recharge ? description : 'Operazione carta',
+      description,
+      merchant: extractMerchant(description),
+      operationDateTime: null,
+      currency: null,
+      foreignAmount: null,
+      cardLast4: null,
+    });
+  });
+
+  if (movements.length === 0) {
+    warnings.push('Nessun movimento trovato nel file.');
+  }
+
+  const net = getStatementNet(movements);
+  if (declaredTotal.value !== null && Math.abs(declaredTotal.value - net) > 0.01) {
+    warnings.push(
+      `Il totale dichiarato (${declaredTotal.value.toFixed(2)}) non coincide con la somma dei movimenti (${net.toFixed(2)}).`
+    );
+  }
+
+  return {
+    statement: {
+      format: 'card',
+      movements,
+      openingBalance: null,
+      closingBalance: null,
+      net,
+    },
+    warnings,
+  };
+};
+
 /**
  * Parse a bank statement CSV into movements plus the opening/closing anchors.
  * Never throws on malformed rows: they are skipped and reported in `warnings`.
@@ -196,6 +271,10 @@ export const parseBankStatementCsv = (text: string): BankStatementParseResult =>
 
   if (rawRows.length === 0) {
     throw new Error('Il file è vuoto.');
+  }
+  const header = rawRows[0].map((cell) => cell.trim().toUpperCase());
+  if (CARD_HEADER.every((column, index) => header[index] === column)) {
+    return parseCardStatement(rawRows);
   }
   if (!rawRows[0][0]?.trim().toUpperCase().startsWith(HEADER_FIRST_COLUMN)) {
     throw new Error(
@@ -244,6 +323,7 @@ export const parseBankStatementCsv = (text: string): BankStatementParseResult =>
 
     movements.push({
       line,
+      format: 'bank',
       accountingDate,
       valueDate: parseBankDate(valutaRaw),
       amount,
@@ -263,6 +343,7 @@ export const parseBankStatementCsv = (text: string): BankStatementParseResult =>
 
   return {
     statement: {
+      format: 'bank',
       movements,
       openingBalance,
       closingBalance,

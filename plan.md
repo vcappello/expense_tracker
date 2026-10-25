@@ -1386,10 +1386,12 @@ stato risolto — vedi il bullet in ✅ Completati.)*
 
 - [ ] **Create from photo**: fotocamera smartphone + lettura dello scontrino con AI per creare
       la spesa automaticamente.
-- [x] **Riconciliazione estratto conto bancario (implementata il 10/10/2026)**: import del CSV
-      della banca, matching bidirezionale con le spese/entrate (data valuta), pagina di revisione
-      con correzione/creazione/spostamento/eliminazione dei movimenti in un'unica transazione,
-      riallineamento al saldo finale e badge "✓" sui movimenti riconciliati. Analisi in
+- [x] **Riconciliazione estratto conto bancario (implementata il 10/10/2026; CSV carta aggiunto
+      il 25/10/2026)**: import del CSV della banca, matching bidirezionale con le spese/entrate
+      (data valuta), pagina di revisione con correzione/creazione/spostamento/eliminazione dei
+      movimenti in un'unica transazione, riallineamento al saldo finale e badge "✓" sui
+      movimenti riconciliati. Supporta anche il CSV delle carte ricaricabili (data operazione,
+      importo firmato e totale verificato; niente riallineamento senza saldi). Analisi in
       `docs/bank-reconciliation.md`.
 - [ ] **Gestione multi-valuta**.
 - [x] **Promemoria scadenze ricorrenze**: all'apertura della Main view mostrare una volta al

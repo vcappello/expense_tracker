@@ -591,7 +591,8 @@ export default function ReconcileStatementPage() {
       case 'date-mismatch':
         return (
           <span className="recon-match recon-match-warn">
-            {describeMovement(movement)} · {detail} → valuta{' '}
+            {describeMovement(movement)} · {detail} →{' '}
+            {row.format === 'card' ? 'operazione' : 'valuta'}{' '}
             {formatDate(rowComparisonDate(row))}
           </span>
         );
@@ -707,7 +708,7 @@ export default function ReconcileStatementPage() {
 
               {createDraft.kind === 'routing' && (
                 <label className="recon-create-field">
-                  Conto destinazione
+                  {entry.row.amount > 0 ? 'Conto di provenienza' : 'Conto destinazione'}
                   <select
                     value={createDraft.routingAccountId}
                     onChange={(event) =>
@@ -728,7 +729,7 @@ export default function ReconcileStatementPage() {
                 </label>
               )}
 
-              {suggested.couldBeRouting && createDraft.kind !== 'cashflow' && (
+              {suggested.couldBeRouting && (
                 <label className="recon-create-check">
                   <input
                     type="checkbox"
@@ -736,11 +737,15 @@ export default function ReconcileStatementPage() {
                     onChange={(event) =>
                       setCreateDraft({
                         ...createDraft,
-                        kind: event.target.checked ? 'routing' : 'expense',
+                        kind: event.target.checked
+                          ? 'routing'
+                          : suggested.kind,
                       })
                     }
                   />
-                  Trasferimento verso un altro conto
+                  {entry.row.amount > 0
+                    ? 'Ricarica / trasferimento da un altro conto'
+                    : 'Trasferimento verso un altro conto'}
                 </label>
               )}
 
@@ -883,7 +888,7 @@ export default function ReconcileStatementPage() {
               </div>
 
               <div className="recon-field">
-                <span className="recon-label">Estratto conto (CSV)</span>
+                <span className="recon-label">Estratto conto o carta (CSV)</span>
                 <div className="recon-file-row">
                   <button
                     type="button"
@@ -941,9 +946,8 @@ export default function ReconcileStatementPage() {
               </div>
 
               <p className="recon-note">
-                La tolleranza date vale solo per l'accoppiamento riga ↔ movimento (data
-                valuta):<b> l'intero estratto viene sempre riconciliato</b>, qualunque sia il
-                valore scelto.
+                La tolleranza date vale solo per l'accoppiamento riga ↔ movimento:{' '}
+                <b>l'intero file viene sempre riconciliato</b>, qualunque sia il valore scelto.
               </p>
 
               <div className="recon-history">
@@ -1006,7 +1010,13 @@ export default function ReconcileStatementPage() {
             <>
               <section className="recon-card">
                 <h2 className="recon-card-title">Confronto saldi</h2>
-                {closingDelta === null || balances.afterClosing === null ? (
+                {statement.format === 'card' ? (
+                  <p className="recon-check">
+                    Questo file contiene i movimenti della carta ma non i saldi iniziale e
+                    finale. Puoi riconciliare le operazioni; il confronto del saldo e il
+                    riallineamento non sono disponibili.
+                  </p>
+                ) : closingDelta === null || balances.afterClosing === null ? (
                   <p className="recon-check warn">
                     Saldo del conto non disponibile: impossibile confrontarlo con l'estratto.
                   </p>
@@ -1059,34 +1069,38 @@ export default function ReconcileStatementPage() {
                     <dt>Σ movimenti</dt>
                     <dd>{formatCurrency(statement.net)}</dd>
                   </div>
-                  <div>
-                    <dt>Saldo iniziale banca</dt>
-                    <dd>
-                      {statement.openingBalance
-                        ? formatCurrency(statement.openingBalance.amount)
-                        : '—'}
-                      {balances.beforeOpening !== null && (
-                        <span className="recon-balance-app">
-                          {' '}
-                          · app {formatCurrency(balances.beforeOpening)}
-                        </span>
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Saldo finale banca</dt>
-                    <dd>
-                      {statement.closingBalance
-                        ? formatCurrency(statement.closingBalance.amount)
-                        : '—'}
-                      {balances.afterClosing !== null && (
-                        <span className="recon-balance-app">
-                          {' '}
-                          · app {formatCurrency(balances.afterClosing)}
-                        </span>
-                      )}
-                    </dd>
-                  </div>
+                  {statement.format === 'bank' && (
+                    <>
+                      <div>
+                        <dt>Saldo iniziale banca</dt>
+                        <dd>
+                          {statement.openingBalance
+                            ? formatCurrency(statement.openingBalance.amount)
+                            : '—'}
+                          {balances.beforeOpening !== null && (
+                            <span className="recon-balance-app">
+                              {' '}
+                              · app {formatCurrency(balances.beforeOpening)}
+                            </span>
+                          )}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Saldo finale banca</dt>
+                        <dd>
+                          {statement.closingBalance
+                            ? formatCurrency(statement.closingBalance.amount)
+                            : '—'}
+                          {balances.afterClosing !== null && (
+                            <span className="recon-balance-app">
+                              {' '}
+                              · app {formatCurrency(balances.afterClosing)}
+                            </span>
+                          )}
+                        </dd>
+                      </div>
+                    </>
+                  )}
                 </dl>
 
                 {balanceCheck !== null && !balanceCheck && (
@@ -1096,15 +1110,17 @@ export default function ReconcileStatementPage() {
                 )}
                 {statementRange && (
                   <p className="recon-scope">
-                    Ambito: <b>tutto l'estratto</b> (contabile dal{' '}
+                    Ambito: <b>tutto il file</b> ({statement.format === 'card' ? 'operazioni' : 'contabile'} dal{' '}
                     {formatDate(statementRange.first)} al {formatDate(statementRange.last)}
                     ), confrontato con i movimenti del conto.
                   </p>
                 )}
-                <p className="recon-note">
-                  Il confronto con il saldo iniziale è indicativo: l'app data i movimenti con
-                  la data valuta, la banca con quella contabile.
-                </p>
+                {statement.format === 'bank' && (
+                  <p className="recon-note">
+                    Il confronto con il saldo iniziale è indicativo: l'app data i movimenti con
+                    la data valuta, la banca con quella contabile.
+                  </p>
+                )}
               </section>
 
               <section className="recon-card">
@@ -1171,10 +1187,12 @@ export default function ReconcileStatementPage() {
                     </button>
                   )}
                 </div>
-                <p className="recon-note">
-                  Il riallineamento chiude la differenza sul saldo corrente: è l'ultimo passo,
-                  da fare dopo aver sistemato i movimenti (altrimenti la differenza ricompare).
-                </p>
+                {statement.format === 'bank' && (
+                  <p className="recon-note">
+                    Il riallineamento chiude la differenza sul saldo corrente: è l'ultimo passo,
+                    da fare dopo aver sistemato i movimenti (altrimenti la differenza ricompare).
+                  </p>
+                )}
               </section>
             </>
           ) : (
@@ -1240,7 +1258,8 @@ export default function ReconcileStatementPage() {
                           {entry.row.merchant ? ` · ${entry.row.merchant}` : ''}
                         </div>
                         <div className="recon-item-dates">
-                          valuta {formatDate(rowComparisonDate(entry.row))}
+                          {entry.row.format === 'card' ? 'operazione' : 'valuta'}{' '}
+                          {formatDate(rowComparisonDate(entry.row))}
                           {entry.row.valueDate && (
                             <span> · contabile {formatDate(entry.row.accountingDate)}</span>
                           )}

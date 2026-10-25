@@ -367,11 +367,15 @@
   - la logica sta in **moduli puri** e testabili a parte: `src/utils/bankStatement.ts`
     (parser CSV: RFC 4180 a mano con quote/virgole nei campi/CRLF/BOM, importi italiani,
     date `DD/MM/YYYY`, estrazione esercente/orario/valuta-carta, ancore `Saldo iniziale`/
-    `Saldo finale` separate dai movimenti, righe malformate saltate con `warnings`) e
+    `Saldo finale` separate dai movimenti, righe malformate saltate con `warnings`; supporta
+    anche il CSV carta `DATA OPERAZIONE,DESCRIZIONE OPERAZIONE,IMPORTO IN EURO`, il cui
+    `Totale` viene validato ma non è un saldo iniziale/finale) e
     `src/utils/reconciliation.ts` (`reconcileStatement` → report, **non scrive mai** su DB);
-  - **data di confronto = DATA VALUTA** (fallback contabile): è l'unica confrontabile con la
-    data della spesa, anche per gli acquisti in valuta estera (sul file reale valuta = data
-    dell'operazione per 139/139 pagamenti carta);
+  - **data di confronto = DATA VALUTA** (fallback contabile) per il CSV bancario, o `DATA
+    OPERAZIONE` per il CSV carta: è quella confrontabile con la data del movimento;
+  - i file carta senza saldi iniziale/finale consentono il matching ma non il confronto o il
+    riallineamento del saldo; una ricarica positiva può essere creata come trasferimento
+    entrante sul conto carta, con il conto sorgente scelto esplicitamente;
   - il confronto è **bidirezionale** e **uno-a-uno**: oltre ai match riporta le anomalie
     presenti **solo** nell'app (`appOnly`: duplicati, importi digitati male, conto sbagliato).
     Un confronto a senso unico riga→spesa **non** le rileva: non regredire a quel modello;

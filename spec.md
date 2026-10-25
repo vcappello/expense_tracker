@@ -897,6 +897,17 @@ The title bar Back button moves one step back (from the first step it leaves the
 files show an `AlertModal`. File parsing and matching are performed locally: the statement
 content is never sent anywhere.
 
+Two CSV layouts are supported and detected from their headers:
+
+- bank statement: `DATA CONTABILE,DATA VALUTA,USCITE,ENTRATE,CAUSALE,DESCRIZIONE OPERAZIONE`;
+- rechargeable card movements: `DATA OPERAZIONE,DESCRIZIONE OPERAZIONE,IMPORTO IN EURO`.
+
+For card files, the operation date is used for matching and the signed amount identifies
+expenses versus income. A final `Totale` row is excluded from matching and checked against the
+sum of parsed movements. As these files do not include opening/closing balances, the balance
+comparison and account realignment are unavailable; card top-ups can instead be created as
+incoming transfers by selecting their source account.
+
 ### Applying the changes
 
 Each bank row offers an explicit action, applied per row:
@@ -907,11 +918,12 @@ Each bank row offers an explicit action, applied per row:
   suggested value (the bank EUR amount and/or the value date);
 - **wrong-account**: "Sposta su questo conto" moves the movement to the reconciled account;
 - **unmatched**: "Crea…" opens an inline editor — category for an expense, "Stipendio" for an
-  income, or "Trasferimento verso un altro conto" plus the destination account for a routing
-  transfer. The category is chosen with the same control as the expense form (search field
+  income, or a transfer checkbox and account selector for a routing transfer (destination for
+  an outgoing movement; source for an incoming movement such as a card top-up). The category is chosen with the same control as the expense form (search field
   with dropdown and inline creation of a new category, shared `ExpenseTypePicker`). The
-  created movement uses the **value date**, the operation time (falling back to
-  00:00:00) and the merchant as location (`Online / nessun luogo` when there is none), and is
+  created movement uses the **comparison date** (value date, or operation/accounting date
+  when there is no value date), the operation time (falling back to 00:00:00) and the merchant
+  as location (`Online / nessun luogo` when there is none), and is
   flagged as created from the reconciliation (see "Tracking");
 - the movements found only in the app can be **deleted** (not the ones with a `routingPairId`,
   which must be handled from the edit view to keep the pair consistent).

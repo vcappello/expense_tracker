@@ -1333,41 +1333,39 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (!create.routingAccountId) continue;
             const pairId = uuidv4();
             const magnitude = Math.abs(create.amount);
-            // Receiving leg on the destination plus the counterpart on the
-            // reconciled account, sharing the routingPairId (see routing.ts).
-            cashflowPuts.push({
-              id: uuidv4(),
-              date: create.date,
-              time: create.time,
-              amount: magnitude,
-              accountId: create.routingAccountId,
-              routingAccountId: create.accountId,
-              routingPairId: pairId,
-              isSalary: false,
-              recurringId: null,
-              recurringPeriod: null,
-              statementLineId: create.statementLineId ?? null,
-              reconciledAt: now,
-              createdFromReconciliation: true,
-              createdAt: now,
-              updatedAt: now,
-            });
-            cashflowPuts.push({
-              id: uuidv4(),
-              date: create.date,
-              time: create.time,
-              amount: -magnitude,
-              accountId: create.accountId,
-              routingAccountId: null,
-              routingPairId: pairId,
-              isSalary: false,
-              recurringId: null,
-              recurringPeriod: null,
-              statementLineId: create.statementLineId ?? null,
-              reconciledAt: now,
-              createdFromReconciliation: true,
-              createdAt: now,
-              updatedAt: now,
+            const incoming = create.amount > 0;
+            const receivingAccountId = incoming ? create.accountId : create.routingAccountId;
+            const sourceAccountId = incoming ? create.routingAccountId : create.accountId;
+            const legs = [
+              {
+                amount: magnitude,
+                accountId: receivingAccountId,
+                routingAccountId: sourceAccountId,
+              },
+              {
+                amount: -magnitude,
+                accountId: sourceAccountId,
+                routingAccountId: null,
+              },
+            ];
+            legs.forEach((leg) => {
+              cashflowPuts.push({
+                id: uuidv4(),
+                date: create.date,
+                time: create.time,
+                amount: leg.amount,
+                accountId: leg.accountId,
+                routingAccountId: leg.routingAccountId,
+                routingPairId: pairId,
+                isSalary: false,
+                recurringId: null,
+                recurringPeriod: null,
+                statementLineId: create.statementLineId ?? null,
+                reconciledAt: now,
+                createdFromReconciliation: true,
+                createdAt: now,
+                updatedAt: now,
+              });
             });
           } else if (create.kind === 'cashflow') {
             cashflowPuts.push({
