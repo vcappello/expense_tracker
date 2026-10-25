@@ -308,6 +308,19 @@ export const suggestedAmount = (
   bankAmount: number
 ): number => (kind === 'expense' ? Math.abs(bankAmount) : bankAmount);
 
+export const suggestCreateDecision = (
+  row: BankStatementRow
+): Extract<ReconcileDecision, { type: 'create' }> => {
+  const isIncome = row.amount > 0;
+  return {
+    type: 'create',
+    kind: isIncome ? 'cashflow' : 'expense',
+    amount: suggestedAmount(isIncome ? 'cashflow' : 'expense', row.amount),
+    isSalary: /stipendio|pensione/i.test(`${row.causale} ${row.description}`),
+    couldBeRouting: looksLikeTransfer(row),
+  };
+};
+
 export const reconcileStatement = (
   rows: BankStatementRow[],
   movements: Movement[],
@@ -375,18 +388,6 @@ export const reconcileStatement = (
   const fromTime = fromDate ? startOfDay(fromDate).getTime() : null;
   const isBeforeHistory = (row: BankStatementRow): boolean =>
     fromTime !== null && startOfDay(rowComparisonDate(row)).getTime() < fromTime;
-
-  /** Decision proposed for a row with no counterpart (to create or to skip). */
-  const buildCreateDecision = (row: BankStatementRow): ReconcileDecision => {
-    const isIncome = row.amount > 0;
-    return {
-      type: 'create',
-      kind: isIncome ? 'cashflow' : 'expense',
-      amount: suggestedAmount(isIncome ? 'cashflow' : 'expense', row.amount),
-      isSalary: /stipendio|pensione/i.test(`${row.causale} ${row.description}`),
-      couldBeRouting: looksLikeTransfer(row),
-    };
-  };
 
   // Only movements with a real counterpart in the statement take part in the
   // matching (the internal coin-split legs are dropped, the coin-split expense
@@ -493,7 +494,7 @@ export const reconcileStatement = (
         best: null,
         alternatives: [],
         equivalentCount: 0,
-        suggested: buildCreateDecision(row),
+        suggested: suggestCreateDecision(row),
       };
     }
 
@@ -598,7 +599,7 @@ export const reconcileStatement = (
       best: null,
       alternatives: candidates,
       equivalentCount: 0,
-      suggested: buildCreateDecision(row),
+      suggested: suggestCreateDecision(row),
     };
   });
 

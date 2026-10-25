@@ -27,6 +27,7 @@ import {
   ReconciliationSummary,
   reconcileStatement,
   rowComparisonDate,
+  suggestCreateDecision,
   statementLineRef,
 } from '../utils/reconciliation';
 import { formatAmount, formatCurrency, formatDate } from '../utils/formatting';
@@ -426,14 +427,19 @@ export default function ReconcileStatementPage() {
   };
 
   const startCreate = (entry: ReconcileRow): void => {
-    if (entry.suggested.type !== 'create') return;
+    const createSuggestion = suggestCreateDecision(entry.row);
+    setDecisions((previous) => {
+      const next = { ...previous };
+      delete next[entry.row.line];
+      return next;
+    });
     setExpandedCreate(entry.row.line);
     setCreateDraft({
-      kind: entry.suggested.kind,
+      kind: createSuggestion.kind,
       expenseTypeId: '',
       routingAccountId:
         accounts.find((candidate) => candidate.id !== accountId)?.id ?? '',
-      isSalary: entry.suggested.isSalary,
+      isSalary: createSuggestion.isSalary,
     });
   };
 
@@ -606,12 +612,113 @@ export default function ReconcileStatementPage() {
       case 'wrong-account':
         return (
           <span className="recon-match recon-match-info">
-            {describeMovement(movement)} · {detail} — già presente su un altro conto
+            Possibile candidato: {describeMovement(movement)} · {detail} — su un altro conto
           </span>
         );
       default:
         return null;
     }
+  };
+
+  const renderCreateEditor = (entry: ReconcileRow, editing: boolean) => {
+    if (!editing || !createDraft) return null;
+    const createSuggestion = suggestCreateDecision(entry.row);
+
+    return (
+      <div className="recon-create-editor">
+        {createDraft.kind === 'expense' && (
+          <div className="recon-create-field">
+            <span>Categoria</span>
+            <ExpenseTypePicker
+              value={createDraft.expenseTypeId}
+              onChange={(typeId) =>
+                setCreateDraft({ ...createDraft, expenseTypeId: typeId })
+              }
+            />
+          </div>
+        )}
+
+        {createDraft.kind === 'cashflow' && (
+          <label className="recon-create-check">
+            <input
+              type="checkbox"
+              checked={createDraft.isSalary}
+              onChange={(event) =>
+                setCreateDraft({ ...createDraft, isSalary: event.target.checked })
+              }
+            />
+            Stipendio
+          </label>
+        )}
+
+        {createDraft.kind === 'routing' && (
+          <label className="recon-create-field">
+            {entry.row.amount > 0 ? 'Conto di provenienza' : 'Conto destinazione'}
+            <select
+              value={createDraft.routingAccountId}
+              onChange={(event) =>
+                setCreateDraft({
+                  ...createDraft,
+                  routingAccountId: event.target.value,
+                })
+              }
+            >
+              {accounts
+                .filter((candidate) => candidate.id !== accountId)
+                .map((candidate) => (
+                  <option key={candidate.id} value={candidate.id}>
+                    {candidate.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+        )}
+
+        {createSuggestion.couldBeRouting && (
+          <label className="recon-create-check">
+            <input
+              type="checkbox"
+              checked={createDraft.kind === 'routing'}
+              onChange={(event) =>
+                setCreateDraft({
+                  ...createDraft,
+                  kind: event.target.checked
+                    ? 'routing'
+                    : createSuggestion.kind,
+                })
+              }
+            />
+            {entry.row.amount > 0
+              ? 'Ricarica / trasferimento da un altro conto'
+              : 'Trasferimento verso un altro conto'}
+          </label>
+        )}
+
+        <div className="recon-actions">
+          <button
+            type="button"
+            className="recon-action primary"
+            disabled={createDraft.kind === 'expense' && !createDraft.expenseTypeId}
+            onClick={() => {
+              toggleDecision(entry.row.line, {
+                type: 'create',
+                config: createDraft,
+              });
+              setExpandedCreate(null);
+            }}
+          >
+            Conferma creazione
+          </button>
+          <button
+            type="button"
+            className="recon-action"
+            onClick={() => setExpandedCreate(null)}
+          >
+            Annulla
+          </button>
+        </div>
+      </div>
+    );
   };
 
   const renderActions = (entry: ReconcileRow) => {
@@ -651,15 +758,34 @@ export default function ReconcileStatementPage() {
     }
 
     if (suggested.type === 'move-account') {
+      const editing = expandedCreate === entry.row.line && createDraft !== null;
       return (
         <div className="recon-actions">
           <button
             type="button"
             className={`recon-action ${decision?.type === 'move' ? 'active' : ''}`}
-            onClick={() => toggleDecision(entry.row.line, { type: 'move' })}
+            onClick={() => {
+              setExpandedCreate(null);
+              toggleDecision(entry.row.line, { type: 'move' });
+            }}
           >
             {decision?.type === 'move' ? '✓ sarà spostato' : 'Sposta su questo conto'}
           </button>
+          <button
+            type="button"
+            className={`recon-action ${decision?.type === 'create' ? 'active' : ''}`}
+            onClick={() => {
+              if (decision?.type === 'create') {
+                toggleDecision(entry.row.line, decision);
+                setExpandedCreate(null);
+              } else {
+                startCreate(entry);
+              }
+            }}
+          >
+            {decision?.type === 'create' ? '✓ sarà creato' : 'Crea come nuovo'}
+          </button>
+          {renderCreateEditor(entry, editing)}
         </div>
       );
     }
@@ -679,101 +805,7 @@ export default function ReconcileStatementPage() {
             {decision?.type === 'create' ? '✓ sarà creato' : 'Crea…'}
           </button>
 
-          {editing && (
-            <div className="recon-create-editor">
-              {createDraft.kind === 'expense' && (
-                <div className="recon-create-field">
-                  <span>Categoria</span>
-                  <ExpenseTypePicker
-                    value={createDraft.expenseTypeId}
-                    onChange={(typeId) =>
-                      setCreateDraft({ ...createDraft, expenseTypeId: typeId })
-                    }
-                  />
-                </div>
-              )}
-
-              {createDraft.kind === 'cashflow' && (
-                <label className="recon-create-check">
-                  <input
-                    type="checkbox"
-                    checked={createDraft.isSalary}
-                    onChange={(event) =>
-                      setCreateDraft({ ...createDraft, isSalary: event.target.checked })
-                    }
-                  />
-                  Stipendio
-                </label>
-              )}
-
-              {createDraft.kind === 'routing' && (
-                <label className="recon-create-field">
-                  {entry.row.amount > 0 ? 'Conto di provenienza' : 'Conto destinazione'}
-                  <select
-                    value={createDraft.routingAccountId}
-                    onChange={(event) =>
-                      setCreateDraft({
-                        ...createDraft,
-                        routingAccountId: event.target.value,
-                      })
-                    }
-                  >
-                    {accounts
-                      .filter((candidate) => candidate.id !== accountId)
-                      .map((candidate) => (
-                        <option key={candidate.id} value={candidate.id}>
-                          {candidate.name}
-                        </option>
-                      ))}
-                  </select>
-                </label>
-              )}
-
-              {suggested.couldBeRouting && (
-                <label className="recon-create-check">
-                  <input
-                    type="checkbox"
-                    checked={createDraft.kind === 'routing'}
-                    onChange={(event) =>
-                      setCreateDraft({
-                        ...createDraft,
-                        kind: event.target.checked
-                          ? 'routing'
-                          : suggested.kind,
-                      })
-                    }
-                  />
-                  {entry.row.amount > 0
-                    ? 'Ricarica / trasferimento da un altro conto'
-                    : 'Trasferimento verso un altro conto'}
-                </label>
-              )}
-
-              <div className="recon-actions">
-                <button
-                  type="button"
-                  className="recon-action primary"
-                  disabled={createDraft.kind === 'expense' && !createDraft.expenseTypeId}
-                  onClick={() => {
-                    toggleDecision(entry.row.line, {
-                      type: 'create',
-                      config: createDraft,
-                    });
-                    setExpandedCreate(null);
-                  }}
-                >
-                  Conferma
-                </button>
-                <button
-                  type="button"
-                  className="recon-action"
-                  onClick={() => setExpandedCreate(null)}
-                >
-                  Annulla
-                </button>
-              </div>
-            </div>
-          )}
+          {renderCreateEditor(entry, editing)}
         </div>
       );
     }
@@ -790,6 +822,7 @@ export default function ReconcileStatementPage() {
           ? Math.round((row.amount - movementSigned(best.movement)) * 100) / 100
           : 0;
       case 'wrong-account':
+        if (decisions[row.line]?.type === 'create') return row.amount;
         return best ? Math.round(movementSigned(best.movement) * 100) / 100 : 0;
       case 'unmatched':
         return row.amount;

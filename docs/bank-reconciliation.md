@@ -124,7 +124,7 @@ Quattro pezzi, con la **logica pura separata dalla UI**:
 | `ambiguous` | più candidati equivalenti (possibile duplicato) | collega il migliore, evidenzia le alternative |
 | `date-mismatch` | importo ok, data oltre la finestra di congruenza (3 gg, entro 7) | aggiorna **data/ora** dalla valuta |
 | `amount-mismatch` | stessa identità (giorno + testo) ma importo diverso | aggiorna **importo** (EUR) |
-| `wrong-account` | importo esatto ma su un altro conto | **sposta** sul conto banca |
+| `wrong-account` | possibile candidato per importo/data su un altro conto | **sposta** sul conto banca oppure crea come nuovo lasciando invariato il candidato |
 | `unmatched` | nessun candidato | **crea** (spesa / entrata / routing) |
 | `before-history` | precedente allo storico tracciato | nulla (creabile su richiesta) |
 

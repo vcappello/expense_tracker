@@ -916,7 +916,9 @@ Each bank row offers an explicit action, applied per row:
   the `statementLineId`/`reconciledAt` and the "✓" badge in the Main view);
 - **date-mismatch / amount-mismatch**: "Correggi importo" / "Correggi data" applies the
   suggested value (the bank EUR amount and/or the value date);
-- **wrong-account**: "Sposta su questo conto" moves the movement to the reconciled account;
+- **wrong-account**: the movement is a possible candidate on another account. The user can
+  either choose "Sposta su questo conto" or "Crea come nuovo"; creating leaves the possible
+  candidate unchanged on its original account;
 - **unmatched**: "Crea…" opens an inline editor — category for an expense, "Stipendio" for an
   income, or a transfer checkbox and account selector for a routing transfer (destination for
   an outgoing movement; source for an incoming movement such as a card top-up). The category is chosen with the same control as the expense form (search field
